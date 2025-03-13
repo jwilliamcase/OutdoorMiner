@@ -1,0 +1,204 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: #2c3e50;
+    margin-bottom: 0;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+}
+
+#game-container {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    margin: 20px 0;
+}
+
+#score-container {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+}
+
+#player-score {
+    padding: 10px 15px;
+    border: 2px solid #3498db;
+    border-radius: 8px;
+    color: #3498db;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.2);
+}
+
+#opponent-score {
+    padding: 10px 15px;
+    border: 2px solid #e74c3c;
+    border-radius: 8px;
+    color: #e74c3c;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(231, 76, 60, 0.2);
+}
+
+#game-board {
+    display: block;
+    margin: 0 auto;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#color-palette {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.color-swatch {
+    padding: 4px;
+    border-radius: 8px;
+    background: #f8f8f8;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.color-button {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.color-button:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 12px rgba(0,0,0,0.2);
+}
+
+.color-button.disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+    transform: scale(0.85);
+    filter: grayscale(70%);
+}
+
+.color-swatch.disabled {
+    opacity: 0.6;
+    transform: scale(0.9);
+    box-shadow: none;
+}
+
+.color-swatch.current-player {
+    background: linear-gradient(to bottom, #3498db, #f8f8f8);
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.7);
+    transform: scale(1.05);
+}
+
+.color-swatch.opponent-player {
+    background: linear-gradient(to bottom, #e74c3c, #f8f8f8);
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.7);
+    transform: scale(1.05);
+}
+
+#game-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    width: 100%;
+    max-width: 400px;
+}
+
+#game-controls button {
+    padding: 12px 15px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+
+#game-controls button:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+}
+
+#challenge-code {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 16px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+#message {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    color: #333;
+    font-style: italic;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    line-height: 1.5;
+}
+
+.online-note {
+    display: block;
+    margin-top: 8px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* For a future server implementation */
+.loading-indicator {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+footer {
+    margin-top: 30px;
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+    width: 100%;
+    padding: 10px 0;
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Outdoor Miner</title>
+    <link rel="stylesheet" href="style.css">
+    <meta name="description" content="A colorful territory capture game with hexagonal tiles">
+</head>
+<body>
+    <header>
+        <h1>Outdoor Miner</h1>
+    </header>
+
+    <div id="score-container">
+        <div id="player-score">You: <span id="your-score">0</span></div>
+        <div id="opponent-score">Opponent: <span id="opponent-score-value">0</span></div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="game-board" width="640" height="580"></canvas>
+    </div>
+
+    <div id="color-palette">
+        <div class="color-swatch">
+            <button class="color-button" data-color="#4CAF50" style="background-color: #4CAF50;"></button>
+        </div>
+        <div class="color-swatch">
+            <button class="color-button" data-color="#E91E63" style="background-color: #E91E63;"></button>
+        </div>
+        <div class="color-swatch">
+            <button class="color-button" data-color="#2196F3" style="background-color: #2196F3;"></button>
+        </div>
+        <div class="color-swatch">
+            <button class="color-button" data-color="#9C27B0" style="background-color: #9C27B0;"></button>
+        </div>
+        <div class="color-swatch">
+            <button class="color-button" data-color="#FFEB3B" style="background-color: #FFEB3B;"></button>
+        </div>
+        <div class="color-swatch">
+            <button class="color-button" data-color="#FF9800" style="background-color: #FF9800;"></button>
+        </div>
+    </div>
+
+    <div id="game-controls">
+        <button id="start-game">Start Game</button>
+        <button id="create-challenge">Create Challenge</button>
+        <input type="text" id="challenge-code" placeholder="Challenge Code">
+        <button id="connect-challenge">Connect</button>
+        <div id="message"></div>
+    </div>
+
+    <script src="script.js"></script>
+    
+    <footer>
+        <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
+    </footer>
+</body>
+</html>
