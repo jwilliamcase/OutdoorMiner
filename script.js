@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Game constants
     const BOARD_SIZE = 12; // Increased from 11 to 12 for larger board
-    const HEX_SIZE = 24; // Slightly smaller to fit larger board
+    const HEX_SIZE = 30; // Increased size to fill the canvas better
     const HEX_HEIGHT = HEX_SIZE * 2;
     const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
     const BOARD_PADDING = 5; // Slight padding
@@ -349,8 +349,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate the center position for the board
         const boardWidth = BOARD_SIZE * HEX_WIDTH;
         const boardHeight = BOARD_SIZE * HEX_HEIGHT * 0.75;
-        const startX = (canvas.width - boardWidth) / 2;
-        const startY = (canvas.height - boardHeight) / 2;
+        
+        // Calculate maximum scaling factor to fill canvas while maintaining aspect ratio
+        const xScale = (canvas.width - BOARD_PADDING * 2) / boardWidth;
+        const yScale = (canvas.height - BOARD_PADDING * 2) / boardHeight;
+        const scaleFactor = Math.min(xScale, yScale, 1.0); // Cap at 1.0 to prevent stretching
+        
+        // Apply the scaling to center the board
+        const scaledWidth = boardWidth * scaleFactor;
+        const scaledHeight = boardHeight * scaleFactor;
+        const startX = (canvas.width - scaledWidth) / 2;
+        const startY = (canvas.height - scaledHeight) / 2;
         
         // Draw each hexagon in the grid
         for (let row = 0; row < BOARD_SIZE; row++) {
@@ -360,9 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isPlayer2Owned = player2Tiles.has(`${row},${col}`);
                 
                 // Calculate hex position (using offset coordinates for hexagonal grid)
-                // Add padding and adjust for odd rows
-                const x = startX + col * HEX_WIDTH + (row % 2) * (HEX_WIDTH / 2) + BOARD_PADDING;
-                const y = startY + row * (HEX_HEIGHT * 0.75) + BOARD_PADDING;
+                // Add padding and adjust for odd rows, apply scaling factor
+                const x = startX + (col * HEX_WIDTH + (row % 2) * (HEX_WIDTH / 2)) * scaleFactor + BOARD_PADDING;
+                const y = startY + (row * (HEX_HEIGHT * 0.75)) * scaleFactor + BOARD_PADDING;
                 
                 // Determine the color to draw
                 let displayColor = tile.color;
@@ -375,11 +384,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Check if this tile is being hovered over
                 const isHovered = hoverTile && hoverTile.row === row && hoverTile.col === col;
                 
-                // Calculate hex size with hover effect
-                let hexSize = HEX_SIZE;
+                // Calculate hex size with hover effect and apply scaling factor
+                let hexSize = HEX_SIZE * scaleFactor;
                 if (isHovered) {
                     // Make hovered hexagons slightly larger
-                    hexSize = HEX_SIZE * 1.1;
+                    hexSize = hexSize * 1.1;
                 }
                 
                 // Draw the hexagon
@@ -496,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Calculate the explosion radius
                 const progress = explosionStep / totalSteps;
-                const maxRadius = HEX_SIZE * 3;
+                const maxRadius = HEX_SIZE * 3.5; // Increased for larger hexagons
                 const currentRadius = progress * maxRadius;
                 
                 // Draw explosion for each affected tile
@@ -1052,11 +1061,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Find the hex tile at a specific canvas position
     function findHexAtPosition(x, y) {
-        // Calculate board position
+        // Calculate board position and scaling factor
         const boardWidth = BOARD_SIZE * HEX_WIDTH;
         const boardHeight = BOARD_SIZE * HEX_HEIGHT * 0.75;
-        const startX = (canvas.width - boardWidth) / 2;
-        const startY = (canvas.height - boardHeight) / 2;
+        
+        // Calculate scaling factor (same as in renderGameBoard)
+        const xScale = (canvas.width - BOARD_PADDING * 2) / boardWidth;
+        const yScale = (canvas.height - BOARD_PADDING * 2) / boardHeight;
+        const scaleFactor = Math.min(xScale, yScale, 1.0);
+        
+        // Apply the scaling to center the board
+        const scaledWidth = boardWidth * scaleFactor;
+        const scaledHeight = boardHeight * scaleFactor;
+        const startX = (canvas.width - scaledWidth) / 2;
+        const startY = (canvas.height - scaledHeight) / 2;
         
         // Find the closest hexagon to the click point
         let minDistance = Infinity;
@@ -1064,11 +1082,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         for (let row = 0; row < BOARD_SIZE; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
-                const hexX = startX + col * HEX_WIDTH + (row % 2) * (HEX_WIDTH / 2) + BOARD_PADDING;
-                const hexY = startY + row * (HEX_HEIGHT * 0.75) + BOARD_PADDING;
+                const hexX = startX + (col * HEX_WIDTH + (row % 2) * (HEX_WIDTH / 2)) * scaleFactor + BOARD_PADDING;
+                const hexY = startY + (row * (HEX_HEIGHT * 0.75)) * scaleFactor + BOARD_PADDING;
                 
                 const distance = Math.sqrt(Math.pow(hexX - x, 2) + Math.pow(hexY - y, 2));
-                if (distance < minDistance && distance < HEX_SIZE) {
+                // Use scaled hex size for distance check
+                if (distance < minDistance && distance < HEX_SIZE * scaleFactor) {
                     minDistance = distance;
                     closestHex = { row, col };
                 }
