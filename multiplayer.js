@@ -205,8 +205,13 @@
             // Update status to connecting
             statusIndicator.innerHTML = '<span class="connection-status status-connecting"></span> Connecting...';
             
-            // Initialize Socket.io connection
-            socket = io(CONFIG.SERVER_URL);
+            // Initialize Socket.io connection with explicit CORS settings
+            socket = io(CONFIG.SERVER_URL, {
+                withCredentials: true,
+                extraHeaders: {
+                    "Access-Control-Allow-Origin": "https://jwilliamcase.github.io"
+                }
+            });
             
             // Connection event handlers
             socket.on('connect', handleConnect);

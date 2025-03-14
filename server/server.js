@@ -9,16 +9,19 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: ["https://jwilliamcase.github.io", process.env.CLIENT_URL],
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
   }
 });
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true
+  origin: ["https://jwilliamcase.github.io", process.env.CLIENT_URL],
+  methods: ["GET", "POST", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
 
