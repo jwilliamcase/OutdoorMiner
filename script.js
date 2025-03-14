@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameId = null; // Unique identifier for this game
     let isOnlineGame = false; // Whether this is an online multiplayer game
     let playerNumber = 1; // Which player this client represents (1 or 2)
+    let playerName = ''; // Name of the current player
+    let opponentName = ''; // Name of the opponent
     let waitingForOpponent = false; // Whether we're waiting for an opponent's move
     
     // Initialize the game
@@ -1417,16 +1419,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Don't send if not an online game
         if (!isOnlineGame || !window.sendMove) return;
         
+        console.log(`NETWORK: Player ${playerNumber} selected color: ${selectedColor}`);
+        console.log(`NETWORK: Player 1 has ${player1Tiles.size} tiles, Player 2 has ${player2Tiles.size} tiles`);
+        console.log(`NETWORK: Game ID: ${gameId}`);
+        
         // Prepare move data
         const moveData = {
             type: 'color-selection',
             color: selectedColor,
             player1Tiles: Array.from(player1Tiles),
-            player2Tiles: Array.from(player2Tiles)
+            player2Tiles: Array.from(player2Tiles),
+            playerName: playerName
         };
         
-        console.log(`NETWORK: Player ${playerNumber} selected color: ${selectedColor}`);
-        console.log(`NETWORK: Game ID: ${gameId}`);
+        // Log full move data
+        console.log("Move data being sent:", JSON.stringify(moveData));
         
         // Set waiting state
         waitingForOpponent = true;
@@ -1443,14 +1450,14 @@ document.addEventListener('DOMContentLoaded', () => {
         gameId = gId;
         playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
         
-        // Update score display with player name
-        player1ScoreElement.innerHTML = playerNumber === 1 ? 
-            `${playerName}: <span id="your-score">0</span>` : 
-            `Opponent: <span id="your-score">0</span>`;
+        // Make playerName globally accessible
+        window.playerName = playerName;
         
-        player2ScoreElement.innerHTML = playerNumber === 2 ? 
-            `${playerName}: <span id="opponent-score-value">0</span>` : 
-            `Opponent: <span id="opponent-score-value">0</span>`;
+        // Store the player name in the input field too
+        const playerNameInput = document.getElementById('player-name');
+        if (playerNameInput && playerNameInput.value.trim() === '') {
+            playerNameInput.value = playerName;
+        }
         
         // Initialize game with random board
         initializeGame();
@@ -1465,6 +1472,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Get current game state for syncing
     window.getGameState = function() {
+        console.log("Getting game state to send to server");
+        console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
+        
         return {
             board: gameBoard,
             currentPlayer: currentPlayer,
@@ -1474,7 +1484,9 @@ document.addEventListener('DOMContentLoaded', () => {
             player2Tiles: Array.from(player2Tiles),
             player1PowerUps: player1PowerUps,
             player2PowerUps: player2PowerUps,
-            landmines: landmines
+            landmines: landmines,
+            // Include player names
+            playerName: playerName
         };
     };
     

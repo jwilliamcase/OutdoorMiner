@@ -148,6 +148,18 @@ io.on('connection', (socket) => {
     const allReady = game.players.every(p => p.ready);
     
     if (allReady) {
+      // Get player names
+      const player1 = game.players.find(p => p.number === 1);
+      const player2 = game.players.find(p => p.number === 2);
+      
+      // Log state before sending
+      console.log(`Game ${gameId} starting with board state:`, {
+        player1Tiles: game.player1Tiles.length,
+        player2Tiles: game.player2Tiles.length,
+        p1Name: player1?.name,
+        p2Name: player2?.name
+      });
+      
       // Broadcast game state to all players
       io.to(gameId).emit('game-started', { gameState: {
         board: game.board,
@@ -158,14 +170,16 @@ io.on('connection', (socket) => {
         player2Tiles: game.player2Tiles,
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
-        landmines: game.landmines
+        landmines: game.landmines,
+        player1Name: player1 ? player1.name : 'Player 1',
+        player2Name: player2 ? player2.name : 'Player 2'
       }});
     }
   });
   
   // Handle game moves
   socket.on('make-move', (data) => {
-    const { gameId, playerNumber, move } = data;
+    const { gameId, playerNumber, playerName, move } = data;
     
     if (!activeGames.has(gameId)) {
       socket.emit('game-error', { message: 'Game not found' });
@@ -264,6 +278,10 @@ io.on('connection', (socket) => {
     // Update last activity
     game.lastActivity = Date.now();
     
+    // Get player names
+    const player1 = game.players.find(p => p.number === 1);
+    const player2 = game.players.find(p => p.number === 2);
+    
     // Log game state changes
     console.log(`Move by Player ${playerNumber}: ${move.type}. Now Player ${game.currentPlayer}'s turn.`);
     console.log(`Player 1 tiles: ${game.player1Tiles.length}, Player 2 tiles: ${game.player2Tiles.length}`);
@@ -281,6 +299,8 @@ io.on('connection', (socket) => {
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
         landmines: game.landmines,
+        player1Name: player1 ? player1.name : 'Player 1',
+        player2Name: player2 ? player2.name : 'Player 2',
         moveDetails: move
       } 
     });

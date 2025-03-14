@@ -385,8 +385,13 @@
     function handlePlayerJoined(data) {
         console.log('Player joined:', data);
         
+        // Save opponent name if provided
+        if (data.playerName) {
+            opponentName = data.playerName;
+        }
+        
         if (playerNumber === 1) {
-            messageElement.textContent = `Player 2 has joined the game!`;
+            messageElement.textContent = `${opponentName || 'Player 2'} has joined the game!`;
             
             // As player 1, initialize the game
             socket.emit('initialize-game', {
@@ -400,28 +405,92 @@
     function handleGameStarted(data) {
         console.log('Game started:', data);
         
+        // Save player names
+        if (data.gameState.player1Name && playerNumber === 1) {
+            playerName = data.gameState.player1Name;
+            window.playerName = playerName;
+        }
+        
+        if (data.gameState.player2Name && playerNumber === 2) {
+            playerName = data.gameState.player2Name;
+            window.playerName = playerName;
+        }
+        
+        // Save opponent name
+        if (data.gameState.player1Name && playerNumber === 2) {
+            opponentName = data.gameState.player1Name;
+            window.opponentName = opponentName;
+        }
+        
+        if (data.gameState.player2Name && playerNumber === 1) {
+            opponentName = data.gameState.player2Name;
+            window.opponentName = opponentName;
+        }
+        
         // Update the game with the initial state
         if (playerNumber === 2) {
             window.syncGameState(data.gameState);
         }
         
+        // Update score display with names
+        updatePlayerNames();
+        
         messageElement.textContent = `Game started! ${data.gameState.currentPlayer === playerNumber ? 'Your' : 'Opponent\'s'} turn.`;
+    }
+    
+    // Update player names in the UI
+    function updatePlayerNames() {
+        const player1ScoreElement = document.getElementById('player-score');
+        const player2ScoreElement = document.getElementById('opponent-score');
+        
+        if (playerNumber === 1) {
+            player1ScoreElement.innerHTML = `${playerName || 'You'}: <span id="your-score">0</span>`;
+            player2ScoreElement.innerHTML = `${opponentName || 'Opponent'}: <span id="opponent-score-value">0</span>`;
+        } else {
+            player1ScoreElement.innerHTML = `${opponentName || 'Opponent'}: <span id="your-score">0</span>`;
+            player2ScoreElement.innerHTML = `${playerName || 'You'}: <span id="opponent-score-value">0</span>`;
+        }
     }
     
     // Handle game update event
     function handleGameUpdate(data) {
         console.log('Game update:', data);
         
+        // Update player names if available
+        if (data.gameState.player1Name && playerNumber === 1) {
+            playerName = data.gameState.player1Name;
+            window.playerName = playerName;
+        }
+        
+        if (data.gameState.player2Name && playerNumber === 2) {
+            playerName = data.gameState.player2Name;
+            window.playerName = playerName;
+        }
+        
+        // Update opponent names
+        if (data.gameState.player1Name && playerNumber === 2) {
+            opponentName = data.gameState.player1Name;
+            window.opponentName = opponentName;
+        }
+        
+        if (data.gameState.player2Name && playerNumber === 1) {
+            opponentName = data.gameState.player2Name;
+            window.opponentName = opponentName;
+        }
+        
         // Sync game state
         window.syncGameState(data.gameState);
+        
+        // Update player names in UI
+        updatePlayerNames();
         
         // Update message based on move type
         switch (data.type) {
             case 'color-selection':
-                messageElement.textContent = `${data.gameState.currentPlayer === playerNumber ? 'Your' : 'Opponent\'s'} turn.`;
+                messageElement.textContent = `${data.gameState.currentPlayer === playerNumber ? 'Your' : `${opponentName || 'Opponent'}'s`} turn.`;
                 break;
             case 'power-up':
-                messageElement.textContent = `${data.gameState.currentPlayer === playerNumber ? 'Opponent' : 'You'} used a power-up!`;
+                messageElement.textContent = `${data.gameState.currentPlayer === playerNumber ? opponentName || 'Opponent' : 'You'} used a power-up!`;
                 break;
             case 'landmine':
                 messageElement.textContent = `💥 BOOM! A landmine was triggered!`;
@@ -539,9 +608,13 @@
     window.sendMove = function(moveData) {
         if (!socket || !isOnlineGame) return;
         
+        // Make sure we include the player's name
+        moveData.playerName = playerName;
+        
         socket.emit('make-move', {
             gameId,
             playerNumber,
+            playerName: playerName,
             move: moveData
         });
     };
