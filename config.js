@@ -1,7 +1,7 @@
 // Game configuration
 const CONFIG = {
   // Server URL - change based on environment
-  SERVER_URL: 'https://YOUR-SERVER-URL-HERE', // You'll update this when you deploy
+  SERVER_URL: 'https://outdoor-miner-server.onrender.com', // You'll update this when you deploy
   // For local testing use:
   // SERVER_URL: 'http://localhost:3000',
   
@@ -18,16 +18,16 @@ const CONFIG = {
   
   // Common taunts
   TAUNTS: [
-    "😈 Better luck next time!",
-    "🔥 Feel the burn!",
-    "💥 Boom! Did that hurt?",
-    "🙄 Is that all you've got?",
-    "🤣 Nice try!",
-    "👑 Bow down to the champion!",
-    "🍀 Luck is on my side!",
-    "🧨 Another mine with your name on it!",
-    "🎯 Direct hit!",
-    "🎮 Get on my level!"
+    "😈 Up your ass you dumbbitch!",
+    "🔥 Feel the burn fatty!",
+    "💥 I will blow up your car!",
+    "🙄 Your are a garbage person!",
+    "🤣 GET FUCKED HUMAN!",
+    "👑 I will hide your head!",
+    "🍀 Death is funny!",
+    "🧨 I know where you live!",
+    "🎯 STUPID PIECE OF SHIT!",
+    "🎮 I OWN YOUR SOUL!"
   ]
 };
 
