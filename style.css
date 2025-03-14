@@ -51,6 +51,35 @@ h1 {
     align-items: center;
 }
 
+.player-name {
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.active-player {
+    color: #F76C6C;
+    text-shadow: 0 0 5px rgba(247, 108, 108, 0.5);
+    transform: scale(1.1);
+    display: inline-block;
+    position: relative;
+}
+
+.active-player:after {
+    content: '●';
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    color: #F76C6C;
+    font-size: 10px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
 #player-score {
     padding: 10px 15px;
     border: 2px solid #374785;

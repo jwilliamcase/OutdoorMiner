@@ -427,13 +427,16 @@
             window.opponentName = opponentName;
         }
         
-        // Update the game with the initial state
-        if (playerNumber === 2) {
-            window.syncGameState(data.gameState);
+        // Both players should get the complete game state
+        window.syncGameState(data.gameState);
+        
+        // Force update display
+        if (window.updateScoreDisplay) {
+            window.updateScoreDisplay();
         }
         
-        // Update score display with names
-        updatePlayerNames();
+        // Set board orientation based on player number
+        window.resizeGame();
         
         messageElement.textContent = `Game started! ${data.gameState.currentPlayer === playerNumber ? 'Your' : 'Opponent\'s'} turn.`;
     }
@@ -444,11 +447,11 @@
         const player2ScoreElement = document.getElementById('opponent-score');
         
         if (playerNumber === 1) {
-            player1ScoreElement.innerHTML = `${playerName || 'You'}: <span id="your-score">0</span>`;
-            player2ScoreElement.innerHTML = `${opponentName || 'Opponent'}: <span id="opponent-score-value">0</span>`;
+            player1ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">0</span>`;
+            player2ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">0</span>`;
         } else {
-            player1ScoreElement.innerHTML = `${opponentName || 'Opponent'}: <span id="your-score">0</span>`;
-            player2ScoreElement.innerHTML = `${playerName || 'You'}: <span id="opponent-score-value">0</span>`;
+            player1ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">0</span>`;
+            player2ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">0</span>`;
         }
     }
     
@@ -556,9 +559,9 @@
         const messageDiv = document.createElement('div');
         messageDiv.className = 'chat-message';
         
-        // Get sender name
+        // Get sender name - use the name that was sent with the message if available
         const senderName = data.playerNumber === playerNumber ? 
-            playerName : (data.playerName || `Player ${data.playerNumber}`);
+            playerName : (data.playerName || opponentName || `Player ${data.playerNumber}`);
         
         // Add additional classes based on sender and type
         if (data.isTaunt) {
@@ -601,6 +604,11 @@
             
             // Play message sound
             playSound(data.isTaunt ? 'taunt-sound' : 'message-sound');
+        }
+        
+        // Make chat visible if it's a message from the opponent
+        if (data.playerNumber !== playerNumber && chatContainer.classList.contains('hidden')) {
+            toggleChatVisibility();
         }
     }
     

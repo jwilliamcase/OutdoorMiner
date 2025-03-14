@@ -268,7 +268,7 @@ io.on('connection', (socket) => {
       
       // Update board state (for explosion effects)
       if (move.updatedBoard) {
-        game.board = move.updatedBoard;
+        game.board = JSON.parse(JSON.stringify(move.updatedBoard)); // Deep copy to avoid reference issues
       }
       
       // Switch turns

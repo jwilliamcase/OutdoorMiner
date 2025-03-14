@@ -109,6 +109,13 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.style.width = '';
             canvas.style.height = '';
         }
+        
+        // Flip the board for player 2 if in multiplayer mode
+        if (isOnlineGame && playerNumber === 2) {
+            canvas.style.transform = 'rotate(180deg)';
+        } else {
+            canvas.style.transform = '';
+        }
     }
     
     // Create the game board with random colors
@@ -191,25 +198,16 @@ document.addEventListener('DOMContentLoaded', () => {
         player1Tiles.clear();
         player2Tiles.clear();
         
-        // Player 1 starts at bottom left
-        const player1StartRow = BOARD_SIZE - 1;
-        const player1StartCol = 0;
-        player1Color = gameBoard[player1StartRow][player1StartCol].color;
-        player1Tiles.add(`${player1StartRow},${player1StartCol}`);
+        // Both players start at bottom left
+        const startRow = BOARD_SIZE - 1;
+        const startCol = 0;
+        player1Color = gameBoard[startRow][startCol].color;
+        player1Tiles.add(`${startRow},${startCol}`);
         
-        // Player 2 starts at top right
-        const player2StartRow = 0;
-        const player2StartCol = BOARD_SIZE - 1;
-        player2Color = gameBoard[player2StartRow][player2StartCol].color;
-        player2Tiles.add(`${player2StartRow},${player2StartCol}`);
-        
-        // Ensure the starting positions don't have the same color
-        if (player1Color === player2Color) {
-            // Change player 2's color to something different
-            const differentColors = COLORS.filter(c => c !== player1Color);
-            player2Color = differentColors[Math.floor(Math.random() * differentColors.length)];
-            gameBoard[player2StartRow][player2StartCol].color = player2Color;
-        }
+        // Player 2 also starts at bottom left (but board is flipped for them visually)
+        // Use a different color for player 2
+        const differentColors = COLORS.filter(c => c !== player1Color);
+        player2Color = differentColors[Math.floor(Math.random() * differentColors.length)];
         
         currentPlayer = 1; // Player 1 starts
     }
@@ -1035,8 +1033,30 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Update score display
     function updateScoreDisplay() {
-        player1ScoreElement.textContent = player1Tiles.size;
-        player2ScoreElement.textContent = player2Tiles.size;
+        const player1Score = player1Tiles.size;
+        const player2Score = player2Tiles.size;
+        
+        // Update score display based on player number
+        if (isOnlineGame) {
+            // For player 1
+            if (playerNumber === 1) {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            } 
+            // For player 2
+            else {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            }
+            
+            // Update turn indicator
+            currentPlayerElement.textContent = currentPlayer === playerNumber ? 
+                (playerName || 'Your') : (opponentName || 'Opponent\'s');
+        } else {
+            // Single player mode
+            player1ScoreElement.textContent = player1Score;
+            player2ScoreElement.textContent = player2Score;
+        }
     }
     
     // Set up color buttons
@@ -1496,6 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update the current player
         currentPlayer = state.currentPlayer;
+        window.currentPlayer = currentPlayer;
         
         // Update player colors
         player1Color = state.player1Color;
@@ -1512,9 +1533,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update landmines
         landmines = state.landmines || [];
         
+        // Update player names if present
+        if (state.player1Name && playerNumber === 1) {
+            playerName = state.player1Name;
+        } else if (state.player2Name && playerNumber === 2) {
+            playerName = state.player2Name;
+        }
+        
+        // Update opponent names
+        if (state.player1Name && playerNumber === 2) {
+            opponentName = state.player1Name;
+        } else if (state.player2Name && playerNumber === 1) {
+            opponentName = state.player2Name;
+        }
+        
         // Update board if provided
         if (state.board) {
-            gameBoard = state.board;
+            gameBoard = JSON.parse(JSON.stringify(state.board)); // Deep copy to avoid references
         }
         
         // Update controls based on whose turn it is
@@ -1536,9 +1571,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePowerUpDisplay();
         renderGameBoard();
         
+        // Make sure the board orientation is correct
+        resizeGame();
+        
         console.log("After sync - Current player:", currentPlayer, "Player number:", playerNumber);
         console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
     };
+    
+    // Make update functions available globally
+    window.updateScoreDisplay = updateScoreDisplay;
     
     // Enable game controls
     function enableControls() {
