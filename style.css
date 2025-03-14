@@ -166,7 +166,8 @@ h1 {
     gap: 12px;
     margin-top: 20px;
     width: 100%;
-    max-width: 400px;
+    max-width: 640px;
+    align-items: center;
 }
 
 #game-controls button {
@@ -216,6 +217,8 @@ h1 {
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     line-height: 1.5;
     border: 1px solid #F8E9A1;
+    width: 100%;
+    text-align: center;
 }
 
 #landmine-info {
@@ -229,6 +232,7 @@ h1 {
     text-align: center;
     animation: pulse 2s infinite;
     box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    width: 100%;
 }
 
 @keyframes pulse {
@@ -423,16 +427,29 @@ footer {
         width: 100%;
         flex-direction: row;
         justify-content: center;
-        margin: 10px 0;
+        margin: 20px 0;
+        padding: 0 15px;
     }
     
-    #left-powers, #right-powers {
-        margin: 0;
+    #left-powers {
+        margin: 20px 0 0 0;
+    }
+    
+    #right-powers {
+        margin: 0 0 20px 0;
     }
     
     .power-up-slot {
         margin: 0 10px;
         min-width: 80px;
+    }
+    
+    #game-controls {
+        width: 90%;
+    }
+    
+    #game-controls button, #challenge-code {
+        width: 100%;
     }
     
     #left-powers .power-up-tooltip,
