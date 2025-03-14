@@ -1405,16 +1405,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Check if there's a game code in the URL params when the page loads
-    function checkUrlForGameCode() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const gameCodeFromUrl = urlParams.get('game');
-        
-        if (gameCodeFromUrl) {
-            challengeCodeInput.value = gameCodeFromUrl;
-            messageElement.textContent = `Found game code in URL: ${gameCodeFromUrl}. Click Connect to join.`;
-        }
-    }
     
     // Helper function to generate a simple game code
     function generateGameCode() {
@@ -1446,11 +1436,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play
-    window.initializeOnlineGame = function(pNumber, gId) {
+    window.initializeOnlineGame = function(pNumber, gId, pName) {
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
         gameId = gId;
+        playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
+        
+        // Update score display with player name
+        player1ScoreElement.innerHTML = playerNumber === 1 ? 
+            `${playerName}: <span id="your-score">0</span>` : 
+            `Opponent: <span id="your-score">0</span>`;
+        
+        player2ScoreElement.innerHTML = playerNumber === 2 ? 
+            `${playerName}: <span id="opponent-score-value">0</span>` : 
+            `Opponent: <span id="opponent-score-value">0</span>`;
         
         // Initialize game with random board
         initializeGame();
@@ -1480,6 +1480,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sync game state from server
     window.syncGameState = function(state) {
+        console.log("Syncing game state:", state);
+        
         // Update the current player
         currentPlayer = state.currentPlayer;
         
@@ -1516,10 +1518,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update UI
         resetAvailableColors();
+        setupColorButtons(); // Make sure color buttons are set up properly
         updateScoreDisplay();
         updateTurnIndicator();
         updatePowerUpDisplay();
         renderGameBoard();
+        
+        console.log("After sync - Current player:", currentPlayer, "Player number:", playerNumber);
+        console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
     };
     
     // Enable game controls
@@ -1548,9 +1554,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Add a function to handle game replay
+    window.restartGame = function() {
+        console.log("Restarting game...");
+        
+        // Swap who goes first
+        if (isOnlineGame) {
+            // If this was player 1, now become player 2 and vice versa
+            playerNumber = playerNumber === 1 ? 2 : 1;
+        }
+        
+        // Reset the game state
+        initializeGame();
+        
+        // If online game, notify the other player
+        if (isOnlineGame && window.sendMove) {
+            window.sendMove({
+                type: 'restart-game',
+                playerNumber: playerNumber
+            });
+        }
+        
+        messageElement.textContent = "Game restarted! " + 
+            (currentPlayer === playerNumber ? "Your" : "Opponent's") + " turn.";
+    };
+    
+    // Add a Play Again button at the end of the game
+    function showPlayAgainButton() {
+        const existingButton = document.getElementById('play-again-button');
+        
+        if (!existingButton) {
+            const playAgainButton = document.createElement('button');
+            playAgainButton.id = 'play-again-button';
+            playAgainButton.className = 'action-button';
+            playAgainButton.textContent = 'Play Again';
+            playAgainButton.addEventListener('click', window.restartGame);
+            
+            // Add to game controls
+            document.getElementById('game-controls').appendChild(playAgainButton);
+        }
+    }
+    
     // Initialize the game when the page loads
     initializeGame();
-    
-    // Check for game code in URL
-    checkUrlForGameCode();
 });

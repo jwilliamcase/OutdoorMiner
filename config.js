@@ -18,16 +18,16 @@ const CONFIG = {
   
   // Common taunts
   TAUNTS: [
-    "😈 Up your ass you dumbbitch!",
-    "🔥 Feel the burn fatty!",
-    "💥 I will blow up your car!",
-    "🙄 Your are a garbage person!",
-    "🤣 GET FUCKED HUMAN!",
-    "👑 I will hide your head!",
-    "🍀 Death is funny!",
-    "🧨 I know where you live!",
-    "🎯 STUPID PIECE OF SHIT!",
-    "🎮 I OWN YOUR SOUL!"
+    "😈 You're going down!",
+    "🔥 Feel the heat!",
+    "💥 Boom! Got you!",
+    "🙄 Is that all you've got?",
+    "🤣 Better luck next time!",
+    "👑 I'm the champion here!",
+    "🍀 Thanks for the tiles!",
+    "🧨 Watch out for mines!",
+    "🎯 Perfect strategy!",
+    "🎮 Game over for you!"
   ]
 };
 

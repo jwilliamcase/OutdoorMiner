@@ -189,7 +189,7 @@ h1 {
     border-color: #F76C6C;
 }
 
-#challenge-code {
+#player-name, #challenge-code {
     padding: 12px;
     border: 2px solid #A8D0E6;
     border-radius: 8px;
@@ -201,7 +201,15 @@ h1 {
     transition: all 0.3s ease;
 }
 
-#challenge-code:focus {
+#challenge-code {
+    width: 120px;
+}
+
+#player-name {
+    width: 150px;
+}
+
+#player-name:focus, #challenge-code:focus {
     border-color: #F76C6C;
     outline: none;
     box-shadow: 0 0 8px rgba(247, 108, 108, 0.5), inset 0 2px 4px rgba(0,0,0,0.1);
@@ -453,6 +461,17 @@ h1 {
     word-break: break-word;
     position: relative;
     animation: message-appear 0.3s ease;
+}
+
+.sender-name {
+    font-weight: bold;
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.message-text {
+    margin-bottom: 4px;
 }
 
 .my-message {

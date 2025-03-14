@@ -34,6 +34,8 @@
     let socket = null;
     let gameId = null;
     let playerNumber = 1;
+    let playerName = '';
+    let opponentName = '';
     let connected = false;
     let unreadMessages = 0;
 
@@ -50,6 +52,25 @@
         
         setupEventListeners();
         setupTaunts();
+        
+        // Check URL for game code (for direct link joining)
+        checkUrlForGameCode();
+    }
+    
+    // Check if there's a game code in the URL params
+    function checkUrlForGameCode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameCodeFromUrl = urlParams.get('game');
+        
+        if (gameCodeFromUrl) {
+            challengeCodeInput.value = gameCodeFromUrl;
+            messageElement.textContent = `Found game code in URL: ${gameCodeFromUrl}. Click Connect to join.`;
+            
+            // Auto-connect if the code is present
+            setTimeout(() => {
+                joinChallenge();
+            }, 1000);
+        }
     }
     
     // Set up UI event listeners
@@ -129,6 +150,7 @@
         socket.emit('send-message', {
             gameId,
             playerNumber,
+            playerName: playerName,
             message,
             isTaunt: false
         });
@@ -148,6 +170,7 @@
         socket.emit('send-message', {
             gameId,
             playerNumber,
+            playerName: playerName,
             message: taunt,
             isTaunt: true
         });
@@ -172,11 +195,19 @@
             connectToServer();
         }
         
-        // Emit create game event
-        socket.emit('create-game');
+        // Get player name
+        const playerNameInput = document.getElementById('player-name');
+        const playerName = playerNameInput.value.trim() || 'Player 1';
+        
+        // Emit create game event with player name
+        socket.emit('create-game', { playerName: playerName });
         
         // Update UI
         messageElement.textContent = 'Creating game...';
+        
+        // Disable all game buttons while waiting
+        createChallengeButton.disabled = true;
+        connectChallengeButton.disabled = true;
     }
     
     // Join an existing challenge
@@ -192,11 +223,22 @@
             connectToServer();
         }
         
+        // Get player name
+        const playerNameInput = document.getElementById('player-name');
+        const playerName = playerNameInput.value.trim() || 'Player 2';
+        
         // Emit join game event
-        socket.emit('join-game', { gameId: enteredCode });
+        socket.emit('join-game', { 
+            gameId: enteredCode,
+            playerName: playerName 
+        });
         
         // Update UI
         messageElement.textContent = `Connecting to game ${enteredCode}...`;
+        
+        // Disable all game buttons while waiting
+        createChallengeButton.disabled = true;
+        connectChallengeButton.disabled = true;
     }
     
     // Connect to the multiplayer server
@@ -223,6 +265,7 @@
             socket.on('player-joined', handlePlayerJoined);
             socket.on('game-started', handleGameStarted);
             socket.on('game-update', handleGameUpdate);
+            socket.on('game-restarted', handleGameRestarted);
             socket.on('player-disconnected', handlePlayerDisconnected);
             
             // Chat events
@@ -281,14 +324,29 @@
         console.log('Game created:', data);
         gameId = data.gameId;
         playerNumber = data.playerNumber;
+        playerName = data.playerName || document.getElementById('player-name').value.trim() || 'Player 1';
         isOnlineGame = true;
         
         // Update UI
         messageElement.textContent = `Game created! Your code is: ${gameId}. Waiting for opponent...`;
         challengeCodeInput.value = gameId;
         
+        // Re-enable buttons
+        createChallengeButton.disabled = false;
+        connectChallengeButton.disabled = false;
+        
+        // Add game code to URL for easy sharing
+        updateUrlWithGameCode(gameId);
+        
         // Initialize game for player 1
-        window.initializeOnlineGame(playerNumber, gameId);
+        window.initializeOnlineGame(playerNumber, gameId, playerName);
+    }
+    
+    // Update URL with game code for easy sharing
+    function updateUrlWithGameCode(code) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('game', code);
+        window.history.replaceState({}, '', url);
     }
     
     // Handle game joined event
@@ -296,19 +354,31 @@
         console.log('Game joined:', data);
         gameId = data.gameId;
         playerNumber = data.playerNumber;
+        playerName = document.getElementById('player-name').value.trim() || 'Player 2';
         isOnlineGame = true;
         
         // Update UI
-        messageElement.textContent = `Joined game ${gameId} as Player ${playerNumber}!`;
+        messageElement.textContent = `Joined game ${gameId} as Player ${playerNumber}! Waiting for game to start...`;
+        
+        // Re-enable buttons
+        createChallengeButton.disabled = false;
+        connectChallengeButton.disabled = false;
+        
+        // Update URL with game code
+        updateUrlWithGameCode(gameId);
         
         // Initialize game for player 2
-        window.initializeOnlineGame(playerNumber, gameId);
+        window.initializeOnlineGame(playerNumber, gameId, playerName);
     }
     
     // Handle game error
     function handleGameError(data) {
         console.error('Game error:', data);
         messageElement.textContent = `Error: ${data.message}`;
+        
+        // Re-enable buttons
+        createChallengeButton.disabled = false;
+        connectChallengeButton.disabled = false;
     }
     
     // Handle player joined event
@@ -357,6 +427,50 @@
                 messageElement.textContent = `💥 BOOM! A landmine was triggered!`;
                 break;
         }
+        
+        // Check if the game is over and show play again button
+        const player1Tiles = new Set(data.gameState.player1Tiles);
+        const player2Tiles = new Set(data.gameState.player2Tiles);
+        const totalTiles = CONFIG.BOARD_SIZE * CONFIG.BOARD_SIZE;
+        const occupiedTiles = player1Tiles.size + player2Tiles.size;
+        
+        if (occupiedTiles >= totalTiles * 0.8) { // Game is 80% complete
+            showPlayAgainButton();
+        }
+    }
+    
+    // Handle game restarted event
+    function handleGameRestarted(data) {
+        console.log('Game restarted');
+        
+        // Reset the game state
+        window.initializeOnlineGame(playerNumber, gameId);
+        
+        // Update UI
+        messageElement.textContent = "Game restarted! " + 
+            (currentPlayer === playerNumber ? "Your" : "Opponent's") + " turn.";
+        
+        // Remove play again button if it exists
+        const playAgainButton = document.getElementById('play-again-button');
+        if (playAgainButton) {
+            playAgainButton.remove();
+        }
+    }
+    
+    // Show play again button
+    function showPlayAgainButton() {
+        const existingButton = document.getElementById('play-again-button');
+        
+        if (!existingButton) {
+            const playAgainButton = document.createElement('button');
+            playAgainButton.id = 'play-again-button';
+            playAgainButton.className = 'action-button';
+            playAgainButton.textContent = 'Play Again';
+            playAgainButton.addEventListener('click', window.restartGame);
+            
+            // Add to game controls
+            document.getElementById('game-controls').appendChild(playAgainButton);
+        }
     }
     
     // Handle player disconnected event
@@ -373,6 +487,10 @@
         const messageDiv = document.createElement('div');
         messageDiv.className = 'chat-message';
         
+        // Get sender name
+        const senderName = data.playerNumber === playerNumber ? 
+            playerName : (data.playerName || `Player ${data.playerNumber}`);
+        
         // Add additional classes based on sender and type
         if (data.isTaunt) {
             messageDiv.classList.add('taunt-message');
@@ -382,8 +500,17 @@
             messageDiv.classList.add('other-message');
         }
         
+        // Add sender name
+        const nameSpan = document.createElement('div');
+        nameSpan.className = 'sender-name';
+        nameSpan.textContent = senderName;
+        messageDiv.appendChild(nameSpan);
+        
         // Add message text
-        messageDiv.textContent = data.message;
+        const messageText = document.createElement('div');
+        messageText.className = 'message-text';
+        messageText.textContent = data.message;
+        messageDiv.appendChild(messageText);
         
         // Add timestamp
         const timestamp = document.createElement('div');
