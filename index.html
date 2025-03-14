@@ -12,31 +12,56 @@
 
     <div id="score-container">
         <div id="player-score">You: <span id="your-score">0</span></div>
+        <div id="turn-indicator">Current Turn: <span id="current-player">You</span></div>
         <div id="opponent-score">Opponent: <span id="opponent-score-value">0</span></div>
     </div>
 
-    <div id="game-container">
-        <canvas id="game-board" width="640" height="580"></canvas>
+    <div id="game-area">
+        <div id="left-powers" class="power-side">
+            <div class="power-up-slot" data-type="sabotage">
+                <div class="power-up-icon">🧨</div>
+                <div class="power-up-name">Sabotage</div>
+                <div class="power-up-count" id="sabotage-count">0</div>
+                <div class="power-up-tooltip">Click to select, then click on opponent territory to convert it back to neutral</div>
+            </div>
+        </div>
+        
+        <div id="game-container">
+            <canvas id="game-board" width="640" height="580"></canvas>
+        </div>
+        
+        <div id="right-powers" class="power-side">
+            <div class="power-up-slot" data-type="wildcard">
+                <div class="power-up-icon">🃏</div>
+                <div class="power-up-name">Wildcard</div>
+                <div class="power-up-count" id="wildcard-count">0</div>
+                <div class="power-up-tooltip">Click to select, then click on unclaimed tile adjacent to yours to claim it</div>
+            </div>
+            
+            <div class="power-up-slot" data-type="teleport">
+                <div class="power-up-icon">⚡</div>
+                <div class="power-up-name">Teleport</div>
+                <div class="power-up-count" id="teleport-count">0</div>
+                <div class="power-up-tooltip">Click to select, then click on any unclaimed tile to claim it</div>
+            </div>
+        </div>
     </div>
 
     <div id="color-palette">
         <div class="color-swatch">
-            <button class="color-button" data-color="#4CAF50" style="background-color: #4CAF50;"></button>
+            <button class="color-button" data-color="#F8E9A1" style="background-color: #F8E9A1;"></button>
         </div>
         <div class="color-swatch">
-            <button class="color-button" data-color="#E91E63" style="background-color: #E91E63;"></button>
+            <button class="color-button" data-color="#F76C6C" style="background-color: #F76C6C;"></button>
         </div>
         <div class="color-swatch">
-            <button class="color-button" data-color="#2196F3" style="background-color: #2196F3;"></button>
+            <button class="color-button" data-color="#B8E0F6" style="background-color: #B8E0F6;"></button>
         </div>
         <div class="color-swatch">
-            <button class="color-button" data-color="#9C27B0" style="background-color: #9C27B0;"></button>
+            <button class="color-button" data-color="#374785" style="background-color: #374785;"></button>
         </div>
         <div class="color-swatch">
-            <button class="color-button" data-color="#FFEB3B" style="background-color: #FFEB3B;"></button>
-        </div>
-        <div class="color-swatch">
-            <button class="color-button" data-color="#FF9800" style="background-color: #FF9800;"></button>
+            <button class="color-button" data-color="#0F1A40" style="background-color: #0F1A40;"></button>
         </div>
     </div>
 
@@ -46,8 +71,14 @@
         <input type="text" id="challenge-code" placeholder="Challenge Code">
         <button id="connect-challenge">Connect</button>
         <div id="message"></div>
+        <div id="landmine-info">💣 Watch out for hidden landmines! 💣</div>
     </div>
+    
 
+    <!-- Audio elements for game sounds -->
+    <audio id="explosion-sound" src="sounds/explosion.mp3" preload="auto"></audio>
+    <audio id="power-up-sound" src="sounds/power-up.mp3" preload="auto"></audio>
+    
     <script src="script.js"></script>
     
     <footer>
