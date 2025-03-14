@@ -749,7 +749,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // In online mode, send the move to the server
         if (isOnlineGame) {
+            // Add captured tiles to player's territory before sending
+            // so the server and other player get the correct board state
+            for (const tileKey of capturable) {
+                if (currentPlayer === 1) {
+                    player1Tiles.add(tileKey);
+                } else {
+                    player2Tiles.add(tileKey);
+                }
+            }
+            
             sendMoveToServer(selectedColor);
+            
+            // Don't proceed with local animations - wait for server update
+            updateScoreDisplay();
+            return;
         }
         
         // Check if any of the captured tiles has a landmine
@@ -1451,6 +1465,10 @@ document.addEventListener('DOMContentLoaded', () => {
             player2Tiles: Array.from(player2Tiles),
             playerName: playerName
         };
+        
+        // Add the player colors to ensure they're synced properly
+        moveData.player1Color = player1Color;
+        moveData.player2Color = player2Color;
         
         // Log full move data
         console.log("Move data being sent:", JSON.stringify(moveData));

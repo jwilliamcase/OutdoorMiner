@@ -227,7 +227,7 @@ io.on('connection', (socket) => {
         game.player2Color = move.color;
       }
       
-      // Update tiles captured (if any)
+      // Always update both players' tiles to ensure consistency
       if (move.player1Tiles) {
         game.player1Tiles = move.player1Tiles;
       }
@@ -235,6 +235,22 @@ io.on('connection', (socket) => {
       if (move.player2Tiles) {
         game.player2Tiles = move.player2Tiles;
       }
+      
+      // Update colors if explicitly provided
+      if (move.player1Color) {
+        game.player1Color = move.player1Color;
+      }
+      
+      if (move.player2Color) {
+        game.player2Color = move.player2Color;
+      }
+      
+      // Log the state after update for debugging
+      console.log(`After move from Player ${playerNumber}:`);
+      console.log(`- Player 1 has ${game.player1Tiles.length} tiles`);
+      console.log(`- Player 2 has ${game.player2Tiles.length} tiles`);
+      console.log(`- Player 1 color: ${game.player1Color}`);
+      console.log(`- Player 2 color: ${game.player2Color}`);
       
       // Switch turns
       game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
