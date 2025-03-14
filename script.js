@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameId = null; // Unique identifier for this game
     let isOnlineGame = false; // Whether this is an online multiplayer game
     let playerNumber = 1; // Which player this client represents (1 or 2)
+    let waitingForOpponent = false; // Whether we're waiting for an opponent's move
     
     // Initialize the game
     function initializeGame() {
@@ -713,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle color selection and tile capture
     function handleColorSelection(selectedColor) {
         // In online mode, only allow moves on your turn
-        if (isOnlineGame && currentPlayer !== playerNumber) {
+        if (isOnlineGame && (currentPlayer !== playerNumber || waitingForOpponent)) {
             messageElement.textContent = "It's not your turn!";
             return;
         }
@@ -1421,15 +1422,130 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.floor(100000 + Math.random() * 900000); // 6-digit code
     }
     
-    // Simulate sending a move to the server
+    // Send a move to the server
     function sendMoveToServer(selectedColor) {
-        // In a real implementation, this would send the move to a server
-        // For now, we'll just log it
+        // Don't send if not an online game
+        if (!isOnlineGame || !window.sendMove) return;
+        
+        // Prepare move data
+        const moveData = {
+            type: 'color-selection',
+            color: selectedColor,
+            player1Tiles: Array.from(player1Tiles),
+            player2Tiles: Array.from(player2Tiles)
+        };
+        
         console.log(`NETWORK: Player ${playerNumber} selected color: ${selectedColor}`);
         console.log(`NETWORK: Game ID: ${gameId}`);
         
-        // In a real game, we would handle receiving the opponent's move here
-        // For simulation purposes, we'll continue with the local game logic
+        // Set waiting state
+        waitingForOpponent = true;
+        
+        // Send move to server using the multiplayer client
+        window.sendMove(moveData);
+    }
+    
+    // Initialize the game for online play
+    window.initializeOnlineGame = function(pNumber, gId) {
+        // Set multiplayer variables
+        isOnlineGame = true;
+        playerNumber = pNumber;
+        gameId = gId;
+        
+        // Initialize game with random board
+        initializeGame();
+        
+        // If we're player 2, disable controls until game starts
+        if (playerNumber === 2) {
+            waitingForOpponent = true;
+            disableControls();
+            messageElement.textContent = "Waiting for Player 1 to start the game...";
+        }
+    };
+    
+    // Get current game state for syncing
+    window.getGameState = function() {
+        return {
+            board: gameBoard,
+            currentPlayer: currentPlayer,
+            player1Color: player1Color,
+            player2Color: player2Color,
+            player1Tiles: Array.from(player1Tiles),
+            player2Tiles: Array.from(player2Tiles),
+            player1PowerUps: player1PowerUps,
+            player2PowerUps: player2PowerUps,
+            landmines: landmines
+        };
+    };
+    
+    // Sync game state from server
+    window.syncGameState = function(state) {
+        // Update the current player
+        currentPlayer = state.currentPlayer;
+        
+        // Update player colors
+        player1Color = state.player1Color;
+        player2Color = state.player2Color;
+        
+        // Update tiles
+        player1Tiles = new Set(state.player1Tiles);
+        player2Tiles = new Set(state.player2Tiles);
+        
+        // Update power-ups
+        player1PowerUps = state.player1PowerUps || [];
+        player2PowerUps = state.player2PowerUps || [];
+        
+        // Update landmines
+        landmines = state.landmines || [];
+        
+        // Update board if provided
+        if (state.board) {
+            gameBoard = state.board;
+        }
+        
+        // Update controls based on whose turn it is
+        waitingForOpponent = currentPlayer !== playerNumber;
+        
+        if (waitingForOpponent) {
+            disableControls();
+            messageElement.textContent = "Opponent's turn...";
+        } else {
+            enableControls();
+            messageElement.textContent = "Your turn!";
+        }
+        
+        // Update UI
+        resetAvailableColors();
+        updateScoreDisplay();
+        updateTurnIndicator();
+        updatePowerUpDisplay();
+        renderGameBoard();
+    };
+    
+    // Enable game controls
+    function enableControls() {
+        document.querySelectorAll('.color-button').forEach(button => {
+            if (availableColors.includes(button.getAttribute('data-color'))) {
+                button.disabled = false;
+                button.classList.remove('disabled');
+            }
+        });
+        
+        document.querySelectorAll('.power-up-slot').forEach(slot => {
+            slot.classList.remove('disabled');
+        });
+    }
+    
+    // Disable game controls
+    function disableControls() {
+        document.querySelectorAll('.color-button').forEach(button => {
+            button.disabled = true;
+            button.classList.add('disabled');
+        });
+        
+        document.querySelectorAll('.power-up-slot').forEach(slot => {
+            slot.classList.add('disabled');
+        });
     }
     
     // Initialize the game when the page loads

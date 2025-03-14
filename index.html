@@ -79,8 +79,34 @@
     <!-- Audio elements for game sounds -->
     <audio id="explosion-sound" src="sounds/explosion.mp3" preload="auto"></audio>
     <audio id="power-up-sound" src="sounds/power-up.mp3" preload="auto"></audio>
+    <audio id="message-sound" src="sounds/message.mp3" preload="auto"></audio>
+    <audio id="taunt-sound" src="sounds/taunt.mp3" preload="auto"></audio>
     
+    <!-- Chat overlay (initially hidden) -->
+    <div id="chat-container" class="hidden">
+        <div id="chat-header">
+            <h3>Game Chat</h3>
+            <button id="close-chat">×</button>
+        </div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message...">
+            <button id="send-message">Send</button>
+            <div id="taunt-menu" class="hidden">
+                <div class="taunt-list"></div>
+            </div>
+            <button id="show-taunts">😈</button>
+        </div>
+    </div>
+    
+    <!-- Socket.io Client -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <!-- Config -->
+    <script src="config.js"></script>
+    <!-- Main Game Script -->
     <script src="script.js"></script>
+    <!-- Multiplayer Client Script -->
+    <script src="multiplayer.js"></script>
     
     <footer>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
