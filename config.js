@@ -1,11 +1,7 @@
 // Game configuration
 const CONFIG = {
   // Server URL - change based on environment
-<<<<<<< HEAD
   SERVER_URL: 'https://outdoor-miner-server.onrender.com',
-=======
-  SERVER_URL: 'https://outdoor-miner-server.onrender.com', // You'll update this when you deploy
->>>>>>> 56d913d1d2ca86bb5db5fe194dd0c8c53aa48042
   // For local testing use:
   // SERVER_URL: 'http://localhost:3000',
   

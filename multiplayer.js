@@ -205,12 +205,10 @@
             // Update status to connecting
             statusIndicator.innerHTML = '<span class="connection-status status-connecting"></span> Connecting...';
             
-            // Initialize Socket.io connection with explicit CORS settings
+            // Initialize Socket.io connection with simplified CORS settings
             socket = io(CONFIG.SERVER_URL, {
-                withCredentials: true,
-                extraHeaders: {
-                    "Access-Control-Allow-Origin": "https://jwilliamcase.github.io"
-                }
+                withCredentials: false,
+                transports: ['websocket', 'polling']
             });
             
             // Connection event handlers
@@ -257,9 +255,25 @@
     function handleConnectionError(error) {
         console.error('Connection error:', error);
         connected = false;
-        statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Connection Failed';
         
-        messageElement.textContent = 'Failed to connect to the game server!';
+        // First, check if the server is even reachable with a simple fetch
+        fetch(`${CONFIG.SERVER_URL}/api/status`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Server reached but status endpoint failed');
+            })
+            .then(data => {
+                console.log('Server status check success:', data);
+                statusIndicator.innerHTML = '<span class="connection-status status-connecting"></span> Server reachable, Socket.io connection failed';
+                messageElement.textContent = 'Server is online but Socket.io connection failed. Try refreshing the page.';
+            })
+            .catch(err => {
+                console.error('Server status check failed:', err);
+                statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Server Unreachable';
+                messageElement.textContent = 'Failed to connect to the game server! The server may be offline or starting up.';
+            });
     }
     
     // Handle game created event
@@ -407,4 +421,12 @@
     
     // Initialize
     init();
+    
+    // Try to connect on startup after a short delay
+    setTimeout(() => {
+        if (!connected) {
+            console.log("Attempting automatic connection to server...");
+            connectToServer();
+        }
+    }, 1000);
 })();

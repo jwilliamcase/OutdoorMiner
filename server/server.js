@@ -9,19 +9,17 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ["https://jwilliamcase.github.io", process.env.CLIENT_URL],
-    methods: ["GET", "POST"],
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"]
+    origin: "*",  // Allow all origins for easier debugging
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: false  // Changed to false to avoid preflight issues
   }
 });
 
 // Middleware
 app.use(cors({
-  origin: ["https://jwilliamcase.github.io", process.env.CLIENT_URL],
+  origin: "*",  // Allow all origins for easier debugging
   methods: ["GET", "POST", "OPTIONS"],
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"]
+  credentials: false  // Changed to false to avoid preflight issues
 }));
 app.use(express.json());
 
@@ -33,6 +31,16 @@ const players = new Map();
 // Routes
 app.get('/', (req, res) => {
   res.send('Outdoor Miner Game Server Running');
+});
+
+// Debug route for checking CORS
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'ok',
+    clientOrigin: req.headers.origin || 'unknown',
+    serverTime: new Date().toISOString(),
+    message: 'Server is running and CORS is properly configured'
+  });
 });
 
 // Socket.io handling
