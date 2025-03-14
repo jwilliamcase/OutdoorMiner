@@ -1,4 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Add resize event listener to handle responsive canvas
+    window.addEventListener('resize', function() {
+        resizeGame();
+        renderGameBoard();
+    });
     // Canvas setup
     const canvas = document.getElementById('game-board');
     const ctx = canvas.getContext('2d');
@@ -76,12 +81,31 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedPowerUp = null;
         updatePowerUpDisplay();
         
+        // Handle responsive canvas sizing
+        resizeGame();
+        
         renderGameBoard();
         updateScoreDisplay();
         updateTurnIndicator();
         setupColorButtons();
         setupPowerUpListeners();
         messageElement.textContent = "Welcome to Outdoor Miner! Your turn. Watch out for hidden landmines!";
+    }
+    
+    // Function to handle responsive canvas scaling
+    function resizeGame() {
+        const container = document.getElementById('game-container');
+        const containerWidth = container.clientWidth - 30; // Account for padding
+        
+        // Only resize if the container is smaller than canvas size
+        if (containerWidth < canvas.width) {
+            const scaleFactor = containerWidth / canvas.width;
+            canvas.style.width = containerWidth + 'px';
+            canvas.style.height = (canvas.height * scaleFactor) + 'px';
+        } else {
+            canvas.style.width = '';
+            canvas.style.height = '';
+        }
     }
     
     // Create the game board with random colors
