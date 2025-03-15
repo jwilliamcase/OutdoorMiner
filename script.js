@@ -1535,8 +1535,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update the current player
         currentPlayer = state.currentPlayer;
         window.currentPlayer = currentPlayer;
-        console.log(`syncGameState: currentPlayer updated to ${currentPlayer}`); // Log currentPlayer update
-        
+        console.log(`syncGameState: currentPlayer updated to ${currentPlayer}. Player Number is: ${playerNumber}`); // Log currentPlayer update
+        console.log(`syncGameState: Received player1Tiles count: ${state.player1Tiles ? state.player1Tiles.length : 0}`);
+        console.log(`syncGameState: Received player2Tiles count: ${state.player2Tiles ? state.player2Tiles.length : 0}`);
+
         // Update player colors
         player1Color = state.player1Color;
         player2Color = state.player2Color;
@@ -1602,7 +1604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Enable game controls
     function enableControls() {
-        console.log("enableControls called. Current Player:", currentPlayer, "Player Number:", playerNumber); // Log enableControls call
+        console.log(`enableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`); // Log enableControls call
         document.querySelectorAll('.color-button').forEach(button => {
             if (availableColors.includes(button.getAttribute('data-color'))) {
                 button.disabled = false;
@@ -1617,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Disable game controls
     function disableControls() {
-        console.log("disableControls called. Current Player:", currentPlayer, "Player Number:", playerNumber); // Log disableControls call
+        console.log(`disableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`); // Log disableControls call
         document.querySelectorAll('.color-button').forEach(button => {
             button.disabled = true;
             button.classList.add('disabled');

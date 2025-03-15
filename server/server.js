@@ -246,11 +246,22 @@ io.on('connection', (socket) => {
       
       // Log the state after update for debugging
       console.log(`After move from Player ${playerNumber}:`);
-      console.log(`- Player 1 has ${game.player1Tiles.length} tiles`);
-      console.log(`- Player 2 has ${game.player2Tiles.length} tiles`);
+      console.log(`- Player 1 tiles BEFORE move: ${game.player1Tiles.length}`);
+      console.log(`- Player 2 tiles BEFORE move: ${game.player2Tiles.length}`);
+
+      if (move.player1Tiles) {
+        game.player1Tiles = move.player1Tiles;
+      }
+
+      if (move.player2Tiles) {
+        game.player2Tiles = move.player2Tiles;
+      }
+
+      console.log(`- Player 1 tiles AFTER move: ${game.player1Tiles.length}`);
+      console.log(`- Player 2 tiles AFTER move: ${game.player2Tiles.length}`);
       console.log(`- Player 1 color: ${game.player1Color}`);
       console.log(`- Player 2 color: ${game.player2Color}`);
-      
+
     // Switch turns
     game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
     console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`); // Log turn switch
