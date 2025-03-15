@@ -80,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setupInitialTiles();
         resetAvailableColors();
         renderGameBoard();
-        renderGameBoard();
 
         // Clear any exploded tiles from previous games
         explodedTiles = [];
@@ -1566,6 +1565,8 @@ document.addEventListener('DOMContentLoaded', () => {
             messageElement.textContent = "Waiting for Player 1 to start the game...";
         }
     };
+
+    window.initializeOnlineGame = initializeOnlineGame;
     
     // Get current game state for syncing
     window.getGameState = function getGameState() {
@@ -1675,6 +1676,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("After sync - Current player:", currentPlayer, "Player number:", playerNumber);
         console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
     };
+
+    window.getGameState = getGameState;
     
     // Make update functions available globally
     window.updateScoreDisplay = updateScoreDisplay;
