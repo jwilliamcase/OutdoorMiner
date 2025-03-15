@@ -54,9 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.syncGameState = syncGameState;
     window.restartGame = restartGame;
     
-    // Canvas setup
-    const canvas = document.getElementById('game-board');
-    const ctx = canvas.getContext('2d');
+
     const player1ScoreElement = document.getElementById('your-score');
     const player2ScoreElement = document.getElementById('opponent-score-value');
     const messageElement = document.getElementById('message');
