@@ -307,6 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // We don't visually show the landmines - they're hidden surprises
         // But we could add code here to make them visible for debugging
         
+        // Log parameters for debugging
+        console.log(`drawHexagon - color: ${color}, isOwned: ${isOwned}, ownedBy: ${ownedBy}`);
+
         // Restore context state
         ctx.restore();
     }
@@ -368,38 +371,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tile = gameBoard[row][col];
                 const isPlayer1Owned = player1Tiles.has(`${row},${col}`);
                 const isPlayer2Owned = player2Tiles.has(`${row},${col}`);
-                
+
                 // Calculate hex position (using offset coordinates for hexagonal grid)
                 // Add padding and adjust for odd rows, apply scaling factor
                 const x = startX + (col * HEX_WIDTH + (row % 2) * (HEX_WIDTH / 2)) * scaleFactor + BOARD_PADDING;
                 const y = startY + (row * (HEX_HEIGHT * 0.75)) * scaleFactor + BOARD_PADDING;
-                
+
                 // Determine the color to draw
                 let displayColor = tile.color;
+                let isOwned = false;
+                let ownedByPlayer = 0;
+
                 if (isPlayer1Owned) {
                     displayColor = player1Color;
+                    isOwned = true;
+                    ownedByPlayer = 1;
                 } else if (isPlayer2Owned) {
                     displayColor = player2Color;
+                    isOwned = true;
+                    ownedByPlayer = 2;
                 }
-                
+
                 // Check if this tile is being hovered over
                 const isHovered = hoverTile && hoverTile.row === row && hoverTile.col === col;
-                
+
                 // Calculate hex size with hover effect and apply scaling factor
                 let hexSize = HEX_SIZE * scaleFactor;
                 if (isHovered) {
                     // Make hovered hexagons slightly larger
                     hexSize = hexSize * 1.1;
                 }
-                
+
                 // Draw the hexagon
                 drawHexagon(
                     x, 
                     y, 
                     hexSize, 
                     displayColor,
-                    isPlayer1Owned || isPlayer2Owned,
-                    isPlayer1Owned ? 1 : (isPlayer2Owned ? 2 : 0),
+                    isOwned,
+                    ownedByPlayer,
                     tile.hasMine
                 );
             }
