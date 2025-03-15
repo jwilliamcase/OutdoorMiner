@@ -1663,127 +1663,123 @@ document.addEventListener('DOMContentLoaded', function() {
             waitingForOpponent = true;
             disableControls();
             messageElement.textContent = "Waiting for Player 1 to start the game...";
-        }
-        
-        console.log('Game initialized for online play');
-    }
+    // --- Multiplayer Functions ---
+    window.initializeOnlineGame = function(playerNumber, gameId, playerName, opponentName) {
+        isOnlineGame = true;
+        currentGameMode = 'multiplayer';
+        currentPlayer = 1; // Always start with player 1 in online mode, server dictates turns
+        playerTurn = playerNumber; // Set player's turn (1 or 2)
+        yourPlayerNumber = playerNumber;
+        currentGameId = gameId;
+        yourPlayerName = playerName;
+        opponentPlayerName = opponentName;
     
-    // Get current game state for multiplayer sync
+        // Initialize game board and other game state variables for online play
+        initGameVars();
+        setupBoard();
+        drawBoard();
+        updateScoreDisplay();
+        updateTurnIndicator();
+        resetPowerUpCounts();
+        resetLandmineInfo();
+        updatePlayerNamesDisplay();
+        initChatUI();
+    
+        // Disable color palette and power-ups for player 2 until game starts
+        if (playerNumber === 2) {
+            disableColorPalette();
+            disablePowerUps();
+        } else {
+            enableColorPalette();
+            enablePowerUps();
+        }
+    
+        // Set player names in score display
+        updatePlayerNamesDisplay();
+    
+        console.log(`Online game initialized for player ${playerNumber}, Game ID: ${gameId}`);
+    };
+    
     window.getGameState = function() {
-        console.log("Getting game state to send to server");
-        console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
-
         return {
-            board: gameBoard,
+            board: board,
             currentPlayer: currentPlayer,
             player1Color: player1Color,
             player2Color: player2Color,
-            player1Tiles: Array.from(player1Tiles),
-            player2Tiles: Array.from(player2Tiles),
+            player1Tiles: player1Tiles,
+            player2Tiles: player2Tiles,
             player1PowerUps: player1PowerUps,
             player2PowerUps: player2PowerUps,
-            landmines: landmines,
-            player1Name: playerName,
-            player2Name: opponentName
+            landmines: landmines
         };
-    }
+    };
     
-    // Sync game state from server
-    function syncGameState(gameState) {
-        console.log('syncGameState called with state:', gameState);
-        
+    window.syncGameState = function(gameState) {
         if (!gameState) {
-            console.error('Invalid gameState received in syncGameState');
+            console.error('Sync game state called with null gameState');
             return;
         }
-        
-        // Update current player
-        if (gameState.currentPlayer !== currentPlayer) {
-            console.log(`syncGameState: currentPlayer updated to ${gameState.currentPlayer}. Player Number is: ${playerNumber}`);
-            currentPlayer = gameState.currentPlayer;
-        }
-        
-        // Log tile counts
-        console.log(`syncGameState: Received player1Tiles count: ${gameState.player1Tiles.length}`);
-        console.log(`syncGameState: Received player2Tiles count: ${gameState.player2Tiles.length}`);
-        
-        // Log before setting tiles
-        console.log(`syncGameState: BEFORE setting tiles - Player 1 Tiles Count (received): ${gameState.player1Tiles.length}, Player 2 Tiles Count (received): ${gameState.player2Tiles.length}`);
-        
-        // Update tiles - using new Set to ensure we have proper Set objects
-        player1Tiles = new Set(gameState.player1Tiles);
-        player2Tiles = new Set(gameState.player2Tiles);
-        
-        // Log after setting tiles
-        console.log(`syncGameState: AFTER setting tiles - Player 1 Tiles Count (set): ${player1Tiles.size}, Player 2 Tiles Count (set): ${player2Tiles.size}`);
-        
-        // Update colors
-        if (gameState.player1Color) player1Color = gameState.player1Color;
-        if (gameState.player2Color) player2Color = gameState.player2Color;
-        
-        // Update board state if provided
-        if (gameState.board) {
-            gameBoard = gameState.board;
-        }
-        
-        // Update landmines
-        if (gameState.landmines) {
-            landmines = gameState.landmines;
-        }
-        
-        // Update power-ups
-        if (gameState.player1PowerUps) {
-            player1PowerUps = gameState.player1PowerUps;
-        }
-        
-        if (gameState.player2PowerUps) {
-            player2PowerUps = gameState.player2PowerUps;
-        }
-        
-        // Update player names if available
-        if (gameState.player1Name) {
-            if (playerNumber === 1) {
-                playerName = gameState.player1Name;
-            } else {
-                opponentName = gameState.player1Name;
-            }
-        }
-        
-        if (gameState.player2Name) {
-            if (playerNumber === 2) {
-                playerName = gameState.player2Name;
-            } else {
-                opponentName = gameState.player2Name;
-            }
-        }
-        
-        // Enable/disable controls based on current player
-        if (currentPlayer === playerNumber) {
-            console.log(`enableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
-            enableControls();
-            waitingForOpponent = false;
-        } else {
-            console.log(`disableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
-            disableControls();
-            waitingForOpponent = true;
-        }
-        
-        // Update game display
-        setupColorButtons();
+        board = gameState.board;
+        currentPlayer = gameState.currentPlayer;
+        player1Color = gameState.player1Color;
+        player2Color = gameState.player2Color;
+        player1Tiles = gameState.player1Tiles;
+        player2Tiles = gameState.player2Tiles;
+        player1PowerUps = gameState.player1PowerUps;
+        player2PowerUps = gameState.player2PowerUps;
+        landmines = gameState.landmines;
+    
+        // Re-render the board with the synced state
+        drawBoard();
         updateScoreDisplay();
         updateTurnIndicator();
         updatePowerUpDisplay();
-        
-        // Render the initial game board
-        console.log('About to render game board...');
-        renderGameBoard();
-        console.log('Game board rendering complete.');
-        
-        // Make sure the board orientation is correct
-        resizeGame();
-        
-        console.log("After sync - Current player:", currentPlayer, "Player number:", playerNumber);
-        console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
+        updateLandmineInfo();
+    
+        console.log('Game state synchronized from server.');
+    };
+    
+    window.restartGame = function() {
+        isOnlineGame = isOnlineGame; // Keep the online game status
+        currentGameMode = 'multiplayer'; // Ensure game mode is multiplayer
+        currentPlayer = 1; // Reset to player 1
+        playerTurn = yourPlayerNumber; // Keep player's turn number
+        currentGameId = currentGameId; // Keep game ID
+        yourPlayerName = yourPlayerName; // Keep player name
+        opponentPlayerName = opponentPlayerName; // Keep opponent name
+    
+        // Re-initialize game variables and the board for a new game
+        initGameVars();
+        setupBoard();
+        drawBoard();
+        updateScoreDisplay();
+        updateTurnIndicator();
+        resetPowerUpCounts();
+        resetLandmineInfo();
+        updatePlayerNamesDisplay();
+        enableColorPalette(); // Re-enable color palette
+        enablePowerUps();     // Re-enable power-ups
+    
+        // If online, notify server to restart game for both players
+        if (isOnlineGame && currentGameId) {
+            sendRestartGameToServer(currentGameId);
+        }
+    
+        console.log('Game restarted.');
+    };
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize game and setup event listeners
+        initGame();
+        setupEventListeners();
+        setupColorPalette();
+        setupPowerUps();
+    
+        // Export functions to window for multiplayer.js to use
+        window.renderGameBoard = renderGameBoard;
+        window.resizeGame = resizeGame;
+        window.updateScoreDisplay = updateScoreDisplay;
+    });
     }
     
     // Enable game controls
@@ -1860,12 +1856,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Ensure all critical functions are explicitly assigned to window for multiplayer access
-    window.initializeOnlineGame = initializeOnlineGame;
-    window.getGameState = getGameState;
-    window.syncGameState = syncGameState;
+    // Export functions to window for multiplayer.js to use
     window.renderGameBoard = renderGameBoard;
     window.resizeGame = resizeGame;
     window.updateScoreDisplay = updateScoreDisplay;
-    window.restartGame = restartGame;
+    window.updateScoreDisplay = updateScoreDisplay;
+    window.initializeOnlineGame = initializeOnlineGame;
+    window.getGameState = getGameState;
+    window.syncGameState = syncGameState;
 });
