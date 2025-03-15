@@ -1536,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play - now accepts opponentName
-    window.initializeOnlineGame = function initializeOnlineGame(pNumber, gId, pName, oName) {
+    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
