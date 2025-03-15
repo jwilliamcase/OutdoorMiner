@@ -43,7 +43,7 @@ app.get('/api/status', (req, res) => {
       message: 'Server is running and CORS is properly configured'
     });
 });
-});
+
 
 // Socket.io handling
 io.on('connection', (socket) => {
@@ -96,7 +96,7 @@ socket.on('join-game', (data) => {
         socket.emit('game-error', { message: 'Game not found' });
         return;
         playerName: data.playerName || 'Player 1'
-    });
+    };
     // Get the game
     const game = games.get(gameId);
     
@@ -119,7 +119,7 @@ socket.on('initialize-game', (data) => {
     // Check if the game exists
     if (!games.has(gameId)) {
         return;
-        });
+        };
     }
     // Get the game
 // Restart the game
@@ -135,7 +135,7 @@ socket.on('restart-game', (data) => {
         gameState: game.gameState
     // Notify both players
     io.to(gameId).emit('game-restarted', {});
-});
+};
     game.player2Color = gameData.player2Color;
     game.player1Tiles = gameData.player1Tiles;
     game.player2Tiles = gameData.player2Tiles;
@@ -462,4 +462,4 @@ socket.on('disconnect', () => {
       }
     });
   }, 30 * 60 * 1000); // Run every 30 minutes
-});
+};
