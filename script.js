@@ -88,39 +88,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // Explosion colors
     const EXPLOSION_COLOR = '#000000'; // Black
     const EXPLOSION_RECOVERY_TURNS = 3; // Number of turns before exploded tiles fully recover
-    
-    // Game state
-    let gameBoard = [];
-    let player1Tiles = new Set(); // Set of coordinates owned by player 1 (format: "row,col")
-    let player2Tiles = new Set(); // Set of coordinates owned by player 2
-    let currentPlayer = 1;
-    let player1Color = '';
-    let player2Color = '';
-    let availableColors = [...COLORS];
-    let hoverTile = null; // Track which tile the mouse is hovering over
-    let landmines = []; // Array to store landmine positions
-    let explodedTiles = []; // Array to track exploded tiles and their recovery status
-    let playerName = "Player 1"; // Default player name
-    let opponentName = "Player 2"; // Default opponent name
-    
-    // Power-up system
-    const COMBO_THRESHOLD = 4; // Minimum tiles to capture to possibly get a power-up
-    const POWER_UPS = {
-        SABOTAGE: 'sabotage',
-        WILDCARD: 'wildcard',
-        TELEPORT: 'teleport'
-    };
-    let player1PowerUps = []; // Array of power-ups player 1 has available
-    let player2PowerUps = []; // Array of power-ups player 2 has available
-    let selectedPowerUp = null; // Currently selected power-up
-    
-    // Online multiplayer variables
-    let gameId = null; // Unique identifier for this game
-    let isOnlineGame = false; // Whether this is an online multiplayer game
-    let playerNumber = 1; // Which player this client represents (1 or 2)
-    let waitingForOpponent = false; // Whether waiting for opponent's move
-    
-    // Initialize the game on page load
+    const context = canvas.getContext('2d');
+    const hexRadius = CONFIG.HEX_SIZE;
+    const hexHeight = Math.sqrt(3) * hexRadius;
+    const hexWidth = 2 * hexRadius;
+    const boardSize = CONFIG.BOARD_SIZE;
+    const totalTiles = boardSize * boardSize;
+    let currentPlayer = 1; // 1 for player 1, 2 for player 2
+    let playerColor = null;
+    let opponentColor = null;
+    let player1Tiles = [];
+    let player2Tiles = [];
+    let player1PowerUps = { sabotage: 0, wildcard: 0, teleport: 0 };
+    let player2PowerUps = { sabotage: 0, wildcard: 0, teleport: 0 };
+    let landmines = [];
+    let gameBoard = createGameBoard();
+    let selectedColor = null;
+    let isColorSelected = false;
+    let isPowerUpActive = false;
+    let activePowerUp = null;
+    let score = { player1: 0, player2: 0 };
+    let opponentScore = 0;
+    let powerUpCounts = { sabotage: 0, wildcard: 0, teleport: 0 };
+    let currentPlayerName = 'You';
+    let opponentPlayerName = 'Opponent';
+    let isOnlineGame = false;
+    let gameCode = null;
+    let playerNumber = 1;
+    let opponentNumber = 2;
+    let currentPlayerMoves = 0;
+
+    // Function to initialize the game
+    function init() {
     initializeGame();
     
     // Ensure critical functions are exposed to window scope
