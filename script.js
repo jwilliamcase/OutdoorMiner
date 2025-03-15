@@ -4,13 +4,21 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeGame();
       });
       
-      // Explicitly assign functions to window object for multiplayer access
-      window.initializeOnlineGame = initializeOnlineGame;
-      window.getGameState = getGameState;
-      window.syncGameState = syncGameState;
-      window.restartGame = restartGame;
-      window.updateScoreDisplay = updateScoreDisplay;
-      window.renderGameBoard = renderGameBoard;
+        // Expose necessary functions to window for multiplayer
+        window.initializeOnlineGame = initializeOnlineGame;
+        window.syncGameState = syncGameState;
+        window.getGameState = getGameState;
+        window.restartGame = restartGame;
+        window.renderGameBoard = renderGameBoard;
+        window.playerName = "";
+        window.opponentName = "";
+        
+        console.log("Window function assignments completed:");
+        console.log("window.initializeOnlineGame:", typeof window.initializeOnlineGame);
+        console.log("window.syncGameState:", typeof window.syncGameState);
+        console.log("window.getGameState:", typeof window.getGameState);
+        console.log("window.restartGame:", typeof window.restartGame);
+        console.log("window.renderGameBoard:", typeof window.renderGameBoard);
       window.resizeGame = resizeGame;
       window.playerName = playerName;
       window.opponentName = opponentName;
@@ -85,33 +93,34 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameId = null; // Unique identifier for this game
     let isOnlineGame = false; // Whether this is an online multiplayer game
     let playerNumber = 1; // Which player this client represents (1 or 2)
-    let playerName = ''; // Name of the current player
-    let opponentName = ''; // Name of the opponent
-  // Initialize game state
-      function initializeGame() {
-        console.log('Initializing game...');
-        setupBoard();
-        generateBoard();
+    // Initialize the game
+    function initializeGame() {
+        console.log("Initializing game...");
+        
+        // Create the game board
+        createBoard();
+        
+        // Set up initial tiles
         setupInitialTiles();
-        resetAvailableColors();
+        
+        // Reset scores
+        player1Score = 1;
+        player2Score = 1;
+        
+        // Update score display
         updateScoreDisplay();
-        renderGameBoard(); // Ensure board is rendered once
         
-        // Show game controls
-        document.getElementById('game-controls').classList.remove('hidden');
+        // Render the board
+        renderGameBoard();
         
-        console.log('Game initialized. Board should be visible now.');
-      }
-        // Clear any exploded tiles from previous games
-        explodedTiles = [];
+        // Reset available colors
+        resetAvailableColors();
         
-        // Reset power-ups
-        player1PowerUps = [];
-        player2PowerUps = [];
-        selectedPowerUp = null;
-        updatePowerUpDisplay();
+        // Initialize player name
+        playerName = document.getElementById('player-name').value.trim() || "Player 1";
         
-        // Handle responsive canvas sizing
+        console.log("Game initialized, rendering game board...");
+    }
         resizeGame();
         
         console.log("About to render game board...");
@@ -538,31 +547,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const newCol = col + dc;
             
             // Check if the neighbor is within the board boundaries
-            if (newRow >= 0 && newRow < BOARD_SIZE && newCol >= 0 && newCol < BOARD_SIZE) {
-                neighbors.push({ row: newRow, col: newCol });
-            }
-        }
+            // Function to process captured tiles for both players
+function processCaptureTiles() {
+    // Process tiles that should be captured by Player 1
+    const player1CapturedTiles = [];
+    player1Tiles.forEach(tileKey => {
+        const [row, col] = tileKey.split(',').map(Number);
         
-        return neighbors;
-    }
-    
-    // Get all neighboring tiles that can be captured
-    function getCaptureableTiles(playerTiles, targetColor) {
-        const capturable = new Set();
-        const queue = [];
-        const visited = new Set();
-        
-        // First, find all direct neighbors of owned tiles that match the target color
-        for (const tileKey of playerTiles) {
-            const [row, col] = tileKey.split(',').map(Number);
-            const neighbors = getNeighbors(row, col);
+        // Check all adjacent tiles
+        getAdjacentTiles(row, col).forEach(adj => {
+            const adjTileKey = `${adj.row},${adj.col}`;
             
-            for (const neighbor of neighbors) {
-                const neighborKey = `${neighbor.row},${neighbor.col}`;
-                // If this tile is not already owned, not already visited, and matches the target color
-                if (!player1Tiles.has(neighborKey) && 
-                    !player2Tiles.has(neighborKey) && 
-                    !visited.has(neighborKey) &&
+            // Skip if already owned or out of bounds
+            if (player1Tiles.has(adjTileKey) || player2Tiles.has(adjTileKey) ||
+                adj.row < 0 || adj.row >= CONFIG.BOARD_SIZE ||
+                adj.col < 0 || adj.col >= CONFIG.BOARD_SIZE) {
+                return;
+            }
+            
+            // Capture if same color as player1Color
+            const tile = board[adj.row][adj.col];
+            if (tile && tile.color === player1Color) {
+                player1CapturedTiles.push(adjTileKey);
+            }
+        });
+    });
                     gameBoard[neighbor.row][neighbor.col].color === targetColor) {
                     capturable.add(neighborKey);
                     queue.push(neighbor);
@@ -1201,30 +1210,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
         
         // Update score display based on player number
-          // Reset available colors in color picker
-         function resetAvailableColors() {
-           // Get all color buttons
-           const colorButtons = document.querySelectorAll('.color-button');
+     // Reset available colors for the current player
+       function resetAvailableColors() {
+           // Get all color options
+           const colorOptions = document.querySelectorAll('.color-option');
            
-           // Enable all buttons first
-           colorButtons.forEach(button => {
-             button.disabled = false;
-             button.classList.remove('disabled');
+           // Enable all colors initially
+           colorOptions.forEach(option => {
+               option.disabled = false;
+               option.classList.remove('disabled');
            });
            
-           // If in online game, disable opponent's current color
+           // In multiplayer mode, disable opponent's current color
            if (isOnlineGame) {
-             const opponentColorHex = playerNumber === 1 ? player2Color : player1Color;
-             
-             colorButtons.forEach(button => {
-               if (button.dataset.color === opponentColorHex) {
-                 button.disabled = true;
-                 button.classList.add('disabled');
-               }
-             });
-             
-             // Highlight current player's color
-             colorButtons.forEach(button => {
+               // Disable opponent's current color
+               const opponentColor = currentPlayer === 1 ? player2Color : player1Color;
+               
+               colorOptions.forEach(option => {
+                   if (option.dataset.color === opponentColor) {
+                       option.disabled = true;
+                       option.classList.add('disabled');
+                   }
+               });
+           }
+       }
                if ((playerNumber === 1 && button.dataset.color === player1Color) ||
                    (playerNumber === 2 && button.dataset.color === player2Color)) {
                  button.classList.add('selected');
