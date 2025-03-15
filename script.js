@@ -85,39 +85,38 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Explosion colors
     const EXPLOSION_COLOR = '#000000'; // Black
-    const EXPLOSION_RECOVERY_TURNS = 3; // Number of turns before exploded tiles fully recover
-    const context = canvas.getContext('2d');
+    const colorPalette = document.getElementById('color-palette');
+    const colorButtons = document.querySelectorAll('.color-button');
+    const landmineInfo = document.getElementById('landmine-info');
+    let currentPlayer = 1; // Start with player 1
+    let gameBoard = null; // 2D array representing the game board
+    let selectedColor = null; // Currently selected color by the player
+    let playerColors = {}; // Colors chosen by each player
+    let playerScore = { 1: 0, 2: 0 }; // Scores for each player
+    let opponentScore = { 1: 0, 2: 0 }; // Scores for each player
+    let player1Tiles = []; // Tiles owned by player 1
+    let player2Tiles = []; // Tiles owned by player 2
+    let powerUpCounts = { 'wildcard': 0, 'sabotage': 0, 'teleport': 0 };
+    let activePowerUp = null;
+    let landmines = [];
+    let isGameOver = false;
+    let gameStarted = false;
+    let isOnlineGame = false;
+    let gameId = null;
+    let opponentName = '';
+    let playerName = '';
+    let currentPlayerName = 'You';
+    let opponentPlayerName = 'Opponent';
+    let currentPlayerMoves = 0;
+    let opponentPlayerMoves = 0;
+    
+    // Initialize canvas and context
+    const canvas = document.getElementById('game-board');
+    const ctx = canvas.getContext('2d');
     const hexRadius = CONFIG.HEX_SIZE;
     const hexHeight = Math.sqrt(3) * hexRadius;
     const hexWidth = 2 * hexRadius;
     const boardSize = CONFIG.BOARD_SIZE;
-    const colorPalette = document.getElementById('color-palette');
-    const colorButtons = document.querySelectorAll('.color-button');
-    const powerUpSlots = document.querySelectorAll('.power-up-slot');
-    const landmineInfo = document.getElementById('landmine-info');
-    const playerNameInput = document.getElementById('player-name'); // Input field for player name
-    let currentPlayer = 1; // Player 1 starts
-    let player1Color = null;
-    let player2Color = null;
-    let selectedColor = null;
-    let gameBoard = [];
-    let player1Tiles = [];
-    let player2Tiles = [];
-    let powerUps = {
-        wildcard: 0,
-        teleport: 0,
-        sabotage: 0
-    };
-    let opponentPowerUps = { // To track opponent's power-ups if needed for UI
-        wildcard: 0,
-        teleport: 0,
-        sabotage: 0
-    };
-    let activePowerUp = null;
-    let landmines = [];
-    let gameOver = false;
-    let isOnlineMultiplayer = false;
-    let onlineGameId = null;
     let opponentName = 'Opponent'; // Default opponent name
     let playerName = 'You'; // Default player name
     let moveHistory = [];
