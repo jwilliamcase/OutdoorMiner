@@ -91,38 +91,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const hexHeight = Math.sqrt(3) * hexRadius;
     const hexWidth = 2 * hexRadius;
     const boardSize = CONFIG.BOARD_SIZE;
-    const totalTiles = boardSize * boardSize;
-    let currentPlayer = 1; // 1 for player 1, 2 for player 2
-    let playerColor = null;
-    let opponentColor = null;
+    const colorPalette = document.getElementById('color-palette');
+    const colorButtons = document.querySelectorAll('.color-button');
+    const powerUpSlots = document.querySelectorAll('.power-up-slot');
+    const landmineInfo = document.getElementById('landmine-info');
+    const playerNameInput = document.getElementById('player-name'); // Input field for player name
+    let currentPlayer = 1; // Player 1 starts
+    let player1Color = null;
+    let player2Color = null;
+    let selectedColor = null;
+    let gameBoard = [];
     let player1Tiles = [];
     let player2Tiles = [];
-    let player1PowerUps = { sabotage: 0, wildcard: 0, teleport: 0 };
-    let player2PowerUps = { sabotage: 0, wildcard: 0, teleport: 0 };
-    let landmines = [];
-    let gameBoard = createGameBoard();
-    let selectedColor = null;
-    let isColorSelected = false;
-    let isPowerUpActive = false;
+    let powerUps = {
+        wildcard: 0,
+        teleport: 0,
+        sabotage: 0
+    };
+    let opponentPowerUps = { // To track opponent's power-ups if needed for UI
+        wildcard: 0,
+        teleport: 0,
+        sabotage: 0
+    };
     let activePowerUp = null;
-    let score = { player1: 0, player2: 0 };
-    let opponentScore = 0;
-    let powerUpCounts = { sabotage: 0, wildcard: 0, teleport: 0 };
-    let currentPlayerName = 'You';
-    let opponentPlayerName = 'Opponent';
-    let isOnlineGame = false;
-    let gameCode = null;
-    let playerNumber = 1;
-    let opponentNumber = 2;
-    let currentPlayerMoves = 0;
-
-    // Function to initialize the game
-    function init() {
-    initializeGame();
-    
-    // Ensure critical functions are exposed to window scope
-    window.initializeOnlineGame = initializeOnlineGame || window.initializeOnlineGame;
-    window.getGameState = getGameState || window.getGameState;
+    let landmines = [];
+    let gameOver = false;
+    let isOnlineMultiplayer = false;
+    let onlineGameId = null;
+    let opponentName = 'Opponent'; // Default opponent name
+    let playerName = 'You'; // Default player name
+    let moveHistory = [];
+    let currentMoveDetails = null;
     window.syncGameState = syncGameState;
     window.restartGame = restartGame;
     function initializeGame() {
