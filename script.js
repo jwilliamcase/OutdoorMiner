@@ -75,12 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerNameInput = document.getElementById('player-name');
         playerName = playerNameInput.value.trim() || (playerNumber === 1 ? 'Player 1' : 'Player 2');
         window.playerName = playerName; // Ensure it's globally available
-
+    
         createGameBoard();
         setupInitialTiles();
         resetAvailableColors();
-        renderGameBoard();
-
+    
         // Clear any exploded tiles from previous games
         explodedTiles = [];
         
@@ -93,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle responsive canvas sizing
         resizeGame();
         
-        renderGameBoard();
+        renderGameBoard(); // Only call once for better performance
         updateScoreDisplay();
         updateTurnIndicator();
         setupColorButtons();
@@ -204,22 +203,26 @@ document.addEventListener('DOMContentLoaded', () => {
         player1Tiles.clear();
         player2Tiles.clear();
         
-        // Both players start at bottom left
+        // Player 1 starts at bottom left
         const startRow = BOARD_SIZE - 1;
         const startCol = 0;
         player1Color = gameBoard[startRow][startCol].color;
         player1Tiles.add(`${startRow},${startCol}`);
         
-        // Player 2 also starts at bottom left (but board is flipped for them visually)
-        // Use a different color for player 2
-        const differentColors = COLORS.filter(c => c !== player1Color);
-        player2Color = differentColors[Math.floor(Math.random() * differentColors.length)];
-
         // Player 2 starts at top right corner (opposite to player 1)
         const startRowPlayer2 = 0;
         const startColPlayer2 = BOARD_SIZE - 1;
+        
+        // Use a different random color for player 2
+        const differentColors = COLORS.filter(c => c !== player1Color);
+        player2Color = differentColors[Math.floor(Math.random() * differentColors.length)];
+        
+        // Set the color and add to player 2's tiles
         player2Tiles.add(`${startRowPlayer2},${startColPlayer2}`);
-
+        
+        console.log("Initial setup - Player 1 color:", player1Color, "Player 2 color:", player2Color);
+        console.log("Initial tiles - Player 1:", Array.from(player1Tiles), "Player 2:", Array.from(player2Tiles));
+    
         currentPlayer = 1; // Player 1 starts
     }
     
@@ -1537,7 +1540,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play - now accepts opponentName
-    window.initializeOnlineGame = initializeOnlineGame;
+    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
+        // Set multiplayer variables
+        isOnlineGame = true;
+        playerNumber = pNumber;
+        gameId = gId;
+        playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
+        opponentName = oName || (playerNumber === 1 ? 'Player 2' : 'Player 1');
+    
+        // Make playerName and opponentName globally accessible
+        window.playerName = playerName;
+        window.opponentName = opponentName;
+    
+        // Store the player name in the input field too
+        const playerNameInput = document.getElementById('player-name');
+        if (playerNameInput && playerNameInput.value.trim() === '') {
+            playerNameInput.value = playerName;
+        }
+    
+        // Initialize game with random board
+        initializeGame();
+    
+        // If we're player 2, disable controls until game starts
+        if (playerNumber === 2) {
+            waitingForOpponent = true;
+            disableControls();
+            messageElement.textContent = "Waiting for Player 1 to start the game...";
+        }
+    };
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
@@ -1677,7 +1707,24 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
     };
 
-    window.getGameState = getGameState;
+    window.getGameState = function() {
+        console.log("Getting game state to send to server");
+        console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
+    
+        return {
+            board: gameBoard,
+            currentPlayer: currentPlayer,
+            player1Color: player1Color,
+            player2Color: player2Color,
+            player1Tiles: Array.from(player1Tiles),
+            player2Tiles: Array.from(player2Tiles),
+            player1PowerUps: player1PowerUps,
+            player2PowerUps: player2PowerUps,
+            landmines: landmines,
+            // Include player names
+            playerName: playerName
+        };
+    };
     
     // Make update functions available globally
     window.updateScoreDisplay = updateScoreDisplay;
@@ -1753,4 +1800,58 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize the game when the page loads
     initializeGame();
+    
+    // Make sure critical functions are explicitly assigned to window for multiplayer access
+    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
+        // Set multiplayer variables
+        isOnlineGame = true;
+        playerNumber = pNumber;
+        gameId = gId;
+        playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
+        opponentName = oName || (playerNumber === 1 ? 'Player 2' : 'Player 1');
+
+        // Make playerName and opponentName globally accessible
+        window.playerName = playerName;
+        window.opponentName = opponentName;
+
+        // Store the player name in the input field too
+        const playerNameInput = document.getElementById('player-name');
+        if (playerNameInput && playerNameInput.value.trim() === '') {
+            playerNameInput.value = playerName;
+        }
+
+        // Initialize game with random board
+        initializeGame();
+
+        // If we're player 2, disable controls until game starts
+        if (playerNumber === 2) {
+            waitingForOpponent = true;
+            disableControls();
+            messageElement.textContent = "Waiting for Player 1 to start the game...";
+        }
+    };
+    
+    window.getGameState = function() {
+        console.log("Getting game state to send to server");
+        console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
+
+        return {
+            board: gameBoard,
+            currentPlayer: currentPlayer,
+            player1Color: player1Color,
+            player2Color: player2Color,
+            player1Tiles: Array.from(player1Tiles),
+            player2Tiles: Array.from(player2Tiles),
+            player1PowerUps: player1PowerUps,
+            player2PowerUps: player2PowerUps,
+            landmines: landmines,
+            // Include player names
+            playerName: playerName
+        };
+    };
+    
+    window.syncGameState = syncGameState;
+    window.renderGameBoard = renderGameBoard;
+    window.resizeGame = resizeGame;
+    window.updateScoreDisplay = updateScoreDisplay;
 });

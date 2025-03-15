@@ -442,7 +442,7 @@ setInterval(() => {
             cleanedCount++;
 
             // Clean up players associated with the deleted game
-            activeGames.forEach((game, gameId) => {
+            players.forEach((playerGameId, socketId) => {
                 if (playerGameId === gameId) {
                     players.delete(socketId);
                 }
