@@ -1,8 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Get DOM elements at the start of execution
+    // DOM elements
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
     const playerNameInput = document.getElementById('player-name');
-    const playerNameContainer = document.getElementById('player-name-container');
     
+    // Initialize global variables to prevent redeclaration errors
+    window.canvas = canvas;
+    window.ctx = ctx;
     // Initialize game on page load
     initializeGame(playerNameInput, playerNameContainer);
     
@@ -116,9 +120,22 @@ document.addEventListener('DOMContentLoaded', function() {
     let playerNumber = 1; // Which player this client represents (1 or 2)
     let waitingForOpponent = false; // Whether waiting for opponent's move
     
-    // Initialize the game
-    function initializeGame(playerNameInput, playerNameContainer) {
+    // Initialize the game on page load
+    initializeGame();
+    
+    // Ensure critical functions are exposed to window scope
+    window.initializeOnlineGame = initializeOnlineGame || window.initializeOnlineGame;
+    window.getGameState = getGameState || window.getGameState;
+    window.syncGameState = syncGameState;
+    window.restartGame = restartGame;
+    function initializeGame() {
         console.log('Initializing game...');
+        
+        // Ensure canvas is set correctly
+        if (!canvas || !ctx) {
+            console.error('Canvas or context not found!');
+            return;
+        }
         
         // Get player name
         const playerName = playerNameInput ? playerNameInput.value.trim() || 'Player 1' : 'Player 1';
@@ -1622,8 +1639,8 @@ document.addEventListener('DOMContentLoaded', function() {
         window.sendMove(moveData);
     }
     
-    // Initialize game for online multiplayer
-    function initializeOnlineGame(pNumber, gId, pName, oName) {
+    // Initialize online game from multiplayer module
+    window.initializeOnlineGame = function(playerNum, gameId, name = '', opponentName = '') {
         console.log(`Initializing online game: Player ${pNumber}, Game ID: ${gId}`);
         
         // Set multiplayer variables
@@ -1651,8 +1668,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Game initialized for online play');
     }
     
-    // Get current game state for syncing
-    function getGameState() {
+    // Get current game state for multiplayer sync
+    window.getGameState = function() {
         console.log("Getting game state to send to server");
         console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
 
@@ -1757,8 +1774,10 @@ document.addEventListener('DOMContentLoaded', function() {
         updateTurnIndicator();
         updatePowerUpDisplay();
         
-        // Re-render the board with new state
+        // Render the initial game board
+        console.log('About to render game board...');
         renderGameBoard();
+        console.log('Game board rendering complete.');
         
         // Make sure the board orientation is correct
         resizeGame();
