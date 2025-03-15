@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Reset available colors for the new turn using Filler game logic
     function resetAvailableColors() {
-        availableColors = COLORS.filter((color) => {
+        availableColors = COLORS.filter(color => {
             const opponentColor = currentPlayer === 1 ? player2Color : player1Color;
             return color !== opponentColor;
         });
@@ -1537,7 +1537,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play - now accepts opponentName
-    window.initializeOnlineGame = function initializeOnlineGame(pNumber, gId, pName, oName) {
+    window.initializeOnlineGame = initializeOnlineGame;
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
