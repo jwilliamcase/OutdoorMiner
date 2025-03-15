@@ -254,41 +254,48 @@ io.on('connection', (socket) => {
       console.log(`- Player 2 tiles BEFORE move: ${game.player2Tiles.length}`);
 
       if (move.player1Tiles) {
-        game.player1Tiles = move.player1Tiles;
+      // Log state before tile updates
+      console.log(`- - - - - - - - - - - - - - - - - - - -`);
+      console.log(`- Player ${playerNumber} Tiles BEFORE move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
+      console.log(`- Move P1 Tiles Data:`, move.player1Tiles);
+      console.log(`- Move P2 Tiles Data:`, move.player2Tiles);
+
+
+      // Update tiles based on player number - CORRECTED LOGIC HERE
+      if (playerNumber === 1) {
+        if (move.player1Tiles) {
+          game.player1Tiles = move.player1Tiles;
+          console.log(`  Player 1: Updated P1 tiles based on move: count = ${game.player1Tiles.length}`);
+        } else {
+          console.log(`  Player 1: move.player1Tiles is empty or undefined`);
+        }
+        if (move.player2Tiles) {
+          console.log(`  WARNING: Player 1 move included player2Tiles data, which is unusual and ignored.`);
+        }
+      } else if (playerNumber === 2) {
+        if (move.player2Tiles) {
+          game.player2Tiles = move.player2Tiles;
+          console.log(`  Player 2: Updated P2 tiles based on move: count = ${game.player2Tiles.length}`);
+        } else {
+          console.log(`  Player 2: move.player2Tiles is empty or undefined`);
+        }
+        if (move.player1Tiles) {
+          console.log(`  WARNING: Player 2 move included player1Tiles data, which is unusual and ignored.`);
+        }
       }
 
-      if (move.player2Tiles) {
-        game.player2Tiles = move.player2Tiles;
-      }
 
-      console.log(`- Player 1 tiles AFTER move: ${game.player1Tiles.length}`);
-      console.log(`- Player 2 tiles AFTER move: ${game.player2Tiles.length}`);
+      // Log state after tile updates
+      console.log(`- Player ${playerNumber} Tiles AFTER move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
+      console.log(`- Game State P1 Tiles:`, game.player1Tiles);
+      console.log(`- Game State P2 Tiles:`, game.player2Tiles);
       console.log(`- Player 1 color: ${game.player1Color}`);
       console.log(`- Player 2 color: ${game.player2Color}`);
-
-      console.log(`- Player ${playerNumber} Tiles BEFORE move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
-
-      // Always update both players' tiles to ensure consistency
-      if (move.player1Tiles) {
-        game.player1Tiles = move.player1Tiles;
-        console.log(`  Updated P1 tiles based on move: count = ${game.player1Tiles.length}`);
-      } else {
-        console.log(`  move.player1Tiles is empty or undefined`);
-      }
-
-      if (move.player2Tiles) {
-        game.player2Tiles = move.player2Tiles;
-        console.log(`  Updated P2 tiles based on move: count = ${game.player2Tiles.length}`);
-      } else {
-        console.log(`  move.player2Tiles is empty or undefined`);
-      }
-
-      console.log(`- Player ${playerNumber} Tiles AFTER move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
       console.log(`- - - - - - - - - - - - - - - - - - - -`);
 
 
-    // Switch turns
-    game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+      // Switch turns
+      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
     console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`); // Log turn switch
     }
     
