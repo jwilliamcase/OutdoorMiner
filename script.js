@@ -71,6 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize the game
     function initializeGame() {
+        // Capture player name at game initialization
+        const playerNameInput = document.getElementById('player-name');
+        playerName = playerNameInput.value.trim() || (playerNumber === 1 ? 'Player 1' : 'Player 2');
+        window.playerName = playerName; // Ensure it's globally available
+
         createGameBoard();
         setupInitialTiles();
         resetAvailableColors();
@@ -1078,6 +1083,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateScoreDisplay() {
         const player1Score = player1Tiles.size;
         const player2Score = player2Tiles.size;
+
+        console.log(`updateScoreDisplay: Player 1 Tiles Size: ${player1Score}, Player 2 Tiles Size: ${player2Score}`); // Added log
+
+        // Update score display based on player number
+        if (isOnlineGame) {
+            // For player 1 & 2, use globally set playerName and opponentName
+            if (playerNumber === 1) {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${window.playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${window.opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            } else {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${window.opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${window.playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            }
+
+            // Update turn indicator
+            currentPlayerElement.textContent = currentPlayer === playerNumber ?
+                ('You') : ('Opponent');
+        } else {
+            // Single player mode
+            player1ScoreElement.textContent = player1Score;
+            player2ScoreElement.textContent = player2Score;
+        }
+    }
         
         // Update score display based on player number
         if (isOnlineGame) {
