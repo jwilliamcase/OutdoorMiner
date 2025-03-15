@@ -1,15 +1,54 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize game on page load
-    initializeGame();
+document.addEventListener('DOMContentLoaded', function() {
+    // Get DOM elements at the start of execution
+    const playerNameInput = document.getElementById('player-name');
+    const playerNameContainer = document.getElementById('player-name-container');
     
-    // Expose necessary functions to window for multiplayer
-    window.initializeOnlineGame = initializeOnlineGame;
-    window.syncGameState = syncGameState;
-    window.getGameState = getGameState;
-    window.restartGame = restartGame;
-    window.renderGameBoard = renderGameBoard;
-    window.resizeGame = resizeGame;
+    // Initialize game on page load
+    initializeGame(playerNameInput, playerNameContainer);
+    
+    // Export functions to window for use in multiplayer.js
+    window.handleColorSelection = handleColorSelection;
     window.updateScoreDisplay = updateScoreDisplay;
+    window.setupInitialTiles = setupInitialTiles;
+    window.renderGameBoard = renderGameBoard;
+    window.drawHexagon = drawHexagon;
+    window.getHexCenter = getHexCenter;
+    window.resizeGame = resizeGame;
+    
+    // Explicitly add functions needed by multiplayer.js
+    window.initializeOnlineGame = function(playerNum, gameId, name, opponentName) {
+        console.log(`Initializing online game as Player ${playerNum}`);
+        playerNumber = playerNum;
+        isOnlineGame = true;
+        playerName = name || playerName;
+        window.opponentName = opponentName;
+        
+        // Reset the game
+        initializeGame(document.getElementById('player-name'), document.getElementById('player-name-container'));
+    };
+    
+    window.getGameState = function() {
+        console.log('Getting game state to send to server');
+        console.log(`Player 1 tiles: ${player1Tiles.size} Player 2 tiles: ${player2Tiles.size}`);
+        
+        // Return the current game state
+        return {
+            board: gameBoard,
+            currentPlayer: currentPlayer,
+            player1Color: player1Color,
+            player2Color: player2Color,
+            player1Tiles: Array.from(player1Tiles),
+            player2Tiles: Array.from(player2Tiles),
+            player1PowerUps: player1PowerUps,
+            player2PowerUps: player2PowerUps,
+            landmines: landmines,
+            player1Name: playerName,
+            player2Name: window.opponentName
+        };
+    };
+    
+    window.syncGameState = syncGameState;
+    window.restartGame = restartGame;
     
     // Canvas setup
     const canvas = document.getElementById('game-board');
@@ -78,21 +117,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let waitingForOpponent = false; // Whether waiting for opponent's move
     
     // Initialize the game
-    function initializeGame() {
-        console.log("Initializing game...");
+    function initializeGame(playerNameInput, playerNameContainer) {
+        console.log('Initializing game...');
         
-        // Get player name from input if available
-        const nameFromInput = playerNameInput.value.trim();
-        if (nameFromInput) {
+        // Get player name
+        const playerName = playerNameInput ? playerNameInput.value.trim() || 'Player 1' : 'Player 1';
             playerName = nameFromInput;
         }
         console.log(`Player name set to: ${playerName}`);
         
-        // Create the game board
+        // Create game board
         createGameBoard();
         
         // Set up initial tiles
         setupInitialTiles();
+        
+        // Explicitly render the game board
+        renderGameBoard();
+        console.log('Game board rendered');
         
         // Resize the game to fit the container
         resizeGame();
@@ -228,13 +270,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear existing tiles
         player1Tiles.clear();
         player2Tiles.clear();
+    function setupInitialTiles() {
+        console.log('Setting up initial tiles');
         
-        // Player 1 starts with bottom left corner
-        const player1StartRow = BOARD_SIZE - 1;
+        // Set starting tile for player 1 (bottom left)
+        const player1StartRow = boardSize - 1;
         const player1StartCol = 0;
+        // Add to player tiles sets
         player1Tiles.add(`${player1StartRow},${player1StartCol}`);
+        player2Tiles.add(`${player2StartRow},${player2StartCol}`);
         
-        // Player 2 starts with top right corner
+        console.log(`Initial player1Tiles: ${Array.from(player1Tiles)}`);
+        console.log(`Initial player2Tiles: ${Array.from(player2Tiles)}`);
         const player2StartRow = 0;
         const player2StartCol = BOARD_SIZE - 1;
         player2Tiles.add(`${player2StartRow},${player2StartCol}`);
@@ -405,8 +452,16 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Canvas context not available!");
             return;
         }
+    function renderGameBoard() {
+        // Make sure canvas context exists
+        if (!ctx) {
+            console.error('Canvas context not available');
+            return;
+        }
         
-        // Clear the canvas
+        console.log('Rendering game board...');
+        
+        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         // Make canvas visible
