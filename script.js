@@ -3,7 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', function() {
         resizeGame();
         renderGameBoard();
-    });
+    // Make sure critical functions are explicitly assigned to window for multiplayer access
+    window.initializeOnlineGame = initializeOnlineGame;
+    window.getGameState = getGameState;
+    window.syncGameState = syncGameState;
+    window.renderGameBoard = renderGameBoard;
+    window.resizeGame = resizeGame;
+    window.updateScoreDisplay = updateScoreDisplay;
+    window.restartGame = restartGame;
+});
     // Canvas setup
     const canvas = document.getElementById('game-board');
     const ctx = canvas.getContext('2d');
@@ -71,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize the game
     function initializeGame() {
+        console.log("Initializing game...");
         // Capture player name at game initialization
         const playerNameInput = document.getElementById('player-name');
         playerName = playerNameInput.value.trim() || (playerNumber === 1 ? 'Player 1' : 'Player 2');
@@ -92,7 +101,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle responsive canvas sizing
         resizeGame();
         
+        console.log("About to render game board...");
         renderGameBoard(); // Only call once for better performance
+        console.log("Game board rendered");
+        
         updateScoreDisplay();
         updateTurnIndicator();
         setupColorButtons();
@@ -199,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Set up initial player territories
     function setupInitialTiles() {
+        console.log("Setting up initial tiles...");
         // Clear existing territories
         player1Tiles.clear();
         player2Tiles.clear();
@@ -206,6 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Player 1 starts at bottom left
         const startRow = BOARD_SIZE - 1;
         const startCol = 0;
+        
+        // Make sure the game board has been created
+        if (!gameBoard || !gameBoard[startRow] || !gameBoard[startRow][startCol]) {
+            console.error("Game board not properly initialized in setupInitialTiles!");
+            return;
+        }
+        
         player1Color = gameBoard[startRow][startCol].color;
         player1Tiles.add(`${startRow},${startCol}`);
         
@@ -228,10 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Reset available colors for the new turn using Filler game logic
     function resetAvailableColors() {
-        availableColors = COLORS.filter(color => {
+        availableColors = COLORS.filter(function(color) {
             const opponentColor = currentPlayer === 1 ? player2Color : player1Color;
             return color !== opponentColor;
         });
+    }
     }
 
     // Helper function to find a tile key by color (if owned by any player)
@@ -367,6 +388,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Draw the entire game board
     function renderGameBoard() {
+        console.log("Rendering game board...");
+        console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
+        
+        // Check if canvas context exists
+        if (!ctx) {
+            console.error("Canvas context not available!");
+            return;
+        }
+        
         // Clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -385,12 +415,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const startX = (canvas.width - scaledWidth) / 2;
         const startY = (canvas.height - scaledHeight) / 2;
         
+        // Verify gameBoard is initialized
+        if (!gameBoard || gameBoard.length === 0) {
+            console.error("Game board not initialized!");
+            return;
+        }
+        
+        // Log player tiles for debugging
+        console.log("Player 1 tiles:", Array.from(player1Tiles));
+        console.log("Player 2 tiles:", Array.from(player2Tiles));
+        
         // Draw each hexagon in the grid
         for (let row = 0; row < BOARD_SIZE; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
+                if (!gameBoard[row] || !gameBoard[row][col]) {
+                    console.error(`Missing gameBoard at [${row}][${col}]!`);
+                    continue;
+                }
+                
                 const tile = gameBoard[row][col];
-                const isPlayer1Owned = player1Tiles.has(`${row},${col}`);
-                const isPlayer2Owned = player2Tiles.has(`${row},${col}`);
+                const tileKey = `${row},${col}`;
+                const isPlayer1Owned = player1Tiles.has(tileKey);
+                const isPlayer2Owned = player2Tiles.has(tileKey);
 
                 // Calculate hex position (using offset coordinates for hexagonal grid)
                 // Add padding and adjust for odd rows, apply scaling factor
@@ -406,10 +452,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     displayColor = player1Color;
                     isOwned = true;
                     ownedByPlayer = 1;
+                    console.log(`Tile ${tileKey} is owned by Player 1, color: ${displayColor}`);
                 } else if (isPlayer2Owned) {
                     displayColor = player2Color;
                     isOwned = true;
                     ownedByPlayer = 2;
+                    console.log(`Tile ${tileKey} is owned by Player 2, color: ${displayColor}`);
                 }
 
                 // Check if this tile is being hovered over
@@ -434,6 +482,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             }
         }
+        
+        console.log("Game board rendering complete");
     }
     
     // Get adjacent tiles (neighbors)
@@ -1540,34 +1590,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play - now accepts opponentName
-    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
+    function initializeOnlineGame(pNumber, gId, pName, oName) {
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
         gameId = gId;
         playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
         opponentName = oName || (playerNumber === 1 ? 'Player 2' : 'Player 1');
-    
+
         // Make playerName and opponentName globally accessible
         window.playerName = playerName;
         window.opponentName = opponentName;
-    
+
         // Store the player name in the input field too
         const playerNameInput = document.getElementById('player-name');
         if (playerNameInput && playerNameInput.value.trim() === '') {
             playerNameInput.value = playerName;
         }
-    
+
         // Initialize game with random board
         initializeGame();
-    
+
         // If we're player 2, disable controls until game starts
         if (playerNumber === 2) {
             waitingForOpponent = true;
             disableControls();
             messageElement.textContent = "Waiting for Player 1 to start the game...";
         }
-    };
+    }
+    
+    // Explicitly assign to window object
+    window.initializeOnlineGame = initializeOnlineGame;
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
@@ -1619,12 +1672,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // Sync game state from server
-    window.syncGameState = function(state) {
+    function syncGameState(state) {
         console.log("syncGameState called with state:", state); // Log state received
         console.log("syncGameState: Received gameState:", state); // Log full gameState object
 
         // Log tile counts immediately after receiving state
-        console.log(`syncGameState: Received state - Player 1 Tiles Count: ${state.player1Tiles ? state.player1Tiles.length : 0}, Player 2 Tiles Count: ${state.player2Tiles ? state.player2Tiles.length : 0}`);
+        console.log(`syncGameState: Received player1Tiles count: ${state.player1Tiles ? state.player1Tiles.length : 0}, Received player2Tiles count: ${state.player2Tiles ? state.player2Tiles.length : 0}`);
 
         // Update the current player
         currentPlayer = state.currentPlayer;
@@ -1638,17 +1691,17 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`syncGameState: BEFORE setting tiles - Player 1 Tiles (received):`, state.player1Tiles);
         console.log(`syncGameState: BEFORE setting tiles - Player 2 Tiles (received):`, state.player2Tiles);
 
-        // Update tiles
-        player1Tiles = new Set(state.player1Tiles);
-        player2Tiles = new Set(state.player2Tiles);
-
-        player2PowerUps = state.player2PowerUps || [];
-
-        console.log(`syncGameState: BEFORE setting tiles - Player 1 Tiles Count (received): ${state.player1Tiles ? state.player1Tiles.length : 0}, Player 2 Tiles Count (received): ${state.player2Tiles ? state.player2Tiles.length : 0}`);
-
-        // Update tiles
-        player1Tiles = new Set(state.player1Tiles);
-        player2Tiles = new Set(state.player2Tiles);
+        // Update tiles - clear existing sets and add new items
+        player1Tiles.clear();
+        player2Tiles.clear();
+        
+        if (state.player1Tiles && state.player1Tiles.length > 0) {
+            state.player1Tiles.forEach(tile => player1Tiles.add(tile));
+        }
+        
+        if (state.player2Tiles && state.player2Tiles.length > 0) {
+            state.player2Tiles.forEach(tile => player2Tiles.add(tile));
+        }
 
         // Log the CONTENT of the tile sets after setting them
         console.log(`syncGameState: AFTER setting tiles - Player 1 Tiles Count (set): ${player1Tiles.size}, Player 2 Tiles Count (set): ${player2Tiles.size}`);
@@ -1707,10 +1760,10 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
     };
 
-    window.getGameState = function() {
+    function getGameState() {
         console.log("Getting game state to send to server");
         console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
-    
+
         return {
             board: gameBoard,
             currentPlayer: currentPlayer,
@@ -1724,7 +1777,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Include player names
             playerName: playerName
         };
-    };
+    }
+    
+    // Explicitly assign to window object
+    window.getGameState = getGameState;
     
     // Make update functions available globally
     window.updateScoreDisplay = updateScoreDisplay;

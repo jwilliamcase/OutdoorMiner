@@ -432,17 +432,17 @@ function generateGameCode() {
 }
 
 // Clean up inactive games periodically (every 15 minutes)
-setInterval(() => {
+setInterval(function() {
     const now = Date.now();
     let cleanedCount = 0;
 
-    activeGames.forEach((game, gameId) => {
+    activeGames.forEach(function(game, gameId) {
         if (now - game.lastActivity > 30 * 60 * 1000) {
             activeGames.delete(gameId);
             cleanedCount++;
 
             // Clean up players associated with the deleted game
-            players.forEach((playerGameId, socketId) => {
+            players.forEach(function(playerGameId, socketId) {
                 if (playerGameId === gameId) {
                     players.delete(socketId);
                 }
