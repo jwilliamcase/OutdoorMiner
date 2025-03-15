@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetAvailableColors() {
         availableColors = COLORS.filter((color) => {
             const opponentColor = currentPlayer === 1 ? player2Color : player1Color;
-            return color !== opponentColor; // Only disable opponent's color
+            return color !== opponentColor;
         });
     }
 
@@ -1537,7 +1537,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play - now accepts opponentName
-    window.initializeOnlineGame = function initializeOnlineGame(pNumber, gId, pName, oName) {
+    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
@@ -1567,7 +1567,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // Get current game state for syncing
-    window.getGameState = function getGameState() {
+    window.getGameState = function() {
         console.log("Getting game state to send to server");
         console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
 
