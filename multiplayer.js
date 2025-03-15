@@ -184,7 +184,7 @@
         const sound = document.getElementById(elementId);
         if (sound) {
             sound.currentTime = 0;
-            sound.play().catch(err => console.log('Error playing sound:', err));
+            sound.play().catch(err => console.error('Error playing sound:', err)); // Corrected to console.error
         }
     }
     

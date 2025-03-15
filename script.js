@@ -220,11 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reset available colors for the new turn using Filler game logic
     function resetAvailableColors() {
         availableColors = COLORS.filter(color => {
-            if (currentPlayer === 1) {
-                return color !== player1Color && color !== player2Color && !player1Tiles.has(findTileKeyByColor(color, gameBoard)) && !player2Tiles.has(findTileKeyByColor(color, gameBoard));
-            } else {
-                return color !== player2Color && color !== player1Color && !player1Tiles.has(findTileKeyByColor(color, gameBoard)) && !player2Tiles.has(findTileKeyByColor(color, gameBoard));
-            }
+            const opponentColor = currentPlayer === 1 ? player2Color : player1Color;
+            return color !== opponentColor; // Only disable opponent's color
         });
     }
 
@@ -810,23 +807,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // If we triggered a mine, handle that first
         if (mineTriggerInfo) {
+            console.log("Landmine triggered at:", mineTriggerInfo); // Added logging
             // Capture a single tile to show what happened
             const [mineRow, mineCol] = [mineTriggerInfo.row, mineTriggerInfo.col];
             const mineKey = `${mineRow},${mineCol}`;
-            
+
             if (currentPlayer === 1) {
                 player1Tiles.add(mineKey);
             } else {
                 player2Tiles.add(mineKey);
             }
-            
+
             renderGameBoard();
-            
+
             // Short delay before explosion
             setTimeout(() => {
                 triggerLandmineExplosion(mineRow, mineCol);
             }, 500);
-            
+
             return;
         }
         
