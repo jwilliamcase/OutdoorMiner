@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Game initialized successfully");
         return true;
     }
-    }
+    {
         resizeGame();
         
         console.log("About to render game board...");
