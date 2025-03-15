@@ -1052,20 +1052,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update score display based on player number
         if (isOnlineGame) {
-            // For player 1
+            // For player 1 & 2, use globally set playerName and opponentName
             if (playerNumber === 1) {
-                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
-                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${window.playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${window.opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            } else {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${window.opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${window.playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
             } 
-            // For player 2
-            else {
-                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
-                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
-            }
-            
+
             // Update turn indicator
             currentPlayerElement.textContent = currentPlayer === playerNumber ? 
-                (playerName || 'Your') : (opponentName || 'Opponent\'s');
+                (window.playerName || 'Your') : (window.opponentName || 'Opponent\'s');
         } else {
             // Single player mode
             player1ScoreElement.textContent = player1Score;
@@ -1480,26 +1478,28 @@ document.addEventListener('DOMContentLoaded', () => {
         window.sendMove(moveData);
     }
     
-    // Initialize the game for online play
-    window.initializeOnlineGame = function(pNumber, gId, pName) {
+    // Initialize the game for online play - now accepts opponentName
+    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
         gameId = gId;
         playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
-        
-        // Make playerName globally accessible
+        opponentName = oName; // Store opponent name
+
+        // Make playerName and opponentName globally accessible
         window.playerName = playerName;
-        
+        window.opponentName = opponentName;
+
         // Store the player name in the input field too
         const playerNameInput = document.getElementById('player-name');
         if (playerNameInput && playerNameInput.value.trim() === '') {
             playerNameInput.value = playerName;
         }
-        
+
         // Initialize game with random board
         initializeGame();
-        
+
         // If we're player 2, disable controls until game starts
         if (playerNumber === 2) {
             waitingForOpponent = true;

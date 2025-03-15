@@ -56,8 +56,10 @@ io.on('connection', (socket) => {
     const gameState = {
       id: gameId,
       players: [
-        { id: socket.id, number: 1, ready: false, name: playerName }
+        { id: socket.id, socketId: socket.id, number: 1, ready: false, name: playerName }
       ],
+      player1Name: playerName, // Store player 1's name directly
+      player2Name: null,       // Initialize player 2's name as null
       board: null,
       currentPlayer: 1,
       player1Color: null,
@@ -104,17 +106,18 @@ io.on('connection', (socket) => {
     
     // Add player to the game
     const name = playerName || 'Player 2';
-    game.players.push({ id: socket.id, number: 2, ready: false, name: name });
+    game.players.push({ id: socket.id, socketId: socket.id, number: 2, ready: false, name: name });
     players.set(socket.id, gameId);
-    
+    game.player2Name = name; // Store player 2's name
+
     // Join the socket to the game room
     socket.join(gameId);
-    
+
     console.log(`Player ${socket.id} (${name}) joined game ${gameId}`);
-    
-    // Notify all players in the room
-    socket.emit('game-joined', { gameId, playerNumber: 2 });
-    io.to(gameId).emit('player-joined', { playerNumber: 2, playerName: name });
+
+    // Notify joining player and room about player join, include names in game-joined response
+    socket.emit('game-joined', { gameId, playerNumber: 2, player1Name: game.player1Name, player2Name: game.player2Name });
+    io.to(gameId).emit('player-joined', { playerNumber: 2, playerName: name, player1Name: game.player1Name, player2Name: game.player2Name });
   });
   
   // Initialize game with board state
@@ -148,19 +151,15 @@ io.on('connection', (socket) => {
     const allReady = game.players.every(p => p.ready);
     
     if (allReady) {
-      // Get player names
-      const player1 = game.players.find(p => p.number === 1);
-      const player2 = game.players.find(p => p.number === 2);
-      
       // Log state before sending
       console.log(`Game ${gameId} starting with board state:`, {
         player1Tiles: game.player1Tiles.length,
         player2Tiles: game.player2Tiles.length,
-        p1Name: player1?.name,
-        p2Name: player2?.name
+        p1Name: game.player1Name,
+        p2Name: game.player2Name
       });
-      
-      // Broadcast game state to all players
+
+      // Broadcast game state to all players, using names directly from gameState
       io.to(gameId).emit('game-started', { gameState: {
         board: game.board,
         currentPlayer: game.currentPlayer,
@@ -171,8 +170,8 @@ io.on('connection', (socket) => {
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
         landmines: game.landmines,
-        player1Name: player1 ? player1.name : 'Player 1',
-        player2Name: player2 ? player2.name : 'Player 2'
+        player1Name: game.player1Name, // Use names from gameState
+        player2Name: game.player2Name  // Use names from gameState
       }});
     }
   });
@@ -294,15 +293,11 @@ io.on('connection', (socket) => {
     // Update last activity
     game.lastActivity = Date.now();
     
-    // Get player names
-    const player1 = game.players.find(p => p.number === 1);
-    const player2 = game.players.find(p => p.number === 2);
-    
     // Log game state changes
     console.log(`Move by Player ${playerNumber}: ${move.type}. Now Player ${game.currentPlayer}'s turn.`);
     console.log(`Player 1 tiles: ${game.player1Tiles.length}, Player 2 tiles: ${game.player2Tiles.length}`);
-    
-    // Broadcast the updated game state to all players
+
+    // Broadcast the updated game state to all players, using names directly from gameState
     io.to(gameId).emit('game-update', { 
       type: move.type,
       gameState: {
@@ -315,8 +310,8 @@ io.on('connection', (socket) => {
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
         landmines: game.landmines,
-        player1Name: player1 ? player1.name : 'Player 1',
-        player2Name: player2 ? player2.name : 'Player 2',
+        player1Name: game.player1Name, // Use names from gameState
+        player2Name: game.player2Name, // Use names from gameState
         moveDetails: move
       } 
     });
@@ -386,7 +381,13 @@ io.on('connection', (socket) => {
 
 // Game code generator
 function generateGameCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const codeLength = 6;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < codeLength; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 }
 
 // Clean up inactive games periodically (every 15 minutes)
