@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupInitialTiles();
         resetAvailableColors();
         renderGameBoard();
+        renderGameBoard();
 
         // Clear any exploded tiles from previous games
         explodedTiles = [];
@@ -1537,7 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Initialize the game for online play - now accepts opponentName
-    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
+    window.initializeOnlineGame = function initializeOnlineGame(pNumber, gId, pName, oName) {
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
@@ -1567,7 +1568,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // Get current game state for syncing
-    window.getGameState = function() {
+    window.getGameState = function getGameState() {
         console.log("Getting game state to send to server");
         console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
 
