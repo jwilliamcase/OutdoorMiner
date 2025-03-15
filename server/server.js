@@ -35,12 +35,14 @@ app.get('/', (req, res) => {
 
 // Simple API status endpoint for health checks
 app.get('/api/status', (req, res) => {
-    res.json({ status: 'ok', games: games.size });
+    res.json({
+      status: 'ok',
+      games: activeGames.size,
+      clientOrigin: req.headers.origin || 'unknown',
+      serverTime: new Date().toISOString(),
+      message: 'Server is running and CORS is properly configured'
+    });
 });
-    clientOrigin: req.headers.origin || 'unknown',
-    serverTime: new Date().toISOString(),
-    message: 'Server is running and CORS is properly configured'
-  });
 });
 
 // Socket.io handling
