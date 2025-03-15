@@ -1582,13 +1582,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`syncGameState: AFTER setting tiles - Player 1 Tiles (content):`, player1Tiles);
         console.log(`syncGameState: AFTER setting tiles - Player 2 Tiles (content):`, player2Tiles);
 
-
-        // Update power-ups
-        player1PowerUps = state.player1PowerUps || [];
-        player2PowerUps = state.player2PowerUps || [];
-
-        console.log(`syncGameState: AFTER setting tiles - Player 1 Tiles Count (set): ${player1Tiles.size}, Player 2 Tiles Count (set): ${player2Tiles.size}`);
-
         // Update power-ups
         player1PowerUps = state.player1PowerUps || [];
         player2PowerUps = state.player2PowerUps || [];

@@ -234,56 +234,54 @@ io.on('connection', (socket) => {
       if (move.player1Tiles) {
         game.player1Tiles = move.player1Tiles;
       }
-      
+
       if (move.player2Tiles) {
         game.player2Tiles = move.player2Tiles;
       }
-      
+
       // Update colors if explicitly provided
       if (move.player1Color) {
         game.player1Color = move.player1Color;
       }
-      
+
       if (move.player2Color) {
         game.player2Color = move.player2Color;
       }
-      
+
       // Log the state after update for debugging
       console.log(`After move from Player ${playerNumber}:`);
       console.log(`- Player 1 tiles BEFORE move: ${game.player1Tiles.length}`);
       console.log(`- Player 2 tiles BEFORE move: ${game.player2Tiles.length}`);
 
-      if (move.player1Tiles) {
+
       // Log state before tile updates
       console.log(`- - - - - - - - - - - - - - - - - - - -`);
       console.log(`- Player ${playerNumber} Tiles BEFORE move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
       console.log(`- Move P1 Tiles Data:`, move.player1Tiles);
       console.log(`- Move P2 Tiles Data:`, move.player2Tiles);
 
-
       // Update tiles based on player number - CORRECTED LOGIC HERE
       if (playerNumber === 1) {
-        if (move.player1Tiles) {
-          game.player1Tiles = move.player1Tiles;
-          console.log(`  Player 1: Updated P1 tiles based on move: count = ${game.player1Tiles.length}`);
-        } else {
-          console.log(`  Player 1: move.player1Tiles is empty or undefined`);
-        }
-        if (move.player2Tiles) {
-          console.log(`  WARNING: Player 1 move included player2Tiles data, which is unusual and ignored.`);
-        }
+          if (move.player1Tiles) {
+              game.player1Tiles = move.player1Tiles;
+              console.log(`  Player 1: Updated P1 tiles based on move: count = ${game.player1Tiles.length}`);
+          } else {
+              console.log(`  Player 1: move.player1Tiles is empty or undefined`);
+          }
+          if (move.player2Tiles) {
+              console.log(`  WARNING: Player 1 move included player2Tiles data, which is unusual and ignored.`);
+          }
       } else if (playerNumber === 2) {
-        if (move.player2Tiles) {
-          game.player2Tiles = move.player2Tiles;
-          console.log(`  Player 2: Updated P2 tiles based on move: count = ${game.player2Tiles.length}`);
-        } else {
-          console.log(`  Player 2: move.player2Tiles is empty or undefined`);
-        }
-        if (move.player1Tiles) {
-          console.log(`  WARNING: Player 2 move included player1Tiles data, which is unusual and ignored.`);
-        }
+          if (move.player2Tiles) {
+              game.player2Tiles = move.player2Tiles;
+              console.log(`  Player 2: Updated P2 tiles based on move: count = ${game.player2Tiles.length}`);
+          } else {
+              console.log(`  Player 2: move.player2Tiles is empty or undefined`);
+          }
+          if (move.player1Tiles) {
+              console.log(`  WARNING: Player 2 move included player1Tiles data, which is unusual and ignored.`);
+          }
       }
-
 
       // Log state after tile updates
       console.log(`- Player ${playerNumber} Tiles AFTER move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
@@ -293,11 +291,9 @@ io.on('connection', (socket) => {
       console.log(`- Player 2 color: ${game.player2Color}`);
       console.log(`- - - - - - - - - - - - - - - - - - - -`);
 
-
       // Switch turns
       game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
-    console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`); // Log turn switch
-    }
+      console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`); // Log turn switch
     
     // Example of power-up usage
     if (move.type === 'power-up') {
@@ -437,27 +433,27 @@ function generateGameCode() {
 
 // Clean up inactive games periodically (every 15 minutes)
 setInterval(() => {
-  const now = Date.now();
-  let cleanedCount = 0;
+    const now = Date.now();
+    let cleanedCount = 0;
 
-  activeGames.forEach((game, gameId) => {
-    // If the game has been inactive for more than 30 minutes, remove it
-    if (now - game.lastActivity > 30 * 60 * 1000) {
-      activeGames.delete(gameId);
-      cleanedCount++;
+    activeGames.forEach((game, gameId) => {
+        if (now - game.lastActivity > 30 * 60 * 1000) {
+            activeGames.delete(gameId);
+            cleanedCount++;
 
-      // Remove any players still associated with this game
-      players.forEach((playerSocketId, socketId) => {
-        if (playerSocketId === gameId) {
-          players.delete(socketId);
+            // Clean up players associated with the deleted game
+            players.forEach((playerGameId, socketId) => {
+                if (playerGameId === gameId) {
+                    players.delete(socketId);
+                }
+            });
+            console.log(`Game ${gameId} removed due to inactivity.`);
         }
-      });
-    }
-  });
+    });
 
-  if (cleanedCount > 0) {
-    console.log(`Cleaned up ${cleanedCount} inactive games`);
-  }
+    if (cleanedCount > 0) {
+        console.log(`Cleaned up ${cleanedCount} inactive games in this interval.`);
+    }
 }, 15 * 60 * 1000);
 
 // Start the server
