@@ -436,25 +436,25 @@ function generateGameCode() {
 }
 
 // Clean up inactive games periodically (every 15 minutes)
-setInterval(() => {
+setInterval(function() {
   const now = Date.now();
   let cleanedCount = 0;
-  
-  activeGames.forEach((game, gameId) => {
+
+  activeGames.forEach(function(game, gameId) {
     // If the game has been inactive for more than 30 minutes, remove it
     if (now - game.lastActivity > 30 * 60 * 1000) {
       activeGames.delete(gameId);
       cleanedCount++;
-      
+
       // Remove any players still associated with this game
-      players.forEach((playerGameId, playerId) => {
-        if (playerGameId === gameId) {
-          players.delete(playerId);
+      players.forEach(function(playerSocketId, socketId) {
+        if (playerSocketId === gameId) {
+          players.delete(socketId);
         }
       });
     }
   });
-  
+
   if (cleanedCount > 0) {
     console.log(`Cleaned up ${cleanedCount} inactive games`);
   }
