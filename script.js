@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
-    const playerNameInput = document.getElementById('player-name');
+
     
     // Initialize global variables to prevent redeclaration errors
     window.canvas = canvas;
