@@ -436,18 +436,18 @@ function generateGameCode() {
 }
 
 // Clean up inactive games periodically (every 15 minutes)
-setInterval(function() {
+setInterval(() => {
   const now = Date.now();
   let cleanedCount = 0;
 
-  activeGames.forEach(function(game, gameId) {
+  activeGames.forEach((game, gameId) => {
     // If the game has been inactive for more than 30 minutes, remove it
     if (now - game.lastActivity > 30 * 60 * 1000) {
       activeGames.delete(gameId);
       cleanedCount++;
 
       // Remove any players still associated with this game
-      players.forEach(function(playerSocketId, socketId) {
+      players.forEach((playerSocketId, socketId) => {
         if (playerSocketId === gameId) {
           players.delete(socketId);
         }
