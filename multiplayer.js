@@ -448,7 +448,7 @@
     
     // Handle game update event
     function handleGameUpdate(data) {
-        console.log('Game update:', data);
+        console.log('Received game-update event:', data); // Log event received
         
         // Update player names if available
         if (data.gameState.player1Name && playerNumber === 1) {
@@ -471,8 +471,9 @@
             opponentName = data.gameState.player2Name;
             window.opponentName = opponentName;
         }
-        
+
         // Sync game state
+        console.log('Passing gameState to syncGameState:', data.gameState); // Log gameState
         window.syncGameState(data.gameState);
         
         // Update player names in UI

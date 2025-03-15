@@ -1063,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update turn indicator
             currentPlayerElement.textContent = currentPlayer === playerNumber ? 
-                (window.playerName || 'Your') : (window.opponentName || 'Opponent\'s');
+                ('You') : ('Opponent');
         } else {
             // Single player mode
             player1ScoreElement.textContent = player1Score;
@@ -1530,11 +1530,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sync game state from server
     window.syncGameState = function(state) {
-        console.log("Syncing game state:", state);
+        console.log("syncGameState called with state:", state); // Log state received
         
         // Update the current player
         currentPlayer = state.currentPlayer;
         window.currentPlayer = currentPlayer;
+        console.log(`syncGameState: currentPlayer updated to ${currentPlayer}`); // Log currentPlayer update
         
         // Update player colors
         player1Color = state.player1Color;
@@ -1601,6 +1602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Enable game controls
     function enableControls() {
+        console.log("enableControls called. Current Player:", currentPlayer, "Player Number:", playerNumber); // Log enableControls call
         document.querySelectorAll('.color-button').forEach(button => {
             if (availableColors.includes(button.getAttribute('data-color'))) {
                 button.disabled = false;
@@ -1615,6 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Disable game controls
     function disableControls() {
+        console.log("disableControls called. Current Player:", currentPlayer, "Player Number:", playerNumber); // Log disableControls call
         document.querySelectorAll('.color-button').forEach(button => {
             button.disabled = true;
             button.classList.add('disabled');

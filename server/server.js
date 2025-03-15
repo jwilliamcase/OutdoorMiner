@@ -251,8 +251,9 @@ io.on('connection', (socket) => {
       console.log(`- Player 1 color: ${game.player1Color}`);
       console.log(`- Player 2 color: ${game.player2Color}`);
       
-      // Switch turns
-      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+    // Switch turns
+    game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+    console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`); // Log turn switch
     }
     
     // Example of power-up usage
@@ -296,6 +297,7 @@ io.on('connection', (socket) => {
     // Log game state changes
     console.log(`Move by Player ${playerNumber}: ${move.type}. Now Player ${game.currentPlayer}'s turn.`);
     console.log(`Player 1 tiles: ${game.player1Tiles.length}, Player 2 tiles: ${game.player2Tiles.length}`);
+    console.log(`Game ${gameId}: Emitting game-update event. Current Player: ${game.currentPlayer}`); // Log before emit
 
     // Broadcast the updated game state to all players, using names directly from gameState
     io.to(gameId).emit('game-update', { 
