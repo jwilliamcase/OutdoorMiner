@@ -427,37 +427,37 @@ function generateGameCode() {
   let code = '';
   for (let i = 0; i < codeLength; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-// Clean up inactive games periodically (every 15 minutes)
-setInterval(function() {
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    activeGames.forEach(function(game, gameId) {
-        if (now - game.lastActivity > 30 * 60 * 1000) {
-            activeGames.delete(gameId);
-            cleanedCount++;
-
-            // Clean up players associated with the deleted game
-            players.forEach(function(playerGameId, socketId) {
-                if (playerGameId === gameId) {
-                    players.delete(socketId);
-                }
-            });
-            console.log(`Game ${gameId} removed due to inactivity.`);
-        }
+  // Cleanup inactive games periodically
+  setInterval(function() {
+    const currentTime = Date.now();
+    const inactiveThreshold = 60 * 60 * 1000; // 1 hour
+    
+    // Check each game
+    Object.keys(games).forEach(function(gameId) {
+      const game = games[gameId];
+      
+      // Skip games that don't have lastActivity timestamp
+      if (!game.lastActivity) {
+        game.lastActivity = currentTime;
+        return;
+      }
+      
+      // Check if the game is inactive
+      if (currentTime - game.lastActivity > inactiveThreshold) {
+        console.log(`Game ${gameId} is inactive for more than 1 hour. Removing...`);
+        delete games[gameId];
+      }
     });
-
-    if (cleanedCount > 0) {
-        console.log(`Cleaned up ${cleanedCount} inactive games in this interval.`);
-    }
-}, 15 * 60 * 1000);
-
-// Start the server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    
+    // Check for disconnected players
+    Object.keys(players).forEach(function(playerId) {
+      const player = players[playerId];
+      
+      // Remove player if inactive for too long
+      if (currentTime - player.lastActivity > inactiveThreshold) {
+        console.log(`Player ${playerId} is inactive for more than 1 hour. Removing...`);
+        delete players[playerId];
+      }
+    });
+  }, 30 * 60 * 1000); // Run every 30 minutes
 });
