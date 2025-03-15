@@ -208,22 +208,36 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use a different color for player 2
         const differentColors = COLORS.filter(c => c !== player1Color);
         player2Color = differentColors[Math.floor(Math.random() * differentColors.length)];
-        
+
+        // Player 2 starts at top right corner (opposite to player 1)
+        const startRowPlayer2 = 0;
+        const startColPlayer2 = BOARD_SIZE - 1;
+        player2Tiles.add(`${startRowPlayer2},${startColPlayer2}`);
+
         currentPlayer = 1; // Player 1 starts
     }
     
-    // Reset available colors for the new turn
+    // Reset available colors for the new turn using Filler game logic
     function resetAvailableColors() {
-        availableColors = [...COLORS];
-        
-        // Players can't select their own current color or opponent's current color
-        if (currentPlayer === 1) {
-            // Can't select own or opponent's current color
-            availableColors = availableColors.filter(c => c !== player1Color && c !== player2Color);
-        } else {
-            // Can't select own or opponent's current color
-            availableColors = availableColors.filter(c => c !== player1Color && c !== player2Color);
+        availableColors = COLORS.filter(color => {
+            if (currentPlayer === 1) {
+                return color !== player1Color && color !== player2Color && !player1Tiles.has(findTileKeyByColor(color, gameBoard)) && !player2Tiles.has(findTileKeyByColor(color, gameBoard));
+            } else {
+                return color !== player2Color && color !== player1Color && !player1Tiles.has(findTileKeyByColor(color, gameBoard)) && !player2Tiles.has(findTileKeyByColor(color, gameBoard));
+            }
+        });
+    }
+
+    // Helper function to find a tile key by color (if owned by any player)
+    function findTileKeyByColor(color, board) {
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                if (board[row][col].color === color) {
+                    return `${row},${col}`;
+                }
+            }
         }
+        return null; // Color not found on the board
     }
     
     // Draw a single hexagon

@@ -442,7 +442,7 @@ setInterval(() => {
             cleanedCount++;
 
             // Clean up players associated with the deleted game
-            players.forEach((playerGameId, socketId) => {
+            players.forEach((socketId, playerGameId) => { // Corrected parameter order
                 if (playerGameId === gameId) {
                     players.delete(socketId);
                 }
