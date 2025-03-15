@@ -38,8 +38,7 @@
     let opponentName = '';
     let connected = false;
     let unreadMessages = 0;
-
-    // Game state
+    let ctx = null;
     let isOnlineGame = false;
     
     // Initialize multiplayer
