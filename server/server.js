@@ -262,6 +262,20 @@ io.on('connection', (socket) => {
       console.log(`- Player 1 color: ${game.player1Color}`);
       console.log(`- Player 2 color: ${game.player2Color}`);
 
+      console.log(`- Player ${playerNumber} Tiles BEFORE move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
+
+      // Always update both players' tiles to ensure consistency
+      if (move.player1Tiles) {
+        game.player1Tiles = move.player1Tiles;
+      }
+
+      if (move.player2Tiles) {
+        game.player2Tiles = move.player2Tiles;
+      }
+
+      console.log(`- Player ${playerNumber} Tiles AFTER move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
+
+
     // Switch turns
     game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
     console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`); // Log turn switch
