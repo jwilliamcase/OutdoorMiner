@@ -1,37 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize game on page load
-      window.addEventListener('DOMContentLoaded', function() {
-        initializeGame();
-      });
-      
-        // Expose necessary functions to window for multiplayer
-        window.initializeOnlineGame = initializeOnlineGame;
-        window.syncGameState = syncGameState;
-        window.getGameState = getGameState;
-        window.restartGame = restartGame;
-        window.renderGameBoard = renderGameBoard;
-        window.playerName = "";
-        window.opponentName = "";
-        
-        console.log("Window function assignments completed:");
-        console.log("window.initializeOnlineGame:", typeof window.initializeOnlineGame);
-        console.log("window.syncGameState:", typeof window.syncGameState);
-        console.log("window.getGameState:", typeof window.getGameState);
-        console.log("window.restartGame:", typeof window.restartGame);
-        console.log("window.renderGameBoard:", typeof window.renderGameBoard);
-      window.resizeGame = resizeGame;
-      window.playerName = playerName;
-      window.opponentName = opponentName;
-      window.currentPlayer = currentPlayer;
-    // Make sure critical functions are explicitly assigned to window for multiplayer access
+    initializeGame();
+    
+    // Expose necessary functions to window for multiplayer
     window.initializeOnlineGame = initializeOnlineGame;
-    window.getGameState = getGameState;
     window.syncGameState = syncGameState;
+    window.getGameState = getGameState;
+    window.restartGame = restartGame;
     window.renderGameBoard = renderGameBoard;
     window.resizeGame = resizeGame;
     window.updateScoreDisplay = updateScoreDisplay;
-    window.restartGame = restartGame;
-});
+    
     // Canvas setup
     const canvas = document.getElementById('game-board');
     const ctx = canvas.getContext('2d');
@@ -44,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const createChallengeButton = document.getElementById('create-challenge');
     const challengeCodeInput = document.getElementById('challenge-code');
     const connectChallengeButton = document.getElementById('connect-challenge');
+    const playerNameInput = document.getElementById('player-name');
 
     // Game constants
     const BOARD_SIZE = 12; // Increased from 11 to 12 for larger board
@@ -77,6 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let hoverTile = null; // Track which tile the mouse is hovering over
     let landmines = []; // Array to store landmine positions
     let explodedTiles = []; // Array to track exploded tiles and their recovery status
+    let playerName = "Player 1"; // Default player name
+    let opponentName = "Player 2"; // Default opponent name
     
     // Power-up system
     const COMBO_THRESHOLD = 4; // Minimum tiles to capture to possibly get a power-up
@@ -93,9 +75,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameId = null; // Unique identifier for this game
     let isOnlineGame = false; // Whether this is an online multiplayer game
     let playerNumber = 1; // Which player this client represents (1 or 2)
+    let waitingForOpponent = false; // Whether waiting for opponent's move
+    
     // Initialize the game
     function initializeGame() {
         console.log("Initializing game...");
+        
+        // Get player name from input if available
+        const nameFromInput = playerNameInput.value.trim();
+        if (nameFromInput) {
+            playerName = nameFromInput;
+        }
+        console.log(`Player name set to: ${playerName}`);
         
         // Create the game board
         createGameBoard();
@@ -117,27 +108,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset available colors
         resetAvailableColors();
         
-        // Initialize player name
-        playerName = document.getElementById('player-name').value.trim() || "Player 1";
-        
         // Setup color buttons
         setupColorButtons();
         
+        // Setup power-up listeners
+        setupPowerUpListeners();
+        
+        messageElement.textContent = "Welcome to Outdoor Miner! Your turn. Watch out for hidden landmines!";
+        
         console.log("Game initialized successfully");
         return true;
-    }
-    {
-        resizeGame();
-        
-        console.log("About to render game board...");
-        renderGameBoard(); // Only call once for better performance
-        console.log("Game board rendered");
-        
-        updateScoreDisplay();
-        updateTurnIndicator();
-        setupColorButtons();
-        setupPowerUpListeners();
-        messageElement.textContent = "Welcome to Outdoor Miner! Your turn. Watch out for hidden landmines!";
     }
     
     // Function to handle responsive canvas scaling
@@ -238,6 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!placed) {
                 console.warn(`Failed to place mine in quadrant after ${maxAttempts} attempts`);
             }
+        }
+    }
+    
     // Set up initial tiles for both players
     function setupInitialTiles() {
         console.log('Setting up initial tiles...');
@@ -300,22 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set current player
         currentPlayer = 1;
     }
-        // Player 2 starts at top right corner (opposite to player 1)
-        const startRowPlayer2 = 0;
-        const startColPlayer2 = BOARD_SIZE - 1;
-        
-        // Use a different random color for player 2
-        const differentColors = COLORS.filter(c => c !== player1Color);
-        player2Color = differentColors[Math.floor(Math.random() * differentColors.length)];
-        
-        // Set the color and add to player 2's tiles
-        player2Tiles.add(`${startRowPlayer2},${startColPlayer2}`);
-        
-        console.log("Initial setup - Player 1 color:", player1Color, "Player 2 color:", player2Color);
-        console.log("Initial tiles - Player 1:", Array.from(player1Tiles), "Player 2:", Array.from(player2Tiles));
-    
-        currentPlayer = 1; // Player 1 starts
-    }
     
     // Reset available colors for the new turn using Filler game logic
     function resetAvailableColors() {
@@ -327,41 +294,50 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log("Available colors reset:", availableColors);
     }
-    }
-
-    // Helper function to find a tile key by color (if owned by any player)
-    function findTileKeyByColor(color, board) {
-        for (let row = 0; row < BOARD_SIZE; row++) {
-            for (let col = 0; col < BOARD_SIZE; col++) {
-                if (board[row][col].color === color) {
-                    return `${row},${col}`;
-                }
-            }
-        }
-        return null; // Color not found on the board
-    }
     
-    // Draw a single hexagon
-      // Draw a hexagon on the canvas
-      function drawHexagon(col, row, color, isOwned = false, ownedBy = 0) {
-        // Skip logging to reduce console noise
-        // console.log(`drawHexagon - color: ${color}, isOwned: ${isOwned}, ownedBy: ${ownedBy}`);
+    // Draw a hexagon on the canvas
+    function drawHexagon(col, row, color, isOwned = false, ownedBy = 0) {
+        if (!ctx) {
+            console.error("Canvas context not available in drawHexagon");
+            return;
+        }
         
-        // Get position
-        const { x, y } = getHexPosition(col, row);
+        // Calculate board position and scaling
+        const boardWidth = BOARD_SIZE * HEX_WIDTH;
+        const boardHeight = BOARD_SIZE * HEX_HEIGHT * 0.75;
+        const xScale = (canvas.width - BOARD_PADDING * 2) / boardWidth;
+        const yScale = (canvas.height - BOARD_PADDING * 2) / boardHeight;
+        const scaleFactor = Math.min(xScale, yScale, 1.0);
+        
+        // Apply scaling
+        const scaledWidth = boardWidth * scaleFactor;
+        const scaledHeight = boardHeight * scaleFactor;
+        const startX = (canvas.width - scaledWidth) / 2;
+        const startY = (canvas.height - scaledHeight) / 2;
+        
+        // Calculate hex position with offset for odd rows
+        const x = startX + col * HEX_WIDTH * scaleFactor + (row % 2) * (HEX_WIDTH / 2) * scaleFactor + BOARD_PADDING;
+        const y = startY + row * (HEX_HEIGHT * 0.75) * scaleFactor + BOARD_PADDING;
+        const size = HEX_SIZE * scaleFactor;
+        
+        // Save context state
+        ctx.save();
+        
+        // Log for debugging
+        console.log(`drawHexagon - color: ${color}, isOwned: ${isOwned}, ownedBy: ${ownedBy}`);
         
         // Draw the hexagon shape
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
-          const angle = 2 * Math.PI / 6 * i;
-          const xPos = x + hexSize * Math.cos(angle);
-          const yPos = y + hexSize * Math.sin(angle);
-          
-          if (i === 0) {
-            ctx.moveTo(xPos, yPos);
-          } else {
-            ctx.lineTo(xPos, yPos);
-          }
+            const angle = 2 * Math.PI / 6 * i;
+            const hx = x + size * Math.cos(angle);
+            const hy = y + size * Math.sin(angle);
+            
+            if (i === 0) {
+                ctx.moveTo(hx, hy);
+            } else {
+                ctx.lineTo(hx, hy);
+            }
         }
         ctx.closePath();
         
@@ -369,37 +345,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = color;
         ctx.fill();
         
-        // Draw border
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Draw ownership indicator
+        // Draw ownership indicator if owned
         if (isOwned) {
-          ctx.beginPath();
-          ctx.arc(x, y, hexSize / 3, 0, 2 * Math.PI);
-          ctx.fillStyle = ownedBy === 1 ? player1Color : player2Color;
-          ctx.fill();
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-        
-        // Draw landmine indicator if debugging is enabled
-        if (CONFIG.DEBUG_MODE) {
-          // Check if this tile has a landmine
-          const tile = gameBoard[row][col];
-          if (tile && tile.hasMine) {
-            ctx.beginPath();
-            ctx.arc(x, y, hexSize / 5, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ff0000';
-            ctx.fill();
-          }
-        }
-      }
-            ctx.stroke();
-            
-            // Draw a glowing circle to indicate ownership
             ctx.beginPath();
             ctx.arc(x, y, size / 3, 0, 2 * Math.PI);
             const ownerColor = ownedBy === 1 ? '#374785' : '#F76C6C';
@@ -415,35 +362,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             ctx.fillStyle = circleGradient;
             ctx.fill();
-         else {
-            // Add thick black outline for unjoined tiles
-            ctx.strokeStyle = '#000';
+            
+            // Add border to ownership indicator
+            ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.stroke();
         }
         
-        // We don't visually show the landmines - they're hidden surprises
-        // But we could add code here to make them visible for debugging
+        // Add border to hexagon
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.stroke();
         
-        // Log parameters for debugging
-        console.log(`drawHexagon - color: ${color}, isOwned: ${isOwned}, ownedBy: ${ownedBy}`);
-
         // Restore context state
         ctx.restore();
-    
-    
-    // Helper function to convert hex color to RGB
-    function hexToRgb(hex) {
-        // Remove # if present
-        hex = hex.replace(/^#/, '');
-        
-        // Parse r, g, b values
-        let bigint = parseInt(hex, 16);
-        let r = (bigint >> 16) & 255;
-        let g = (bigint >> 8) & 255;
-        let b = bigint & 255;
-        
-        return { r, g, b };
     }
     
     // Helper function to darken a color
@@ -480,21 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Make canvas visible
         canvas.style.display = 'block';
         
-        // Calculate the center position for the board
-        const boardWidth = BOARD_SIZE * HEX_WIDTH;
-        const boardHeight = BOARD_SIZE * HEX_HEIGHT * 0.75;
-        
-        // Calculate maximum scaling factor to fill canvas while maintaining aspect ratio
-        const xScale = (canvas.width - BOARD_PADDING * 2) / boardWidth;
-        const yScale = (canvas.height - BOARD_PADDING * 2) / boardHeight;
-        const scaleFactor = Math.min(xScale, yScale, 1.0); // Cap at 1.0 to prevent stretching
-        
-        // Apply the scaling to center the board
-        const scaledWidth = boardWidth * scaleFactor;
-        const scaledHeight = boardHeight * scaleFactor;
-        const startX = (canvas.width - scaledWidth) / 2;
-        const startY = (canvas.height - scaledHeight) / 2;
-        
         // Verify gameBoard is initialized
         if (!gameBoard || gameBoard.length === 0) {
             console.error("Game board not initialized!");
@@ -529,10 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     player2TilesCount++;
                 }
                 
-                // Calculate hex position
-                const x = startX + col * HEX_WIDTH + (row % 2) * (HEX_WIDTH / 2) + BOARD_PADDING;
-                const y = startY + row * (HEX_HEIGHT * 0.75) + BOARD_PADDING;
-                
                 // Draw the hexagon
                 drawHexagon(
                     col,
@@ -547,81 +460,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         console.log(`Rendered ${tilesDrawn} tiles: ${player1TilesCount} owned by Player 1, ${player2TilesCount} owned by Player 2`);
-        // Render the game board
-          function renderGameBoard() {
-            console.log('Rendering game board...');
-            
-            // Clear the canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Make sure canvas is visible
-            canvas.style.display = 'block';
-            
-            // Draw each hexagon
-            let tilesDrawn = 0;
-            let player1TilesCount = 0;
-            let player2TilesCount = 0;
-            
-            for (let row = 0; row < gameBoard.length; row++) {
-              for (let col = 0; col < gameBoard[row].length; col++) {
-                const tile = gameBoard[row][col];
-                const coord = `${row},${col}`;
-                
-                // Check if owned by player 1 or player 2
-                let isOwned = false;
-                let ownedBy = 0;
-                
-                if (player1Tiles.has(coord)) {
-                  isOwned = true;
-                  ownedBy = 1;
-                  player1TilesCount++;
-                } else if (player2Tiles.has(coord)) {
-                  isOwned = true;
-                  ownedBy = 2;
-                  player2TilesCount++;
-                }
-                
-                drawHexagon(col, row, tile.color, isOwned, ownedBy);
-                tilesDrawn++;
-              }
-            }
-            
-            console.log(`Rendered ${tilesDrawn} tiles: ${player1TilesCount} owned by Player 1, ${player2TilesCount} owned by Player 2`);
-          }
-                    ownedByPlayer = 1;
-                    console.log(`Tile ${tileKey} is owned by Player 1, color: ${displayColor}`);
-                } else if (isPlayer2Owned) {
-                    displayColor = player2Color;
-                    isOwned = true;
-                    ownedByPlayer = 2;
-                    console.log(`Tile ${tileKey} is owned by Player 2, color: ${displayColor}`);
-                }
-
-                // Check if this tile is being hovered over
-                const isHovered = hoverTile && hoverTile.row === row && hoverTile.col === col;
-
-                // Calculate hex size with hover effect and apply scaling factor
-                let hexSize = HEX_SIZE * scaleFactor;
-                if (isHovered) {
-                    // Make hovered hexagons slightly larger
-                    hexSize = hexSize * 1.1;
-                }
-
-                // Draw the hexagon
-                drawHexagon(
-                    x, 
-                    y, 
-                    hexSize, 
-                    displayColor,
-                    isOwned,
-                    ownedByPlayer,
-                    tile.hasMine
-                );
-            
-        
-        
         console.log("Game board rendering complete");
-    
+    }
     
     // Get adjacent tiles (neighbors)
     function getNeighbors(row, col) {
@@ -636,32 +476,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const newCol = col + dc;
             
             // Check if the neighbor is within the board boundaries
-            // Function to process captured tiles for both players
-function processCaptureTiles() {
-    // Process tiles that should be captured by Player 1
-    const player1CapturedTiles = [];
-    player1Tiles.forEach(tileKey => {
-        const [row, col] = tileKey.split(',').map(Number);
+            if (newRow >= 0 && newRow < BOARD_SIZE && newCol >= 0 && newCol < BOARD_SIZE) {
+                neighbors.push({
+                    row: newRow,
+                    col: newCol
+                });
+            }
+        }
         
-        // Check all adjacent tiles
-        getAdjacentTiles(row, col).forEach(adj => {
-            const adjTileKey = `${adj.row},${adj.col}`;
+        return neighbors;
+    }
+    
+    // Get capturable tiles for a specific color
+    function getCaptureableTiles(currentTiles, targetColor) {
+        const capturable = new Set();
+        const visited = new Set();
+        const queue = [];
+        
+        // First, find adjacent tiles to current territory
+        for (const tileKey of currentTiles) {
+            const [row, col] = tileKey.split(',').map(Number);
+            const neighbors = getNeighbors(row, col);
             
-            // Skip if already owned or out of bounds
-            if (player1Tiles.has(adjTileKey) || player2Tiles.has(adjTileKey) ||
-                adj.row < 0 || adj.row >= CONFIG.BOARD_SIZE ||
-                adj.col < 0 || adj.col >= CONFIG.BOARD_SIZE) {
-                return;
-            }
-            
-            // Capture if same color as player1Color
-            const tile = board[adj.row][adj.col];
-            if (tile && tile.color === player1Color) {
-                player1CapturedTiles.push(adjTileKey);
-            }
-        });
-    });
-                    gameBoard[neighbor.row][neighbor.col].color === targetColor) {
+            for (const neighbor of neighbors) {
+                const neighborKey = `${neighbor.row},${neighbor.col}`;
+                
+                // Skip if already owned by any player or already visited
+                if (player1Tiles.has(neighborKey) ||
+                    player2Tiles.has(neighborKey) ||
+                    visited.has(neighborKey)) {
+                    continue;
+                }
+                
+                // If matches target color, add to capturable and queue for BFS
+                if (gameBoard[neighbor.row][neighbor.col].color === targetColor) {
                     capturable.add(neighborKey);
                     queue.push(neighbor);
                     visited.add(neighborKey);
@@ -689,7 +537,7 @@ function processCaptureTiles() {
         }
         
         return capturable;
-    
+    }
     
     // Handle explosion when a landmine is hit
     function triggerLandmineExplosion(row, col) {
@@ -1201,12 +1049,11 @@ function processCaptureTiles() {
                     
                     // Mix dark red with random color based on recovery progress
                     const targetColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-                    const targetColorObj = hexToRgb(targetColor);
                     
                     // Start with dark red (139, 0, 0)
-                    const r = Math.floor(139 + (targetColorObj.r - 139) * recoveryProgress);
-                    const g = Math.floor(0 + (targetColorObj.g - 0) * recoveryProgress);
-                    const b = Math.floor(0 + (targetColorObj.b - 0) * recoveryProgress);
+                    const r = Math.floor(139 + (parseInt(targetColor.substr(1, 2), 16) - 139) * recoveryProgress);
+                    const g = Math.floor(0 + parseInt(targetColor.substr(3, 2), 16) * recoveryProgress);
+                    const b = Math.floor(0 + parseInt(targetColor.substr(5, 2), 16) * recoveryProgress);
                     
                     // Set the transitional color
                     const transitionColor = `rgb(${r}, ${g}, ${b})`;
@@ -1220,12 +1067,11 @@ function processCaptureTiles() {
                     if (recoveryProgress >= 0.5) {
                         // In the second half of recovery, start introducing a random color
                         const targetColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-                        const targetColorObj = hexToRgb(targetColor);
                         
                         // Mix black with the target color based on recovery progress
-                        const r = Math.floor(targetColorObj.r * (recoveryProgress - 0.5) * 2);
-                        const g = Math.floor(targetColorObj.g * (recoveryProgress - 0.5) * 2);
-                        const b = Math.floor(targetColorObj.b * (recoveryProgress - 0.5) * 2);
+                        const r = Math.floor(parseInt(targetColor.substr(1, 2), 16) * (recoveryProgress - 0.5) * 2);
+                        const g = Math.floor(parseInt(targetColor.substr(3, 2), 16) * (recoveryProgress - 0.5) * 2);
+                        const b = Math.floor(parseInt(targetColor.substr(5, 2), 16) * (recoveryProgress - 0.5) * 2);
                         
                         // Set the transitional color
                         const transitionColor = `rgb(${r}, ${g}, ${b})`;
@@ -1272,6 +1118,9 @@ function processCaptureTiles() {
             button.disabled = true;
             button.classList.add('disabled');
         });
+        
+        // Show play again button
+        showPlayAgainButton();
     }
     
     // Update score display
@@ -1279,72 +1128,68 @@ function processCaptureTiles() {
         const player1Score = player1Tiles.size;
         const player2Score = player2Tiles.size;
 
-        console.log(`updateScoreDisplay: Player 1 Tiles Size: ${player1Score}, Player 2 Tiles Size: ${player2Score}`); // Added log
+        console.log(`updateScoreDisplay: Player 1 Tiles Size: ${player1Score}, Player 2 Tiles Size: ${player2Score}`);
 
         // Update score display based on player number
         if (isOnlineGame) {
             // For player 1 & 2, use globally set playerName and opponentName
             if (playerNumber === 1) {
-                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${window.playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
-                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${window.opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
             } else {
-                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${window.opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
-                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${window.playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
             }
 
             // Update turn indicator
-            currentPlayerElement.textContent = currentPlayer === playerNumber ?
-                ('You') : ('Opponent');
+            currentPlayerElement.textContent = currentPlayer === playerNumber ? 'You' : 'Opponent';
         } else {
             // Single player mode
             player1ScoreElement.textContent = player1Score;
             player2ScoreElement.textContent = player2Score;
         }
     }
-        
-        // Update score display based on player number
-     // Reset available colors for the current player
-       function resetAvailableColors() {
-           // Get all color options
-           const colorOptions = document.querySelectorAll('.color-option');
-           
-           // Enable all colors initially
-           colorOptions.forEach(option => {
-               option.disabled = false;
-               option.classList.remove('disabled');
-           });
-           
-           // In multiplayer mode, disable opponent's current color
-           if (isOnlineGame) {
-               // Disable opponent's current color
-               const opponentColor = currentPlayer === 1 ? player2Color : player1Color;
-               
-               colorOptions.forEach(option => {
-                   if (option.dataset.color === opponentColor) {
-                       option.disabled = true;
-                       option.classList.add('disabled');
-                   }
-               });
-           }
-       }
-               if ((playerNumber === 1 && button.dataset.color === player1Color) ||
-                   (playerNumber === 2 && button.dataset.color === player2Color)) {
-                 button.classList.add('selected');
-               } else {
-                 button.classList.remove('selected');
-               }
-             ;
-           
-         
-                button.classList.add('disabled');
-                swatch.classList.add('disabled');
-            
-            
-            // Highlight current player's turn
-            swatch.classList.toggle('current-player', currentPlayer === 1 && !button.disabled);
-            swatch.classList.toggle('opponent-player', currentPlayer === 2 && !button.disabled);
-        ;
     
+    // Setup color buttons
+    function setupColorButtons() {
+        const colorButtons = document.querySelectorAll('.color-button');
+        
+        colorButtons.forEach(button => {
+            const color = button.getAttribute('data-color');
+            const swatch = button.querySelector('.color-swatch');
+            
+            // Set the swatch color
+            if (swatch) {
+                swatch.style.backgroundColor = color;
+            }
+            
+            // Reset button state
+            button.disabled = false;
+            button.classList.remove('disabled');
+            button.classList.remove('selected');
+            
+            // Disable if color is not available (opponent's current color)
+            if (!availableColors.includes(color)) {
+                button.disabled = true;
+                button.classList.add('disabled');
+            }
+            
+            // Highlight current player's selected color
+            if ((currentPlayer === 1 && color === player1Color) ||
+                (currentPlayer === 2 && color === player2Color)) {
+                button.classList.add('selected');
+            }
+            
+            // Remove previous click handlers to avoid duplicates
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            // Add click handler
+            newButton.addEventListener('click', () => {
+                handleColorSelection(color);
+            });
+        });
+    }
     
     // Find the hex tile at a specific canvas position
     function findHexAtPosition(x, y) {
@@ -1630,14 +1475,6 @@ function processCaptureTiles() {
         renderGameBoard();
     });
     
-    // Set up color button click handlers
-    document.querySelectorAll('.color-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const selectedColor = button.getAttribute('data-color');
-            handleColorSelection(selectedColor);
-        });
-    });
-    
     // Game control event listeners
     startGameButton.addEventListener('click', () => {
         // Local game mode
@@ -1729,62 +1566,19 @@ function processCaptureTiles() {
         // Send move to server using the multiplayer client
         window.sendMove(moveData);
     }
+    
     // Initialize game for online multiplayer
-      function initializeOnlineGame(pNumber, gId, pName, oName) {
+    function initializeOnlineGame(pNumber, gId, pName, oName) {
         console.log(`Initializing online game: Player ${pNumber}, Game ID: ${gId}`);
-        playerNumber = pNumber;
-        gameId = gId;
-        isOnlineGame = true;
         
-        // Set player names if provided
-        if (pName) {
-          playerName = pName;
-          window.playerName = pName;
-          console.log(`Set player name: ${playerName}`);
-        }
-        
-        if (oName) {
-          opponentName = oName;
-          window.opponentName = oName;
-          console.log(`Set opponent name: ${opponentName}`);
-        }
-        
-        initializeGame();
-        console.log('Game initialized for online play');
-        
-        // Disable controls if not your turn
-        if (currentPlayer !== playerNumber) {
-          disableControls();
-          console.log(`Controls disabled - current player: ${currentPlayer}, your player: ${playerNumber}`);
-        } else {
-          enableControls();
-          console.log(`Controls enabled - current player: ${currentPlayer}, your player: ${playerNumber}`);
-        }
-        
-        // Ensure board is rendered
-        renderGameBoard();
-        console.log('Board rendered for online game');
-      }
-            disableControls();
-            messageElement.textContent = "Waiting for Player 1 to start the game...";
-        
-    
-    
-    // Explicitly assign to window object
-    window.initializeOnlineGame = initializeOnlineGame;
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;
         gameId = gId;
         playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
-        opponentName = oName; // Store opponent name
-
-        // Make playerName and opponentName globally accessible
-        window.playerName = playerName;
-        window.opponentName = opponentName;
+        opponentName = oName || (playerNumber === 1 ? 'Player 2' : 'Player 1');
 
         // Store the player name in the input field too
-        const playerNameInput = document.getElementById('player-name');
         if (playerNameInput && playerNameInput.value.trim() === '') {
             playerNameInput.value = playerName;
         }
@@ -1798,12 +1592,12 @@ function processCaptureTiles() {
             disableControls();
             messageElement.textContent = "Waiting for Player 1 to start the game...";
         }
-    ;
-
-    window.initializeOnlineGame = initializeOnlineGame;
+        
+        console.log('Game initialized for online play');
+    }
     
     // Get current game state for syncing
-    window.getGameState = function getGameState() {
+    function getGameState() {
         console.log("Getting game state to send to server");
         console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
 
@@ -1817,34 +1611,29 @@ function processCaptureTiles() {
             player1PowerUps: player1PowerUps,
             player2PowerUps: player2PowerUps,
             landmines: landmines,
-            // Include player names
-            playerName: playerName
+            player1Name: playerName,
+            player2Name: opponentName
         };
-    };
+    }
     
     // Sync game state from server
-      // Sync with game state received from server
-      function syncGameState(gameState) {
+    function syncGameState(gameState) {
         console.log('syncGameState called with state:', gameState);
         
         if (!gameState) {
-          console.error('Invalid gameState received in syncGameState');
-          return;
+            console.error('Invalid gameState received in syncGameState');
+            return;
         }
         
         // Update current player
         if (gameState.currentPlayer !== currentPlayer) {
-          console.log(`syncGameState: currentPlayer updated to ${gameState.currentPlayer}. Player Number is: ${playerNumber}`);
-          currentPlayer = gameState.currentPlayer;
+            console.log(`syncGameState: currentPlayer updated to ${gameState.currentPlayer}. Player Number is: ${playerNumber}`);
+            currentPlayer = gameState.currentPlayer;
         }
         
         // Log tile counts
         console.log(`syncGameState: Received player1Tiles count: ${gameState.player1Tiles.length}`);
         console.log(`syncGameState: Received player2Tiles count: ${gameState.player2Tiles.length}`);
-        
-        // Log tile contents for debugging
-        console.log(`syncGameState: player1Tiles contents:`, gameState.player1Tiles);
-        console.log(`syncGameState: player2Tiles contents:`, gameState.player2Tiles);
         
         // Log before setting tiles
         console.log(`syncGameState: BEFORE setting tiles - Player 1 Tiles Count (received): ${gameState.player1Tiles.length}, Player 2 Tiles Count (received): ${gameState.player2Tiles.length}`);
@@ -1862,69 +1651,58 @@ function processCaptureTiles() {
         
         // Update board state if provided
         if (gameState.board) {
-          gameBoard = gameState.board;
+            gameBoard = gameState.board;
         }
         
         // Update landmines
         if (gameState.landmines) {
-          landmines = gameState.landmines;
+            landmines = gameState.landmines;
         }
         
         // Update power-ups
         if (gameState.player1PowerUps) {
-          player1PowerUps = gameState.player1PowerUps;
+            player1PowerUps = gameState.player1PowerUps;
         }
         
         if (gameState.player2PowerUps) {
-          player2PowerUps = gameState.player2PowerUps;
+            player2PowerUps = gameState.player2PowerUps;
         }
         
         // Update player names if available
         if (gameState.player1Name) {
-          if (playerNumber === 1) {
-            playerName = gameState.player1Name;
-            window.playerName = playerName;
-          } else {
-            opponentName = gameState.player1Name;
-            window.opponentName = opponentName;
-          }
+            if (playerNumber === 1) {
+                playerName = gameState.player1Name;
+            } else {
+                opponentName = gameState.player1Name;
+            }
         }
         
         if (gameState.player2Name) {
-          if (playerNumber === 2) {
-            playerName = gameState.player2Name;
-            window.playerName = playerName;
-          } else {
-            opponentName = gameState.player2Name;
-            window.opponentName = opponentName;
-          }
+            if (playerNumber === 2) {
+                playerName = gameState.player2Name;
+            } else {
+                opponentName = gameState.player2Name;
+            }
         }
         
         // Enable/disable controls based on current player
         if (currentPlayer === playerNumber) {
-          console.log(`enableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
-          enableControls();
+            console.log(`enableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
+            enableControls();
+            waitingForOpponent = false;
         } else {
-          console.log(`disableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
-          disableControls();
+            console.log(`disableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
+            disableControls();
+            waitingForOpponent = true;
         }
         
-        // Re-render the board with new state
-        renderGameBoard();
-        
-        // Update score display
-        updateScoreDisplay();
-        
-        // Reset available colors
-        resetAvailableColors();
-        
-        console.log(`After sync - Current player: ${currentPlayer} Player number: ${playerNumber}`);
-        console.log(`Player 1 has ${player1Tiles.size} tiles, Player 2 has ${player2Tiles.size} tiles`);
-      }
-        setupColorButtons(); // Make sure color buttons are set up properly
+        // Update game display
+        setupColorButtons();
         updateScoreDisplay();
         updateTurnIndicator();
         updatePowerUpDisplay();
+        
+        // Re-render the board with new state
         renderGameBoard();
         
         // Make sure the board orientation is correct
@@ -1932,58 +1710,31 @@ function processCaptureTiles() {
         
         console.log("After sync - Current player:", currentPlayer, "Player number:", playerNumber);
         console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
-    ;
-
-    function getGameState() {
-        console.log("Getting game state to send to server");
-        // Get current game state for multiplayer
-        function getGameState() {
-          console.log('Getting game state to send to server');
-          
-          // Log tile counts for debugging
-          console.log(`Player 1 tiles: ${player1Tiles.size} Player 2 tiles: ${player2Tiles.size}`);
-          
-          const gameState = {
-            board: gameBoard,
-            currentPlayer: currentPlayer,
-            player1Color: player1Color,
-            player2Color: player2Color,
-            player1Tiles: Array.from(player1Tiles),
-            player2Tiles: Array.from(player2Tiles),
-            player1PowerUps: player1PowerUps,
-            player2PowerUps: player2PowerUps,
-            landmines: landmines,
-            player1Name: playerName,
-            player2Name: opponentName
-          };
-          
-          return gameState;
-        }
-    
-    // Explicitly assign to window object
-    window.getGameState = getGameState;
-    
-    // Make update functions available globally
-    window.updateScoreDisplay = updateScoreDisplay;
+    }
     
     // Enable game controls
     function enableControls() {
-        console.log(`enableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`); // Log enableControls call
+        console.log(`enableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
         document.querySelectorAll('.color-button').forEach(button => {
-            if (availableColors.includes(button.getAttribute('data-color'))) {
+            const color = button.getAttribute('data-color');
+            if (availableColors.includes(color)) {
                 button.disabled = false;
                 button.classList.remove('disabled');
             }
         });
         
         document.querySelectorAll('.power-up-slot').forEach(slot => {
-            slot.classList.remove('disabled');
+            const powerUpType = slot.getAttribute('data-type');
+            const playerPowerUps = currentPlayer === 1 ? player1PowerUps : player2PowerUps;
+            if (playerPowerUps.includes(powerUpType)) {
+                slot.classList.remove('disabled');
+            }
         });
     }
     
     // Disable game controls
     function disableControls() {
-        console.log(`disableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`); // Log disableControls call
+        console.log(`disableControls called for Player Number: ${playerNumber}. Current Player: ${currentPlayer}`);
         document.querySelectorAll('.color-button').forEach(button => {
             button.disabled = true;
             button.classList.add('disabled');
@@ -1995,7 +1746,7 @@ function processCaptureTiles() {
     }
     
     // Add a function to handle game replay
-    window.restartGame = function() {
+    function restartGame() {
         console.log("Restarting game...");
         
         // Swap who goes first
@@ -2017,7 +1768,7 @@ function processCaptureTiles() {
         
         messageElement.textContent = "Game restarted! " + 
             (currentPlayer === playerNumber ? "Your" : "Opponent's") + " turn.";
-    };
+    }
     
     // Add a Play Again button at the end of the game
     function showPlayAgainButton() {
@@ -2028,83 +1779,19 @@ function processCaptureTiles() {
             playAgainButton.id = 'play-again-button';
             playAgainButton.className = 'action-button';
             playAgainButton.textContent = 'Play Again';
-            playAgainButton.addEventListener('click', window.restartGame);
+            playAgainButton.addEventListener('click', restartGame);
             
             // Add to game controls
             document.getElementById('game-controls').appendChild(playAgainButton);
         }
     }
     
-    // Initialize the game when the page loads
-    initializeGame();
-    
-    // Make sure critical functions are explicitly assigned to window for multiplayer access
-    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
-        console.log(`initializeOnlineGame called with: Player ${pNumber}, Game ID: ${gId}, Name: ${pName}`);
-        
-        // Set multiplayer variables
-        isOnlineGame = true;
-        playerNumber = pNumber;
-        gameId = gId;
-        playerName = pName || (playerNumber === 1 ? 'Player 1' : 'Player 2');
-        opponentName = oName || (playerNumber === 1 ? 'Player 2' : 'Player 1');
-
-        // Make playerName and opponentName globally accessible
-        window.playerName = playerName;
-        window.opponentName = opponentName;
-
-        // Store the player name in the input field too
-        const playerNameInput = document.getElementById('player-name');
-        if (playerNameInput && playerNameInput.value.trim() === '') {
-            playerNameInput.value = playerName;
-        }
-
-        // Initialize game with random board
-        initializeGame();
-        createGameBoard();
-        setupInitialTiles();
-        renderGameBoard();
-
-        // If we're player 2, disable controls until game starts
-        if (playerNumber === 2) {
-            waitingForOpponent = true;
-            disableControls();
-            messageElement.textContent = "Waiting for Player 1 to start the game...";
-        }
-        
-        console.log("initializeOnlineGame completed");
-    };
-    
-    window.getGameState = function() {
-        console.log("Getting game state to send to server");
-        console.log("Player 1 tiles:", player1Tiles.size, "Player 2 tiles:", player2Tiles.size);
-
-        return {
-            board: gameBoard,
-            currentPlayer: currentPlayer,
-            player1Color: player1Color,
-            player2Color: player2Color,
-            player1Tiles: Array.from(player1Tiles),
-            player2Tiles: Array.from(player2Tiles),
-            player1PowerUps: player1PowerUps,
-            player2PowerUps: player2PowerUps,
-            landmines: landmines,
-            // Include player names
-            player1Name: playerName,
-            player2Name: opponentName
-        };
-    };
-    
+    // Ensure all critical functions are explicitly assigned to window for multiplayer access
+    window.initializeOnlineGame = initializeOnlineGame;
+    window.getGameState = getGameState;
     window.syncGameState = syncGameState;
     window.renderGameBoard = renderGameBoard;
     window.resizeGame = resizeGame;
     window.updateScoreDisplay = updateScoreDisplay;
-    
-    // Create explicit global function references to ensure they're accessible
-    console.log("Ensuring global function assignments...");
-    if (!window.initializeOnlineGame) window.initializeOnlineGame = initializeOnlineGame;
-    if (!window.getGameState) window.getGameState = getGameState;
-    if (!window.syncGameState) window.syncGameState = syncGameState;
-    if (!window.renderGameBoard) window.renderGameBoard = renderGameBoard;
-    console.log("Global function assignments complete");
-};
+    window.restartGame = restartGame;
+});
