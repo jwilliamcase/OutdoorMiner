@@ -713,6 +713,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle color selection and tile capture
     function handleColorSelection(selectedColor) {
+        console.log(`handleColorSelection: Player Number: ${playerNumber}, Current Player: ${currentPlayer}, Selected Color: ${selectedColor}`);
+
         // In online mode, only allow moves on your turn
         if (isOnlineGame && (currentPlayer !== playerNumber || waitingForOpponent)) {
             messageElement.textContent = "It's not your turn!";
@@ -749,6 +751,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // In online mode, send the move to the server
         if (isOnlineGame) {
+            console.log(`handleColorSelection: isOnlineGame is true`);
+            console.log(`handleColorSelection: currentPlayer: ${currentPlayer}, playerNumber: ${playerNumber}`);
+            console.log(`handleColorSelection: Selected color to send to server: ${selectedColor}`);
+
             // Add captured tiles to player's territory before sending
             // so the server and other player get the correct board state
             for (const tileKey of capturable) {
@@ -760,7 +766,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             sendMoveToServer(selectedColor);
-            
+            console.log(`handleColorSelection: sendMoveToServer called`);
+
             // Don't proceed with local animations - wait for server update
             updateScoreDisplay();
             return;
@@ -1531,21 +1538,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sync game state from server
     window.syncGameState = function(state) {
         console.log("syncGameState called with state:", state); // Log state received
-        
+        console.log("syncGameState: Received gameState:", state); // Log full gameState object
+
+        // Log tile counts immediately after receiving state
+        console.log(`syncGameState: Received state - Player 1 Tiles Count: ${state.player1Tiles ? state.player1Tiles.length : 0}, Player 2 Tiles Count: ${state.player2Tiles ? state.player2Tiles.length : 0}`);
+
         // Update the current player
         currentPlayer = state.currentPlayer;
         window.currentPlayer = currentPlayer;
         console.log(`syncGameState: currentPlayer updated to ${currentPlayer}. Player Number is: ${playerNumber}`); // Log currentPlayer update
-        console.log(`syncGameState: Received player1Tiles count: ${state.player1Tiles ? state.player1Tiles.length : 0}`);
-        console.log(`syncGameState: Received player2Tiles count: ${state.player2Tiles ? state.player2Tiles.length : 0}`);
 
         // Update player colors
         player1Color = state.player1Color;
         player2Color = state.player2Color;
-        
+
+        console.log(`syncGameState: BEFORE setting tiles - Player 1 Tiles (received):`, state.player1Tiles);
+        console.log(`syncGameState: BEFORE setting tiles - Player 2 Tiles (received):`, state.player2Tiles);
+
         // Update tiles
         player1Tiles = new Set(state.player1Tiles);
         player2Tiles = new Set(state.player2Tiles);
+
+        console.log(`syncGameState: AFTER setting tiles - Player 1 Tiles Count (set): ${player1Tiles.size}, Player 2 Tiles Count (set): ${player2Tiles.size}`);
+        console.log(`syncGameState: AFTER setting tiles - Player 1 Tiles (set):`, player1Tiles);
+        console.log(`syncGameState: AFTER setting tiles - Player 2 Tiles (set):`, player2Tiles);
         
         // Update power-ups
         player1PowerUps = state.player1PowerUps || [];

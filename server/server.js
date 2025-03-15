@@ -220,6 +220,10 @@ io.on('connection', (socket) => {
     
     // Example of updating color
     if (move.type === 'color-selection') {
+      console.log(`- - - - - - - - - - - - - - - - - - - -`);
+      console.log(`make-move: color-selection received from Player ${playerNumber}`);
+      console.log(`Move data:`, move); // Log the entire move object
+
       if (playerNumber === 1) {
         game.player1Color = move.color;
       } else {
@@ -267,13 +271,20 @@ io.on('connection', (socket) => {
       // Always update both players' tiles to ensure consistency
       if (move.player1Tiles) {
         game.player1Tiles = move.player1Tiles;
+        console.log(`  Updated P1 tiles based on move: count = ${game.player1Tiles.length}`);
+      } else {
+        console.log(`  move.player1Tiles is empty or undefined`);
       }
 
       if (move.player2Tiles) {
         game.player2Tiles = move.player2Tiles;
+        console.log(`  Updated P2 tiles based on move: count = ${game.player2Tiles.length}`);
+      } else {
+        console.log(`  move.player2Tiles is empty or undefined`);
       }
 
       console.log(`- Player ${playerNumber} Tiles AFTER move processing - P1 Tiles: ${game.player1Tiles.length}, P2 Tiles: ${game.player2Tiles.length}`);
+      console.log(`- - - - - - - - - - - - - - - - - - - -`);
 
 
     // Switch turns
