@@ -415,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             ctx.fillStyle = circleGradient;
             ctx.fill();
-        } else {
+         else {
             // Add thick black outline for unjoined tiles
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Restore context state
         ctx.restore();
-    }
+    
     
     // Helper function to convert hex color to RGB
     function hexToRgb(hex) {
@@ -617,11 +617,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     ownedByPlayer,
                     tile.hasMine
                 );
-            }
-        }
+            
+        
         
         console.log("Game board rendering complete");
-    }
+    
     
     // Get adjacent tiles (neighbors)
     function getNeighbors(row, col) {
@@ -689,7 +689,7 @@ function processCaptureTiles() {
         }
         
         return capturable;
-    }
+    
     
     // Handle explosion when a landmine is hit
     function triggerLandmineExplosion(row, col) {
@@ -1333,18 +1333,18 @@ function processCaptureTiles() {
                } else {
                  button.classList.remove('selected');
                }
-             });
-           }
-         }
+             ;
+           
+         
                 button.classList.add('disabled');
                 swatch.classList.add('disabled');
-            }
+            
             
             // Highlight current player's turn
             swatch.classList.toggle('current-player', currentPlayer === 1 && !button.disabled);
             swatch.classList.toggle('opponent-player', currentPlayer === 2 && !button.disabled);
-        });
-    }
+        ;
+    
     
     // Find the hex tile at a specific canvas position
     function findHexAtPosition(x, y) {
@@ -1767,8 +1767,8 @@ function processCaptureTiles() {
       }
             disableControls();
             messageElement.textContent = "Waiting for Player 1 to start the game...";
-        }
-    }
+        
+    
     
     // Explicitly assign to window object
     window.initializeOnlineGame = initializeOnlineGame;
@@ -1798,7 +1798,7 @@ function processCaptureTiles() {
             disableControls();
             messageElement.textContent = "Waiting for Player 1 to start the game...";
         }
-    };
+    ;
 
     window.initializeOnlineGame = initializeOnlineGame;
     
@@ -1932,7 +1932,7 @@ function processCaptureTiles() {
         
         console.log("After sync - Current player:", currentPlayer, "Player number:", playerNumber);
         console.log("Player 1 has", player1Tiles.size, "tiles, Player 2 has", player2Tiles.size, "tiles");
-    };
+    ;
 
     function getGameState() {
         console.log("Getting game state to send to server");
@@ -2107,4 +2107,4 @@ function processCaptureTiles() {
     if (!window.syncGameState) window.syncGameState = syncGameState;
     if (!window.renderGameBoard) window.renderGameBoard = renderGameBoard;
     console.log("Global function assignments complete");
-});
+};
