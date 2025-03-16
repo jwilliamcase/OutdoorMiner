@@ -316,14 +316,9 @@
                 console.error('Server status check failed:', err);
                 statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Server Unreachable';
                 messageElement.textContent = 'Failed to connect to the game server! The server may be offline or starting up.';
-            })
-            .catch(err => {
-                console.error('Server status check failed:', err);
-                statusIndicator.innerHTML = `<span class="connection-status status-disconnected"></span> Server Unreachable`;
-                messageElement.textContent = 'Failed to connect to the game server! The server may be offline or starting up. If this persists, check server status or try a different network.';
             });
     }
-
+    
     // Handle game created event
     function handleGameCreated(data) {
         console.log('Game created:', data);
@@ -434,18 +429,18 @@
         
         // Both players should get the complete game state
         window.syncGameState(data.gameState);
-
+        
         // Force update display
         if (window.updateScoreDisplay) {
             window.updateScoreDisplay();
         }
-
+        
         // Set board orientation based on player number
         window.resizeGame();
-
-        messageElement.textContent = `Game started! ${data.gameState.currentPlayer === playerNumber ? 'Your' : (opponentName || 'Opponent\'s')} turn.`;
+        
+        messageElement.textContent = `Game started! ${data.gameState.currentPlayer === playerNumber ? 'Your' : 'Opponent\'s'} turn.`;
     }
-
+    
     // Update player names in the UI
     function updatePlayerNames() {
         const player1ScoreElement = document.getElementById('player-score');
@@ -523,6 +518,7 @@
         document.getElementById('player-name').textContent = playerName;
         document.getElementById('opponent-name').textContent = opponentName;
     }
+<<<<<<< HEAD
 
     //Initialize online game
     initializeGame({ board: data.board, turn: data.turn, scores: data.scores, availablePowerUps: data.availablePowerUps, playerNames: data.playerNames }); //Initialize
@@ -539,6 +535,24 @@
         // *Always* rotate for player 2 after updating the board.
         if (playerNumber === 2) {
             board = rotateBoard180(board);
+=======
+    
+    // Handle game restarted event
+    function handleGameRestarted(data) {
+        console.log('Game restarted');
+        
+        // Reset the game state
+        window.initializeOnlineGame(playerNumber, gameId);
+        
+        // Update UI
+        messageElement.textContent = "Game restarted! " + 
+            (currentPlayer === playerNumber ? "Your" : "Opponent's") + " turn.";
+        
+        // Remove play again button if it exists
+        const playAgainButton = document.getElementById('play-again-button');
+        if (playAgainButton) {
+            playAgainButton.remove();
+>>>>>>> parent of 7da93be (improve code com)
         }
         updateScoreDisplay();
         updateTurnIndicator();
@@ -552,6 +566,7 @@
         } else if (data.winner === 3) {
             document.getElementById('game-result').textContent = 'It\'s a tie!';
         }
+<<<<<<< HEAD
         else {
             document.getElementById('game-result').textContent = 'You Lose!';
         }
@@ -572,6 +587,16 @@
         document.getElementById('play-again-button').style.display = 'none';
 
     });
+=======
+    }
+    
+    // Handle player disconnected event
+    function handlePlayerDisconnected(data) {
+        console.log('Player disconnected:', data);
+        messageElement.textContent = `Player ${data.playerNumber} has disconnected!`;
+    }
+    
+>>>>>>> parent of 7da93be (improve code com)
     // Handle receiving a chat message
     function handleReceiveMessage(data) {
         console.log('Message received:', data);
@@ -579,13 +604,11 @@
         // Create message element
         const messageDiv = document.createElement('div');
         messageDiv.className = 'chat-message';
-
+        
         // Get sender name - use the name that was sent with the message if available
-        // Fallback to 'You' or 'Opponent' based on playerNumber, then to generic 'Player X'
         const senderName = data.playerNumber === playerNumber ? 
-            (playerName || (playerNumber === 1 ? 'You' : 'Opponent')) :
-            (data.playerName || opponentName || (playerNumber === 1 ? 'Opponent' : 'You') || `Player ${data.playerNumber}`);
-
+            playerName : (data.playerName || opponentName || `Player ${data.playerNumber}`);
+        
         // Add additional classes based on sender and type
         if (data.isTaunt) {
             messageDiv.classList.add('taunt-message');

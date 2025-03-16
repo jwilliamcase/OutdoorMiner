@@ -69,37 +69,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let opponentName = ''; // Name of the opponent
     let waitingForOpponent = false; // Whether we're waiting for an opponent's move
     
-    // Initialize the game - handles both single and multiplayer setup
+    // Initialize the game
     function initializeGame() {
         createGameBoard();
         setupInitialTiles();
         resetAvailableColors();
-
+        
         // Clear any exploded tiles from previous games
         explodedTiles = [];
-
+        
         // Reset power-ups
         player1PowerUps = [];
         player2PowerUps = [];
         selectedPowerUp = null;
         updatePowerUpDisplay();
-
+        
         // Handle responsive canvas sizing
         resizeGame();
-
+        
         renderGameBoard();
-        updateScoreDisplay(); // Update scores *before* player names
+        updateScoreDisplay();
         updateTurnIndicator();
         setupColorButtons();
         setupPowerUpListeners();
-
-        if (!isOnlineGame) {
-            messageElement.textContent = "Welcome to Outdoor Miner! Player 1's turn. Watch out for hidden landmines!";
-        } else {
-            // Online specific messages are handled in initializeOnlineGame
-        }
+        messageElement.textContent = "Welcome to Outdoor Miner! Your turn. Watch out for hidden landmines!";
     }
-
+    
     // Function to handle responsive canvas scaling
     function resizeGame() {
         const container = document.getElementById('game-container');
@@ -729,33 +724,25 @@ document.addEventListener('DOMContentLoaded', () => {
             messageElement.textContent = "This color is not available this turn!";
             return;
         }
-
-        // Check if this is the same as current color.
+        
+        // Check if this is the same as current color
         const isCurrentColor = (currentPlayer === 1 && selectedColor === player1Color) ||
                                (currentPlayer === 2 && selectedColor === player2Color);
-
-        // If re-selecting current color, just switch turns.
-        if (isCurrentColor){
-            if (isOnlineGame){
-                sendMoveToServer(selectedColor); // Still send to server for turn switch.
-            } else {
-              switchPlayerTurn();
-            }
-            return;
-        }
-
+        
         // Update player's color
         if (currentPlayer === 1) {
             player1Color = selectedColor;
         } else {
             player2Color = selectedColor;
         }
-
+        
         // Find tiles to capture
         const playerTiles = currentPlayer === 1 ? player1Tiles : player2Tiles;
-        const capturable = getCaptureableTiles(playerTiles, selectedColor);
-
-        if (capturable.size === 0) {
+        
+        // Only check for new tiles if not re-selecting current color
+        const capturable = isCurrentColor ? new Set() : getCaptureableTiles(playerTiles, selectedColor);
+        
+        if (capturable.size === 0 && !isCurrentColor) {
             messageElement.textContent = `No tiles can be captured with this color. Try another!`;
             return;
         }
@@ -849,10 +836,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Start the animation for capturing new tiles (handles turn switch).
-        animateCapture();
+        // If re-selecting the same color, just switch turns
+        if (isCurrentColor) {
+            messageElement.textContent = `${currentPlayer === 1 ? 'You' : 'Opponent'} kept the same color.`;
+            updateScoreDisplay();
+            switchPlayerTurn();
+        } else {
+            // Start the animation for capturing new tiles
+            animateCapture();
+        }
     }
-
+    
     // Award a random power-up to the current player
     function awardPowerUp() {
         // Choose a random power-up type
@@ -923,20 +917,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Update the turn indicator UI
-function updateTurnIndicator() {
-    // Update turn indicator text - handle online/offline and undefined names
-    if (isOnlineGame) {
-        currentPlayerElement.textContent = currentPlayer === playerNumber ?
-            (playerName || (playerNumber === 1 ? 'You' : 'Opponent')) :
-            (opponentName || (playerNumber === 1 ? 'Opponent' : 'You'));
-    } else {
-        currentPlayerElement.textContent = currentPlayer === 1 ? 'Player 1' : 'Player 2';
+    function updateTurnIndicator() {
+        // Update turn indicator text
+        currentPlayerElement.textContent = currentPlayer === 1 ? 'You' : 'Opponent';
+        
+        // Update turn indicator styling
+        turnIndicator.classList.remove('player1-turn', 'player2-turn');
+        turnIndicator.classList.add(currentPlayer === 1 ? 'player1-turn' : 'player2-turn');
     }
-
-    // Update turn indicator styling
-    turnIndicator.classList.remove('player1-turn', 'player2-turn');
-    turnIndicator.classList.add(currentPlayer === 1 ? 'player1-turn' : 'player2-turn');
-}
     
     // Switch to the next player's turn
     function switchPlayerTurn() {
@@ -1063,30 +1051,27 @@ function updateTurnIndicator() {
         const player2Score = player2Tiles.size;
         
         // Update score display based on player number
-    if (isOnlineGame) {
-        // For player 1
-        if (playerNumber === 1) {
-            player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
-            player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+        if (isOnlineGame) {
+            // For player 1
+            if (playerNumber === 1) {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            } 
+            // For player 2
+            else {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            }
+            
+            // Update turn indicator
+            currentPlayerElement.textContent = currentPlayer === playerNumber ? 
+                (playerName || 'Your') : (opponentName || 'Opponent\'s');
+        } else {
+            // Single player mode
+            player1ScoreElement.textContent = player1Score;
+            player2ScoreElement.textContent = player2Score;
         }
-        // For player 2
-        else {
-            player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
-            player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
-        }
-
-        // Update turn indicator - more robust check for names
-        currentPlayerElement.textContent = currentPlayer === playerNumber ?
-            (playerName || (playerNumber === 1 ? 'You' : 'Opponent')) :
-            (opponentName || (playerNumber === 1 ? 'Opponent' : 'You'));
-
-    } else {
-        // Single player mode
-        player1ScoreElement.textContent = player1Score;
-        player2ScoreElement.textContent = player2Score;
-        currentPlayerElement.textContent = currentPlayer === 1 ? 'Player 1' : 'Player 2'; // Display player number
     }
-}
     
     // Set up color buttons
     function setupColorButtons() {
@@ -1197,7 +1182,7 @@ function updateTurnIndicator() {
             usePowerUp(selectedPowerUp, closestHex.row, closestHex.col);
             return;
         }
-
+        
         // Debug: Show info about the clicked tile
         if (closestHex) {
             const { row, col } = closestHex;
@@ -1270,6 +1255,7 @@ function updateTurnIndicator() {
                 break;
         }
         
+<<<<<<< HEAD
     function handlePowerUpMove(clickedHex) {
     if (!selectedPowerUp || animationInProgress) return;
 
@@ -1316,23 +1302,52 @@ function updateTurnIndicator() {
           return;
         }
 
+=======
+        // Reset selected power-up
+        selectedPowerUp = null;
+        updatePowerUpDisplay();
+    }
+    
+    // Apply sabotage power-up (convert opponent territory to neutral over time)
+    function applySabotage(row, col) {
+        const tileKey = `${row},${col}`;
+        const sabotagedColor = gameBoard[row][col].color;
+        
+        // Remove from opponent's territory
+        if (currentPlayer === 1) {
+            player2Tiles.delete(tileKey);
+        } else {
+            player1Tiles.delete(tileKey);
+        }
+        
+        // Change the tile color to indicate sabotage (dark red)
+        gameBoard[row][col].color = '#8B0000';
+        
+        // Remove this power-up from the player's inventory
+        const playerPowerUps = currentPlayer === 1 ? player1PowerUps : player2PowerUps;
+        const powerUpIndex = playerPowerUps.indexOf(POWER_UPS.SABOTAGE);
+        if (powerUpIndex !== -1) {
+            playerPowerUps.splice(powerUpIndex, 1);
+        }
+        
+        // Add to exploded tiles with longer recovery time (sabotage lasts longer)
+        explodedTiles.push({
+            row: row,
+            col: col,
+            turnsLeft: 3, // 3 turns to recover
+            type: 'sabotage'
+        });
+        
+        messageElement.textContent = "Sabotage successful! Territory will return to neutral over time.";
+        renderGameBoard();
+        updateScoreDisplay();
+        updatePowerUpDisplay();
+        
+>>>>>>> parent of 7da93be (improve code com)
         // Switch turns
         switchPlayerTurn();
     }
-
-    // Send Power Up move to Server
-    function sendPowerUpMoveToServer(powerUpType, row, col){
-      const moveData = {
-          type: 'power-up',
-          powerUpType: powerUpType,
-          row: row,
-          col: col,
-          player1PowerUps: player1PowerUps, // Send updated powerup counts.
-          player2PowerUps: player2PowerUps
-      };
-      sendMove(moveData); // Use the existing sendMove function
-    }
-
+    
     // Apply wildcard power-up (place a tile that matches any color)
     function applyWildcard(row, col) {
         const tileKey = `${row},${col}`;
@@ -1435,6 +1450,7 @@ function updateTurnIndicator() {
         if (isOnlineGame && playerTurn !== playerNumber) return; // Prevent actions if it's not the player's turn
 
         const rect = canvas.getBoundingClientRect();
+<<<<<<< HEAD
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
 
@@ -1490,6 +1506,53 @@ function updateTurnIndicator() {
             }
         }
     }
+=======
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        
+        const hoveredHex = findHexAtPosition(mouseX, mouseY);
+        
+        // If the hovered hex has changed, update and redraw
+        if (JSON.stringify(hoveredHex) !== JSON.stringify(hoverTile)) {
+            hoverTile = hoveredHex;
+            renderGameBoard();
+        }
+    });
+    
+    // Reset hover state when mouse leaves canvas
+    canvas.addEventListener('mouseleave', () => {
+        hoverTile = null;
+        renderGameBoard();
+    });
+    
+    // Set up color button click handlers
+    document.querySelectorAll('.color-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const selectedColor = button.getAttribute('data-color');
+            handleColorSelection(selectedColor);
+        });
+    });
+    
+    // Game control event listeners
+    startGameButton.addEventListener('click', () => {
+        // Local game mode
+        isOnlineGame = false;
+        playerNumber = 1;
+        gameId = null;
+        initializeGame();
+        messageElement.textContent = "Started Outdoor Miner in local mode. Both players use this screen.";
+    });
+    
+    createChallengeButton.addEventListener('click', () => {
+        // Create a new online game
+        isOnlineGame = true;
+        playerNumber = 1;
+        gameId = generateGameCode();
+        
+        // Initialize a new game
+        initializeGame();
+        
+>>>>>>> parent of 7da93be (improve code com)
         // In a real implementation, we would send the initial game state to the server here
         // For now, we'll just show the game code
         messageElement.textContent = `Created Outdoor Miner challenge! Your code is: ${gameId}`;
@@ -1580,18 +1643,17 @@ function updateTurnIndicator() {
             playerNameInput.value = playerName;
         }
         
-    // Initialize game *after* setting up multiplayer variables
-    initializeGame();
-    updateScoreDisplay(); // Update score display *after* setting player names
-
-    // If we're player 2, disable controls until game starts
-    if (playerNumber === 2) {
-        waitingForOpponent = true;
-        disableControls();
-        messageElement.textContent = "Waiting for Player 1 to start the game...";
-      }
+        // Initialize game with random board
+        initializeGame();
+        
+        // If we're player 2, disable controls until game starts
+        if (playerNumber === 2) {
+            waitingForOpponent = true;
+            disableControls();
+            messageElement.textContent = "Waiting for Player 1 to start the game...";
+        }
     };
-
+    
     // Get current game state for syncing
     window.getGameState = function() {
         console.log("Getting game state to send to server");

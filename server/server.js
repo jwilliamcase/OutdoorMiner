@@ -68,11 +68,9 @@ io.on('connection', (socket) => {
       player2PowerUps: [],
       landmines: [],
       started: false,
-      lastActivity: Date.now(),
-      player1Name: playerName, // Add player 1 name here
-      player2Name: '' // Initialize player 2 name
+      lastActivity: Date.now()
     };
-
+    
     // Store the game
     activeGames.set(gameId, gameState);
     players.set(socket.id, gameId);
@@ -107,9 +105,8 @@ io.on('connection', (socket) => {
     // Add player to the game
     const name = playerName || 'Player 2';
     game.players.push({ id: socket.id, number: 2, ready: false, name: name });
-    game.player2Name = name; // Set Player 2 name
     players.set(socket.id, gameId);
-
+    
     // Join the socket to the game room
     socket.join(gameId);
     
@@ -118,6 +115,7 @@ io.on('connection', (socket) => {
     // Notify all players in the room
     socket.emit('game-joined', { gameId, playerNumber: 2 });
     io.to(gameId).emit('player-joined', { playerNumber: 2, playerName: name });
+<<<<<<< HEAD
       gameState[gameId].turn = 1;
     gameState[gameId].availablePowerUps = { "1": 3, "2": 3 };
     addStartingSquares(gameId); // Add this line back in
@@ -145,16 +143,45 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
     if (!games[gameId]) {
         games[gameId] = { players: {}, playerCount: 0, singlePlayer: singlePlayer };
     }
+=======
+  });
+  
+  // Initialize game with board state
+  socket.on('initialize-game', (data) => {
+    const { gameId, gameData } = data;
+    
+    if (!activeGames.has(gameId)) {
+      socket.emit('game-error', { message: 'Game not found' });
+      return;
+    }
+    
+    const game = activeGames.get(gameId);
+    
+    // Update game state with initial board data
+    game.board = gameData.board;
+    game.player1Color = gameData.player1Color;
+    game.player2Color = gameData.player2Color;
+    game.player1Tiles = gameData.player1Tiles;
+    game.player2Tiles = gameData.player2Tiles;
+    game.landmines = gameData.landmines;
+    game.started = true;
+    game.lastActivity = Date.now();
+    
+>>>>>>> parent of 7da93be (improve code com)
     // Mark the player as ready
     const playerIndex = game.players.findIndex(p => p.id === socket.id);
     if (playerIndex !== -1) {
       game.players[playerIndex].ready = true;
     }
-
-      // Get player names (already available in game state)
+    
+    // Check if both players are ready
+    const allReady = game.players.every(p => p.ready);
+    
+    if (allReady) {
+      // Get player names
       const player1 = game.players.find(p => p.number === 1);
       const player2 = game.players.find(p => p.number === 2);
-
+      
       // Log state before sending
       console.log(`Game ${gameId} starting with board state:`, {
         player1Tiles: game.player1Tiles.length,
@@ -162,8 +189,8 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
         p1Name: player1?.name,
         p2Name: player2?.name
       });
-
-      // Broadcast game state to all players (always send, don't wait for 'ready')
+      
+      // Broadcast game state to all players
       io.to(gameId).emit('game-started', { gameState: {
         board: game.board,
         currentPlayer: game.currentPlayer,
@@ -174,9 +201,10 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
         landmines: game.landmines,
-        player1Name: game.player1Name,  // Use names from game state
-        player2Name: game.player2Name
+        player1Name: player1 ? player1.name : 'Player 1',
+        player2Name: player2 ? player2.name : 'Player 2'
       }});
+    }
   });
   
   // Handle game moves
@@ -194,9 +222,9 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
     if (move.type === 'restart-game') {
       console.log(`Game ${gameId} restarted by player ${playerNumber}`);
       
-      // Reset game state but keep the players and switch starting player
+      // Reset game state but keep the players
       game.board = null;
-      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1; // Switch starting player
+      game.currentPlayer = 1; // Player 1 always starts in a new game
       game.player1Color = null;
       game.player2Color = null;
       game.player1Tiles = [];
@@ -284,6 +312,7 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
       // Update landmines
       game.landmines = move.landmines;
       
+<<<<<<< HEAD
       let move = moves.shift();
 if (move) {
 if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
@@ -307,14 +336,43 @@ if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
 }
 }
 }, 100); // Process one move every 100ms
+=======
+      // Update board state (for explosion effects)
+      if (move.updatedBoard) {
+        game.board = JSON.parse(JSON.stringify(move.updatedBoard)); // Deep copy to avoid reference issues
+      }
+      
+      // Switch turns
+      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+    }
+    
+    // Update last activity
+    game.lastActivity = Date.now();
+    
+    // Get player names
+    const player1 = game.players.find(p => p.number === 1);
+    const player2 = game.players.find(p => p.number === 2);
+    
+    // Log game state changes
+    console.log(`Move by Player ${playerNumber}: ${move.type}. Now Player ${game.currentPlayer}'s turn.`);
+    console.log(`Player 1 tiles: ${game.player1Tiles.length}, Player 2 tiles: ${game.player2Tiles.length}`);
+    
+    // Broadcast the updated game state to all players
+    io.to(gameId).emit('game-update', { 
+      type: move.type,
+      gameState: {
+        board: game.board,
+        currentPlayer: game.currentPlayer,
+        player1Color: game.player1Color,
+>>>>>>> parent of 7da93be (improve code com)
         player2Color: game.player2Color,
         player1Tiles: game.player1Tiles,
         player2Tiles: game.player2Tiles,
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
         landmines: game.landmines,
-        player1Name: game.player1Name, // Use names from game state
-        player2Name: game.player2Name,
+        player1Name: player1 ? player1.name : 'Player 1',
+        player2Name: player2 ? player2.name : 'Player 2',
         moveDetails: move
       } 
     });
@@ -362,13 +420,12 @@ if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
         // Remove player from the game
         const playerIndex = game.players.findIndex(p => p.id === socket.id);
         if (playerIndex !== -1) {
-          const playerNumber = game.players[playerIndex]?.number; //Optional Chaining
+          const playerNumber = game.players[playerIndex].number;
           game.players.splice(playerIndex, 1);
-
+          
           // Notify remaining players
-        if (playerNumber) { // Check if playerNumber is valid
-            io.to(gameId).emit('player-disconnected', { playerNumber });
-        }
+          io.to(gameId).emit('player-disconnected', { playerNumber });
+          
           // If no players left, clean up the game
           if (game.players.length === 0) {
             activeGames.delete(gameId);
