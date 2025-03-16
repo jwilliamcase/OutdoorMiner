@@ -60,25 +60,25 @@
 
     window.addEventListener('resize', resizeGame);
     canvas.addEventListener('click', handleCanvasClick);
-
-    // --- Initialization Functions ---
-    function initializeBoard() {
-        let board = [];
-        for (let row = 0; row < boardSize; row++) {
+function initializeBoard() {
+        board = [];
+        for (let row = 0; row < rows; row++) {
             board[row] = [];
-            for (let col = 0; col < boardSize; col++) {
+            for (let col = 0; col < cols; col++) {
                 board[row][col] = {
-                    player: 0, // 0: neutral, 1: player 1, 2: player 2
-                    color: null,
-                    landmine: false,
-                    row: row,
-                    col: col
+                    color: null, // Default color to null (unowned)
+                    player: 0,    // 0 for unowned
+                    isMine: false,
+                    isPowerUp: null
                 };
             }
         }
-        return board;
+        // Initialize starting positions for players in corners
+        board[rows - 1][0].player = 1; // Player 1 starts at bottom-left
+        board[rows - 1][0].color = playerColors[1]; // Assign Player 1's color
+        board[0][cols - 1].player = 2; // Player 2 starts at top-right
+        board[0][cols - 1].color = playerColors[2]; // Assign Player 2's color
     }
-
     function initializeLandmines() {
         landmineLocations = []; // Clear existing landmines
         let count = 0;
@@ -320,8 +320,8 @@
             ctx.fill();
         }
 
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-        ctx.lineWidth = 1;
+        ctx.fillStyle = board[row][col].color || 'rgba(200, 200, 200, 0.8)'; // Use tile color from board, default to placeholder if null
+        ctx.strokeStyle = 'black';
         ctx.stroke();
     }
 
