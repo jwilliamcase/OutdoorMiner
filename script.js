@@ -277,6 +277,13 @@
             for (let col = 0; col < boardSize; col++) {
                 let hexCenterX = startX + col * hexSize * 1.5;
                 let hexCenterY = startY + row * hexHeight() + (col % 2) * hexHeight() / 2;
+
+                console.log(`Rendering Hexagon at Row: ${row}, Col: ${col}`);
+                console.log(`  Center X: ${hexCenterX}, Center Y: ${hexCenterY}`);
+                console.log(`  Hex Size: ${hexSize}, Hex Height: ${hexHeight()}`);
+                console.log(`  Start X: ${startX}, Start Y: ${startY}`);
+                console.log(`  Color: ${board[row][col].color}, Player: ${board[row][col].player}`);
+
                 drawHexagon(ctx, hexCenterX, hexCenterY, hexSize, board[row][col].color, board[row][col].player);
 
                 if (board[row][col].landmine && gameStarted) {
