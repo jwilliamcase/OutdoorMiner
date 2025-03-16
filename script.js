@@ -829,4 +829,202 @@
             return; // Prevent power-up activation if not player's turn in online mode
         }
 
-        
+        let powerUpType = event.currentTarget.dataset.type;
+        if (!powerUpType) return;
+
+        if (activePowerUp === powerUpType) {
+            // Deselect if already active
+            activePowerUp = null;
+            sabotageActive = false;
+            wildcardActive = false;
+            teleportActive = false;
+            document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
+            return;
+        }
+
+        // Handle power-up activation based on type and availability
+        switch (powerUpType) {
+            case 'sabotage':
+                if (powerUpCounts[currentPlayer].sabotage > 0 && sabotageAvailable) {
+                    activateSabotage();
+                } else {
+                    alert('No sabotage power-ups available!');
+                    return;
+                }
+                break;
+            case 'wildcard':
+                if (powerUpCounts[currentPlayer].wildcard > 0 && wildcardAvailable) {
+                    activateWildcard();
+                } else {
+                    alert('No wildcard power-ups available!');
+                    return;
+                }
+                break;
+            case 'teleport':
+                if (powerUpCounts[currentPlayer].teleport > 0 && teleportAvailable) {
+                    activateTeleport();
+                } else {
+                    alert('No teleport power-ups available!');
+                    return;
+                }
+                break;
+            default:
+                console.warn('Unknown power-up type:', powerUpType);
+                return;
+        }
+
+        // Update UI to reflect active power-up
+        document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+    } // <-- ADDED CLOSING BRACE HERE
+
+    function activateSabotage() {
+        activePowerUp = 'sabotage';
+        sabotageActive = true;
+        wildcardActive = false;
+        teleportActive = false;
+        messageDisplay.textContent = 'Sabotage active. Click on an opponent\'s tile to neutralize it.';
+    }
+
+    function activateWildcard() {
+        activePowerUp = 'wildcard';
+        wildcardActive = true;
+        sabotageActive = false;
+        teleportActive = false;
+        messageDisplay.textContent = 'Wildcard active. Click on an empty tile adjacent to yours to capture it.';
+    }
+
+    function activateTeleport() {
+        activePowerUp = 'teleport';
+        teleportActive = true;
+        wildcardActive = false;
+        sabotageActive = false;
+        messageDisplay.textContent = 'Teleport active. Click on any empty tile to capture it.';
+    }
+
+    function handleSabotageClick(hex) {
+        if (!sabotageActive) return;
+
+        if (hex.player !== 0 && hex.player !== currentPlayer) {
+            neutralizeHex(hex);
+            sabotageActive = false;
+            activePowerUp = null;
+            sabotageAvailable = false; // Disable further use until recharged or game restart
+            powerUpCounts[currentPlayer].sabotage--;
+            updatePowerUpCountsDisplay();
+            document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
+            messageDisplay.textContent = '';
+            finalizeMove();
+            if (isOnlineMultiplayer) {
+                sendMove({
+                    type: 'power-up',
+                    powerUpType: 'sabotage',
+                    targetHex: { row: hex.row, col: hex.col },
+                    player1Tiles: getPlayerTileLocations(1),
+                    player2Tiles: getPlayerTileLocations(2),
+                    player1PowerUps: powerUpCounts[1],
+                    player2PowerUps: powerUpCounts[2]
+                });
+            }
+        } else {
+            alert('Invalid sabotage target. Select an opponent\'s tile.');
+        }
+    }
+
+    function neutralizeHex(hex) {
+        hex.player = 0;
+        hex.color = null;
+        renderGameBoard();
+    }
+
+    function handleWildcardClick(hex) {
+        if (!wildcardActive) return;
+
+        if (hex.player === 0) {
+            if (isValidMove(hex.row, hex.col, currentPlayer)) { // Re-use isValidMove for adjacency check
+                captureHex(hex.row, hex.col);
+                wildcardActive = false;
+                activePowerUp = null;
+                wildcardAvailable = false; // Disable further use
+                powerUpCounts[currentPlayer].wildcard--;
+                updatePowerUpCountsDisplay();
+                document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
+                messageDisplay.textContent = '';
+                finalizeMove();
+                if (isOnlineMultiplayer) {
+                    sendMove({
+                        type: 'power-up',
+                        powerUpType: 'wildcard',
+                        targetHex: { row: hex.row, col: hex.col },
+                        player1Tiles: getPlayerTileLocations(1),
+                        player2Tiles: getPlayerTileLocations(2),
+                        player1PowerUps: powerUpCounts[1],
+                        player2PowerUps: powerUpCounts[2]
+                    });
+                }
+            } else {
+                alert('Invalid wildcard target. Select an empty tile adjacent to your own.');
+            }
+        } else {
+            alert('Invalid wildcard target. Select an empty tile.');
+        }
+    }
+
+    function handleTeleportClick(hex) {
+        if (!teleportActive) return;
+
+        if (hex.player === 0) {
+            captureHex(hex.row, hex.col);
+            teleportActive = false;
+            activePowerUp = null;
+            teleportAvailable = false; // Disable further use
+            powerUpCounts[currentPlayer].teleport--;
+            updatePowerUpCountsDisplay();
+            document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
+            messageDisplay.textContent = '';
+            finalizeMove();
+            if (isOnlineMultiplayer) {
+                sendMove({
+                    type: 'power-up',
+                    powerUpType: 'teleport',
+                    targetHex: { row: hex.row, col: hex.col },
+                    player1Tiles: getPlayerTileLocations(1),
+                    player2Tiles: getPlayerTileLocations(2),
+                    player1PowerUps: powerUpCounts[1],
+                    player2PowerUps: powerUpCounts[2]
+                });
+            }
+        } else {
+            alert('Invalid teleport target. Select an empty tile.');
+        }
+    }
+
+    function initializePowerUpCountsDisplay() {
+        document.getElementById('sabotage-count').textContent = powerUpCounts[1].sabotage;
+        document.getElementById('wildcard-count').textContent = powerUpCounts[1].wildcard;
+        document.getElementById('teleport-count').textContent = powerUpCounts[1].teleport;
+
+        // For opponent display if needed in future, currently assuming power-ups are hidden from opponent
+        // document.getElementById('opponent-sabotage-count').textContent = powerUpCounts[2].sabotage;
+        // document.getElementById('opponent-wildcard-count').textContent = powerUpCounts[2].wildcard;
+        // document.getElementById('opponent-teleport-count').textContent = powerUpCounts[2].teleport;
+    }
+
+    function updatePowerUpCountsDisplay() {
+        document.getElementById('sabotage-count').textContent = powerUpCounts[1].sabotage;
+        document.getElementById('wildcard-count').textContent = powerUpCounts[1].wildcard;
+        document.getElementById('teleport-count').textContent = powerUpCounts[1].teleport;
+    }
+
+
+    // --- Chat Functions ---
+    function sendMessage() {
+        const messageInput = document.getElementById('chat-input');
+        const message = messageInput.value;
+        if (message.trim() !== '') {
+            //sendChatMessage(message);
+            messageInput.value = ''; // Clear input field after sending
+        }
+    }
+
+})();
