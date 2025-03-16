@@ -13,7 +13,7 @@
     let tauntButtons = document.querySelectorAll('.taunt-button');
     
     let board; // Game board array
-    board = initializeBoard(); // Initialize board here, globally
+    // board = initializeBoard(); // Initialize board here, globally - Moved to DOMContentLoaded
     let hexSize = 30;
     let isOnlineMultiplayer = false;
     let gameId = null;
@@ -38,6 +38,8 @@
         // Initialize canvas and context
         canvas = document.getElementById('gameCanvas');
         ctx = canvas.getContext('2d');
+
+        board = initializeBoard(); // Initialize board here, after DOM is ready
     
         renderGameBoard();
         updateScoreDisplay();
