@@ -1,4 +1,3 @@
-===
 (function() {
     // --- Verify CONFIG ---
     console.log("CONFIG object:", CONFIG);
