@@ -19,8 +19,6 @@
     let sendButton = document.getElementById('send-button');
     let tauntButtons = document.querySelectorAll('.taunt-button');
 
-    //let board; // Moved up
-    // board = initializeBoard(); // Initialize board here, globally - Moved to DOMContentLoaded
     let hexSize = 30;
     let isOnlineMultiplayer = false;
     let gameId = null;
@@ -832,10 +830,4 @@
             return; // Prevent power-up activation if not player's turn in online mode
         }
 
-        const powerUpType = event.currentTarget.dataset.type;
-        if (powerUpCounts[currentPlayer][powerUpType] > 0) {
-            activatePowerUp(powerUpType);
-            highlightActivePowerUp(powerUpType);
-        } else {
-            alert(`No ${powerUpType} power-ups available.`);
         
