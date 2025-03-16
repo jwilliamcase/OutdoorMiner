@@ -118,29 +118,33 @@ io.on('connection', (socket) => {
     // Notify all players in the room
     socket.emit('game-joined', { gameId, playerNumber: 2 });
     io.to(gameId).emit('player-joined', { playerNumber: 2, playerName: name });
-  });
-  
-  // Initialize game with board state
-  socket.on('initialize-game', (data) => {
-    const { gameId, gameData } = data;
-    
-    if (!activeGames.has(gameId)) {
-      socket.emit('game-error', { message: 'Game not found' });
-      return;
-    }
-    
-    const game = activeGames.get(gameId);
-    
-    // Update game state with initial board data
-    game.board = gameData.board;
-    game.player1Color = gameData.player1Color;
-    game.player2Color = gameData.player2Color;
-    game.player1Tiles = gameData.player1Tiles;
-    game.player2Tiles = gameData.player2Tiles;
-    game.landmines = gameData.landmines;
-    game.started = true;
-    game.lastActivity = Date.now();
+      gameState[gameId].turn = 1;
+    gameState[gameId].availablePowerUps = { "1": 3, "2": 3 };
+    addStartingSquares(gameId); // Add this line back in
 
+}
+
+function addStartingSquares(gameId) {
+    const board = gameState[gameId].board;
+    const size = board.length;
+
+
+    // Player 1
+    board[size - 1][0].color = gameState[gameId].playerColors[1];
+    board[size - 1][0].owner = 1;
+    gameState[gameId].scores[1] = 1;
+
+
+    // Player 2
+    board[0][size - 1].color = gameState[gameId].playerColors[2];
+    board[0][size - 1].owner = 2;
+    gameState[gameId].scores[2] = 1;
+}
+
+socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
+    if (!games[gameId]) {
+        games[gameId] = { players: {}, playerCount: 0, singlePlayer: singlePlayer };
+    }
     // Mark the player as ready
     const playerIndex = game.players.findIndex(p => p.id === socket.id);
     if (playerIndex !== -1) {
@@ -280,29 +284,29 @@ io.on('connection', (socket) => {
       // Update landmines
       game.landmines = move.landmines;
       
-      // Update board state (for explosion effects)
-      if (move.updatedBoard) {
-        game.board = move.updatedBoard; // Use deep copy to avoid reference issues
-      }
-
-      // Switch turns
-      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+      let move = moves.shift();
+if (move) {
+if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
+    // Process the move
+    gameState[move.gameId].turn = 3 - move.player; // Switch turns: 1 -> 2, 2 -> 1
+    if (move.type === 'color') {
+        floodFill(gameState[move.gameId].board, move.newColor, move.oldColor, move.r, move.c, move.player);
+        updateScores(move.gameId, move.player, move.newColor);
+        io.to(move.gameId).emit('update-board', { board: gameState[move.gameId].board, scores: gameState[move.gameId].scores, turn: gameState[move.gameId].turn, availablePowerUps: gameState[move.gameId].availablePowerUps });
+    } else if (move.type === 'powerup') {
+        gameState[move.gameId].availablePowerUps[move.player] -= 1;
+        if (move.powerUpType === 'landmine') {
+            //move.updatedBoard is correct and represents the changes, we just need to deep copy it.
+            gameState[move.gameId].board = JSON.parse(JSON.stringify(move.updatedBoard));
+            updateScores(move.gameId, move.player, move.color); //color here is the color of the clicked hexagon
+            io.to(move.gameId).emit('update-board', { board: gameState[move.gameId].board, scores: gameState[move.gameId].scores, turn: gameState[move.gameId].turn, availablePowerUps: gameState[move.gameId].availablePowerUps }); //Send whole game state
+        }
     }
-    
-    // Update last activity
-    game.lastActivity = Date.now();
-    
-    // Log game state changes
-    console.log(`Move by Player ${playerNumber}: ${move.type}. Now Player ${game.currentPlayer}'s turn.`);
-    console.log(`Player 1 tiles: ${game.player1Tiles.length}, Player 2 tiles: ${game.player2Tiles.length}`);
-    
-    // Broadcast the updated game state to all players
-    io.to(gameId).emit('game-update', { 
-      type: move.type,
-      gameState: {
-        board: game.board,
-        currentPlayer: game.currentPlayer,
-        player1Color: game.player1Color,
+} else {
+    console.log(`[${move.timestamp}] Move rejected: Not player ${move.player}'s turn in game ${move.gameId} (or game undefined)`);
+}
+}
+}, 100); // Process one move every 100ms
         player2Color: game.player2Color,
         player1Tiles: game.player1Tiles,
         player2Tiles: game.player2Tiles,

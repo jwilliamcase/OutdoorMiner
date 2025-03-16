@@ -508,60 +508,70 @@
         // Check if the game is over and show play again button
         const player1Tiles = new Set(data.gameState.player1Tiles);
         const player2Tiles = new Set(data.gameState.player2Tiles);
-        const totalTiles = CONFIG.BOARD_SIZE * CONFIG.BOARD_SIZE;
-        const occupiedTiles = player1Tiles.size + player2Tiles.size;
-        
-        if (occupiedTiles >= totalTiles * 0.8) { // Game is 80% complete
-            showPlayAgainButton();
         }
+    });
+
+   socket.on('game-started', (data) => {
+    isOnlineGame = true;
+    playerNumber = data.playerNumber; // 1 or 2
+    gameId = data.gameId; // Set the game ID
+
+    // Ensure player names are correctly set up *before* initializing the game.
+    if(data.playerNames) {
+        playerName = data.playerNames[playerNumber];
+        opponentName = data.playerNames[3 - playerNumber];
+        document.getElementById('player-name').textContent = playerName;
+        document.getElementById('opponent-name').textContent = opponentName;
     }
-    
-    // Handle game restarted event
-    function handleGameRestarted(data) {
-        console.log('Game restarted');
-        
-        // Reset the game state - keep player number, but re-init
-      window.initializeOnlineGame(playerNumber, gameId);
 
-        // Update UI - handle opponentName for messages
-        messageElement.textContent = "Game restarted! " + 
-            (window.currentPlayer === playerNumber ? "Your" : (opponentName || "Opponent's")) + " turn.";
+    //Initialize online game
+    initializeGame({ board: data.board, turn: data.turn, scores: data.scores, availablePowerUps: data.availablePowerUps, playerNames: data.playerNames }); //Initialize
+    document.getElementById('waiting-message').style.display = 'none';//remove waiting message
+});
 
-        // Remove play again button if it exists
-        const playAgainButton = document.getElementById('play-again-button');
-        if (playAgainButton) {
-            playAgainButton.remove();
+
+    socket.on('update-board', (data) => {
+        // Update the game board, scores, and turn indicator
+        board = data.board;
+        scores = data.scores;
+        playerTurn = data.turn;
+        availablePowerUps = data.availablePowerUps;
+        // *Always* rotate for player 2 after updating the board.
+        if (playerNumber === 2) {
+            board = rotateBoard180(board);
         }
-    }
-    
-    // Show play again button
-    function showPlayAgainButton() {
-        const existingButton = document.getElementById('play-again-button');
-        
-        if (!existingButton) {
-            const playAgainButton = document.createElement('button');
-            playAgainButton.id = 'play-again-button';
-            playAgainButton.className = 'action-button';
-            playAgainButton.textContent = 'Play Again';
-            playAgainButton.addEventListener('click', window.restartGame);
-            
-            // Add to game controls
-            document.getElementById('game-controls').appendChild(playAgainButton);
+        updateScoreDisplay();
+        updateTurnIndicator();
+        drawBoard(); // Redraw the board with the updated state
+
+    });
+
+    socket.on('game-over', (data) => {
+        if (data.winner === playerNumber) {
+            document.getElementById('game-result').textContent = 'You Win!';
+        } else if (data.winner === 3) {
+            document.getElementById('game-result').textContent = 'It\'s a tie!';
         }
-    }
-    
-    // Handle player disconnected event
-    function handlePlayerDisconnected(data) {
-        console.log('Player disconnected:', data);
-        messageElement.textContent = `Player ${data.playerNumber} has disconnected!`;
-        // Reset game-related variables.
-        isOnlineGame = false;
-        gameId = null;
-        playerNumber = 1;
-        opponentName = '';
+        else {
+            document.getElementById('game-result').textContent = 'You Lose!';
+        }
+        document.getElementById('game-over-screen').style.display = 'flex';
+        document.getElementById('play-again-button').style.display = 'block';
+    });
+    socket.on('player-disconnected', (data) => {
+        resetGame(); //Clear up game state
+        document.getElementById('opponent-name').textContent = '';
+        //Display the modal
+        document.getElementById('disconnected-modal').style.display = 'block';
+    });
 
-    }
+    socket.on('game-restarted', () => {
+        // Hide the modal.
+        document.getElementById('restart-modal').style.display = 'none';
+        //Remove play again button.
+        document.getElementById('play-again-button').style.display = 'none';
 
+    });
     // Handle receiving a chat message
     function handleReceiveMessage(data) {
         console.log('Message received:', data);
