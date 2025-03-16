@@ -38,7 +38,8 @@
     let opponentName = '';
     let connected = false;
     let unreadMessages = 0;
-    let ctx = null;
+
+    // Game state
     let isOnlineGame = false;
     
     // Initialize multiplayer
@@ -183,7 +184,7 @@
         const sound = document.getElementById(elementId);
         if (sound) {
             sound.currentTime = 0;
-            sound.play().catch(err => console.error('Error playing sound:', err)); // Corrected to console.error
+            sound.play().catch(err => console.log('Error playing sound:', err));
         }
     }
     
@@ -325,18 +326,18 @@
         playerNumber = data.playerNumber;
         playerName = data.playerName || document.getElementById('player-name').value.trim() || 'Player 1';
         isOnlineGame = true;
-
+        
         // Update UI
-        messageElement.textContent = `Game created! Your code is: ${gameId}. Share this URL with Player 2: ${window.location.href}?game=${gameId}`;
+        messageElement.textContent = `Game created! Your code is: ${gameId}. Waiting for opponent...`;
         challengeCodeInput.value = gameId;
-
+        
         // Re-enable buttons
         createChallengeButton.disabled = false;
         connectChallengeButton.disabled = false;
-
-        // Update URL with game code for easy sharing - now includes full URL in message
+        
+        // Add game code to URL for easy sharing
         updateUrlWithGameCode(gameId);
-
+        
         // Initialize game for player 1
         window.initializeOnlineGame(playerNumber, gameId, playerName);
     }
@@ -354,21 +355,20 @@
         gameId = data.gameId;
         playerNumber = data.playerNumber;
         playerName = document.getElementById('player-name').value.trim() || 'Player 2';
-        opponentName = data.player1Name; // Set opponent name from server response
         isOnlineGame = true;
-
-        // Update UI, now showing player names if available
-        messageElement.textContent = `Joined game ${gameId} as Player ${playerNumber}! Connected to ${opponentName || 'Player 1'}. Waiting for game to start...`;
-
+        
+        // Update UI
+        messageElement.textContent = `Joined game ${gameId} as Player ${playerNumber}! Waiting for game to start...`;
+        
         // Re-enable buttons
         createChallengeButton.disabled = false;
         connectChallengeButton.disabled = false;
-
+        
         // Update URL with game code
         updateUrlWithGameCode(gameId);
-
+        
         // Initialize game for player 2
-        window.initializeOnlineGame(playerNumber, gameId, playerName, opponentName); // Pass opponent name
+        window.initializeOnlineGame(playerNumber, gameId, playerName);
     }
     
     // Handle game error
@@ -384,13 +384,15 @@
     // Handle player joined event
     function handlePlayerJoined(data) {
         console.log('Player joined:', data);
-
-        // Save player names from data, ensure opponentName is updated
-        opponentName = data.playerName;
-
+        
+        // Save opponent name if provided
+        if (data.playerName) {
+            opponentName = data.playerName;
+        }
+        
         if (playerNumber === 1) {
-            messageElement.textContent = `${opponentName} has joined the game!`; // Use opponentName directly from data
-
+            messageElement.textContent = `${opponentName || 'Player 2'} has joined the game!`;
+            
             // As player 1, initialize the game
             socket.emit('initialize-game', {
                 gameId: gameId,
@@ -403,31 +405,39 @@
     function handleGameStarted(data) {
         console.log('Game started:', data);
         
-        // Set player names from gameState, ensuring correct assignment based on playerNumber
-        if (playerNumber === 1) {
+        // Save player names
+        if (data.gameState.player1Name && playerNumber === 1) {
             playerName = data.gameState.player1Name;
-            opponentName = data.gameState.player2Name;
-        } else if (playerNumber === 2) {
-            playerName = data.gameState.player2Name;
-            opponentName = data.gameState.player1Name;
+            window.playerName = playerName;
         }
-        window.playerName = playerName;
-        window.opponentName = opponentName;
-
+        
+        if (data.gameState.player2Name && playerNumber === 2) {
+            playerName = data.gameState.player2Name;
+            window.playerName = playerName;
+        }
+        
+        // Save opponent name
+        if (data.gameState.player1Name && playerNumber === 2) {
+            opponentName = data.gameState.player1Name;
+            window.opponentName = opponentName;
+        }
+        
+        if (data.gameState.player2Name && playerNumber === 1) {
+            opponentName = data.gameState.player2Name;
+            window.opponentName = opponentName;
+        }
+        
         // Both players should get the complete game state
         window.syncGameState(data.gameState);
-
+        
         // Force update display
         if (window.updateScoreDisplay) {
             window.updateScoreDisplay();
         }
-
-        // Update player names in UI immediately after game start
-        updatePlayerNames();
-
+        
         // Set board orientation based on player number
         window.resizeGame();
-
+        
         messageElement.textContent = `Game started! ${data.gameState.currentPlayer === playerNumber ? 'Your' : 'Opponent\'s'} turn.`;
     }
     
@@ -447,7 +457,7 @@
     
     // Handle game update event
     function handleGameUpdate(data) {
-        console.log('Received game-update event:', data); // Log event received
+        console.log('Game update:', data);
         
         // Update player names if available
         if (data.gameState.player1Name && playerNumber === 1) {
@@ -470,9 +480,8 @@
             opponentName = data.gameState.player2Name;
             window.opponentName = opponentName;
         }
-
+        
         // Sync game state
-        console.log('Passing gameState to syncGameState:', data.gameState); // Log gameState
         window.syncGameState(data.gameState);
         
         // Update player names in UI

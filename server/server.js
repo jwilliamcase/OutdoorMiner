@@ -33,26 +33,15 @@ app.get('/', (req, res) => {
   res.send('Outdoor Miner Game Server Running');
 });
 
-// Simple API status endpoint for health checks
+// Debug route for checking CORS
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'ok',
-    games: activeGames.size,
     clientOrigin: req.headers.origin || 'unknown',
     serverTime: new Date().toISOString(),
     message: 'Server is running and CORS is properly configured'
   });
 });
-
-// Generate a random 6-character game code
-function generateGameCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
 
 // Socket.io handling
 io.on('connection', (socket) => {
@@ -67,10 +56,8 @@ io.on('connection', (socket) => {
     const gameState = {
       id: gameId,
       players: [
-        { id: socket.id, socketId: socket.id, number: 1, ready: false, name: playerName }
+        { id: socket.id, number: 1, ready: false, name: playerName }
       ],
-      player1Name: playerName, // Store player 1's name directly
-      player2Name: null,       // Initialize player 2's name as null
       board: null,
       currentPlayer: 1,
       player1Color: null,
@@ -81,33 +68,25 @@ io.on('connection', (socket) => {
       player2PowerUps: [],
       landmines: [],
       started: false,
-      moveDetails: null,
       lastActivity: Date.now()
     };
     
     // Store the game
     activeGames.set(gameId, gameState);
-    
-    // Associate player with game
     players.set(socket.id, gameId);
     
-    // Join the socket room for this game
+    console.log(`Game created: ${gameId} by player ${socket.id} (${playerName})`);
+    
+    // Join the socket to a room with the game ID
     socket.join(gameId);
     
-    // Send the game ID back to the client
-    socket.emit('game-created', {
-      gameId: gameId,
-      playerNumber: 1,
-      playerName: playerName
-    });
-    
-    console.log(`Game created: ${gameId} by player ${socket.id} (${playerName})`);
+    // Send the game code to the client
+    socket.emit('game-created', { gameId, playerNumber: 1, playerName: playerName });
   });
   
   // Join an existing game
   socket.on('join-game', (data) => {
     const { gameId, playerName } = data;
-    const joinName = playerName || 'Player 2';
     
     // Check if the game exists
     if (!activeGames.has(gameId)) {
@@ -117,52 +96,31 @@ io.on('connection', (socket) => {
     
     const game = activeGames.get(gameId);
     
-    // Check if the game is already full
+    // Check if the game is full
     if (game.players.length >= 2) {
       socket.emit('game-error', { message: 'Game is full' });
       return;
     }
     
-    // Update player 2's name in the game state
-    game.player2Name = joinName;
-    
-    // Add the player to the game
-    game.players.push({
-      id: socket.id,
-      socketId: socket.id,
-      number: 2,
-      ready: false,
-      name: joinName
-    });
-    
-    // Associate player with game
+    // Add player to the game
+    const name = playerName || 'Player 2';
+    game.players.push({ id: socket.id, number: 2, ready: false, name: name });
     players.set(socket.id, gameId);
     
-    // Join the socket room for this game
+    // Join the socket to the game room
     socket.join(gameId);
     
-    // Notify player they've joined
-    socket.emit('game-joined', {
-      gameId: gameId,
-      playerNumber: 2,
-      player1Name: game.player1Name,
-      player2Name: joinName
-    });
+    console.log(`Player ${socket.id} (${name}) joined game ${gameId}`);
     
-    // Notify other player that someone joined
-    socket.to(gameId).emit('player-joined', {
-      playerNumber: 2,
-      playerName: joinName
-    });
-    
-    console.log(`Player ${socket.id} (${joinName}) joined game ${gameId}`);
+    // Notify all players in the room
+    socket.emit('game-joined', { gameId, playerNumber: 2 });
+    io.to(gameId).emit('player-joined', { playerNumber: 2, playerName: name });
   });
   
-  // Initialize a game
-  socket.on('initialize-game', (gameData) => {
-    const gameId = gameData.gameId;
+  // Initialize game with board state
+  socket.on('initialize-game', (data) => {
+    const { gameId, gameData } = data;
     
-    // Check if the game exists
     if (!activeGames.has(gameId)) {
       socket.emit('game-error', { message: 'Game not found' });
       return;
@@ -170,9 +128,8 @@ io.on('connection', (socket) => {
     
     const game = activeGames.get(gameId);
     
-    // Update game state with data from client
+    // Update game state with initial board data
     game.board = gameData.board;
-    game.currentPlayer = gameData.currentPlayer;
     game.player1Color = gameData.player1Color;
     game.player2Color = gameData.player2Color;
     game.player1Tiles = gameData.player1Tiles;
@@ -191,39 +148,39 @@ io.on('connection', (socket) => {
     const allReady = game.players.every(p => p.ready);
     
     if (allReady) {
+      // Get player names
+      const player1 = game.players.find(p => p.number === 1);
+      const player2 = game.players.find(p => p.number === 2);
+      
       // Log state before sending
       console.log(`Game ${gameId} starting with board state:`, {
         player1Tiles: game.player1Tiles.length,
         player2Tiles: game.player2Tiles.length,
-        p1Name: game.player1Name,
-        p2Name: game.player2Name
+        p1Name: player1?.name,
+        p2Name: player2?.name
       });
       
-      // Send game started event to all players
-      io.to(gameId).emit('game-started', {
-        gameState: {
-          board: game.board,
-          currentPlayer: game.currentPlayer,
-          player1Color: game.player1Color,
-          player2Color: game.player2Color,
-          player1Tiles: game.player1Tiles,
-          player2Tiles: game.player2Tiles,
-          player1PowerUps: game.player1PowerUps,
-          player2PowerUps: game.player2PowerUps,
-          landmines: game.landmines,
-          player1Name: game.player1Name,
-          player2Name: game.player2Name
-        }
-      });
+      // Broadcast game state to all players
+      io.to(gameId).emit('game-started', { gameState: {
+        board: game.board,
+        currentPlayer: game.currentPlayer,
+        player1Color: game.player1Color,
+        player2Color: game.player2Color,
+        player1Tiles: game.player1Tiles,
+        player2Tiles: game.player2Tiles,
+        player1PowerUps: game.player1PowerUps,
+        player2PowerUps: game.player2PowerUps,
+        landmines: game.landmines,
+        player1Name: player1 ? player1.name : 'Player 1',
+        player2Name: player2 ? player2.name : 'Player 2'
+      }});
     }
   });
   
-  // Handle a move
+  // Handle game moves
   socket.on('make-move', (data) => {
-    const { gameId, move } = data;
-    let playerNumber = 0;
+    const { gameId, playerNumber, playerName, move } = data;
     
-    // Check if the game exists
     if (!activeGames.has(gameId)) {
       socket.emit('game-error', { message: 'Game not found' });
       return;
@@ -231,105 +188,121 @@ io.on('connection', (socket) => {
     
     const game = activeGames.get(gameId);
     
-    // Find the player's number
-    const playerIndex = game.players.findIndex(p => p.id === socket.id);
-    if (playerIndex !== -1) {
-      playerNumber = game.players[playerIndex].number;
-    } else {
-      socket.emit('game-error', { message: 'Player not found in game' });
+    // Special case for restart-game which doesn't require turn validation
+    if (move.type === 'restart-game') {
+      console.log(`Game ${gameId} restarted by player ${playerNumber}`);
+      
+      // Reset game state but keep the players
+      game.board = null;
+      game.currentPlayer = 1; // Player 1 always starts in a new game
+      game.player1Color = null;
+      game.player2Color = null;
+      game.player1Tiles = [];
+      game.player2Tiles = [];
+      game.player1PowerUps = [];
+      game.player2PowerUps = [];
+      game.landmines = [];
+      game.started = false;
+      game.lastActivity = Date.now();
+      
+      // Notify all players about restart
+      io.to(gameId).emit('game-restarted', {});
       return;
     }
     
-    // Verify it's this player's turn
+    // Validate it's the player's turn for normal moves
     if (game.currentPlayer !== playerNumber) {
       socket.emit('game-error', { message: 'Not your turn' });
       return;
     }
     
-    console.log(`- - - - - - - - - - - - - - - - - - - -`);
-    console.log(`make-move: ${move.type} received from Player ${playerNumber}`);
-    console.log(`Move data:`, move);
+    // Update game state based on the move
+    // Move data should include color selection and any power-up usage
     
-    // Update the game state based on the move
+    // Example of updating color
     if (move.type === 'color-selection') {
-      // Log details about the color selection move
-      let player1TilesCount = game.player1Tiles ? game.player1Tiles.length : 0;
-      let player2TilesCount = game.player2Tiles ? game.player2Tiles.length : 0;
-      
-      console.log(`After move from Player ${playerNumber}:`);
-      console.log(`- Player 1 tiles BEFORE move: ${player1TilesCount}`);
-      console.log(`- Player 2 tiles BEFORE move: ${player2TilesCount}`);
-      
-      // Update player color
       if (playerNumber === 1) {
         game.player1Color = move.color;
       } else {
         game.player2Color = move.color;
       }
       
-      // Update tiles
-      if (playerNumber === 1) {
-        if (move.player1Tiles) {
-          console.log(`- Player 1 Tiles BEFORE move processing - P1 Tiles: ${move.player1Tiles.length}, P2 Tiles: ${move.player2Tiles ? move.player2Tiles.length : 0}`);
-          game.player1Tiles = move.player1Tiles;
-          console.log(`  Updated P1 tiles based on move: count = ${game.player1Tiles.length}`);
-        }
-      } else if (playerNumber === 2) {
-        if (move.player2Tiles) {
-          console.log(`- Player 2 Tiles BEFORE move processing - P1 Tiles: ${move.player1Tiles ? move.player1Tiles.length : 0}, P2 Tiles: ${move.player2Tiles.length}`);
-          game.player2Tiles = move.player2Tiles;
-          console.log(`  Updated P2 tiles based on move: count = ${game.player2Tiles.length}`);
-        }
+      // Always update both players' tiles to ensure consistency
+      if (move.player1Tiles) {
+        game.player1Tiles = move.player1Tiles;
       }
       
-      // Log details after the move is processed
-      console.log(`- Player 1 tiles AFTER move: ${game.player1Tiles.length}`);
-      console.log(`- Player 2 tiles AFTER move: ${game.player2Tiles.length}`);
+      if (move.player2Tiles) {
+        game.player2Tiles = move.player2Tiles;
+      }
+      
+      // Update colors if explicitly provided
+      if (move.player1Color) {
+        game.player1Color = move.player1Color;
+      }
+      
+      if (move.player2Color) {
+        game.player2Color = move.player2Color;
+      }
+      
+      // Log the state after update for debugging
+      console.log(`After move from Player ${playerNumber}:`);
+      console.log(`- Player 1 has ${game.player1Tiles.length} tiles`);
+      console.log(`- Player 2 has ${game.player2Tiles.length} tiles`);
       console.log(`- Player 1 color: ${game.player1Color}`);
       console.log(`- Player 2 color: ${game.player2Color}`);
-    }
-    else if (move.type === 'power-up') {
-      // Handle power-up activation
-      if (playerNumber === 1) {
-        game.player1PowerUps = move.player1PowerUps || game.player1PowerUps;
-      } else {
-        game.player2PowerUps = move.player2PowerUps || game.player2PowerUps;
-      }
       
-      // Update tiles if the power-up affected them
-      if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
-      if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
-    }
-    else if (move.type === 'landmine') {
-      // Update landmine status in game state
-      if (game.landmines) {
-        game.landmines = game.landmines.filter(mine =>
-          !(mine.row === move.row && mine.col === move.col)
-        );
-      }
-      
-      // Update tiles after landmine explosion
-      if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
-      if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
-      
-      // Update board state if needed for explosions
-      if (move.updatedBoard) {
-        game.board = move.updatedBoard;
-      }
+      // Switch turns
+      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
     }
     
-    // Switch turns
-    game.currentPlayer = playerNumber === 1 ? 2 : 1;
-    game.moveDetails = move;
+    // Example of power-up usage
+    if (move.type === 'power-up') {
+      // Update power-ups
+      if (playerNumber === 1) {
+        game.player1PowerUps = move.player1PowerUps;
+      } else {
+        game.player2PowerUps = move.player2PowerUps;
+      }
+      
+      // Update tiles after power-up (if applicable)
+      if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
+      if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
+      
+      // Switch turns
+      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+    }
+    
+    // Example of landmine explosion
+    if (move.type === 'landmine') {
+      // Update tiles
+      game.player1Tiles = move.player1Tiles;
+      game.player2Tiles = move.player2Tiles;
+      
+      // Update landmines
+      game.landmines = move.landmines;
+      
+      // Update board state (for explosion effects)
+      if (move.updatedBoard) {
+        game.board = JSON.parse(JSON.stringify(move.updatedBoard)); // Deep copy to avoid reference issues
+      }
+      
+      // Switch turns
+      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+    }
+    
+    // Update last activity
     game.lastActivity = Date.now();
     
-    // Log turn switch
-    console.log(`Game ${gameId}: Turn switched to Player ${game.currentPlayer}`);
+    // Get player names
+    const player1 = game.players.find(p => p.number === 1);
+    const player2 = game.players.find(p => p.number === 2);
+    
+    // Log game state changes
     console.log(`Move by Player ${playerNumber}: ${move.type}. Now Player ${game.currentPlayer}'s turn.`);
     console.log(`Player 1 tiles: ${game.player1Tiles.length}, Player 2 tiles: ${game.player2Tiles.length}`);
-    console.log(`- - - - - - - - - - - - - - - - - - - -`);
     
-    // Broadcast the updated game state to both players
+    // Broadcast the updated game state to all players
     io.to(gameId).emit('game-update', { 
       type: move.type,
       gameState: {
@@ -342,126 +315,104 @@ io.on('connection', (socket) => {
         player1PowerUps: game.player1PowerUps,
         player2PowerUps: game.player2PowerUps,
         landmines: game.landmines,
-        player1Name: game.player1Name,
-        player2Name: game.player2Name,
+        player1Name: player1 ? player1.name : 'Player 1',
+        player2Name: player2 ? player2.name : 'Player 2',
         moveDetails: move
       } 
     });
   });
   
-  // Restart the game
-  socket.on('restart-game', (data) => {
-    const { gameId } = data;
-    
-    // Check if the game exists
-    if (!activeGames.has(gameId)) {
-      socket.emit('game-error', { message: 'Game not found' });
-      return;
-    }
-    
-    const game = activeGames.get(gameId);
-    
-    // Reset game state
-    game.board = null;
-    game.currentPlayer = 1;
-    game.player1Color = null;
-    game.player2Color = null;
-    game.player1Tiles = [];
-    game.player2Tiles = [];
-    game.player1PowerUps = [];
-    game.player2PowerUps = [];
-    game.landmines = [];
-    game.started = false;
-    game.lastActivity = Date.now();
-    
-    // Mark all players as not ready
-    game.players.forEach(player => {
-      player.ready = false;
-    });
-    
-    console.log(`Game ${gameId} restarted`);
-    
-    // Notify both players
-    io.to(gameId).emit('game-restarted', {});
-  });
-  
-  // Handle chat messages
+  // Chat and taunts system
   socket.on('send-message', (data) => {
-    const { gameId, message, isTaunt } = data;
+    const { gameId, playerNumber, playerName, message, isTaunt } = data;
     
-    // Check if the game exists
     if (!activeGames.has(gameId)) {
-      socket.emit('game-error', { message: 'Game not found' });
       return;
     }
     
-    const game = activeGames.get(gameId);
-    
-    // Find player number
-    let playerNumber = 0;
-    let playerName = "Unknown";
-    
-    const playerIndex = game.players.findIndex(p => p.id === socket.id);
-    if (playerIndex !== -1) {
-      playerNumber = game.players[playerIndex].number;
-      playerName = game.players[playerIndex].name;
-    }
-    
-    const timestamp = Date.now();
-    
-    // Broadcast message to all players in the game
-    io.to(gameId).emit('message-received', {
-      playerNumber,
-      playerName,
-      message,
-      isTaunt,
-      timestamp
-    });
-  });
-  
-  // Handle disconnections
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-    
-    // Find the game this player was in
-    const gameId = players.get(socket.id);
-    
-    if (gameId && activeGames.has(gameId)) {
+    // Get player name from game state if available
+    let name = playerName;
+    if (!name && activeGames.has(gameId)) {
       const game = activeGames.get(gameId);
-      
-      // Find the player's number
-      const playerIndex = game.players.findIndex(p => p.id === socket.id);
-      
-      if (playerIndex !== -1) {
-        const playerNumber = game.players[playerIndex].number;
-        
-        // Notify other players in the game
-        socket.to(gameId).emit('player-disconnected', {
-          playerNumber: playerNumber
-        });
-        
-        console.log(`Player ${playerNumber} disconnected from game ${gameId}`);
+      const player = game.players.find(p => p.number === playerNumber);
+      if (player) {
+        name = player.name;
       }
     }
     
-    // Remove from players map
-    players.delete(socket.id);
+    // Broadcast the message to all players in the game
+    io.to(gameId).emit('receive-message', {
+      playerNumber,
+      playerName: name || `Player ${playerNumber}`,
+      message,
+      isTaunt,
+      timestamp: Date.now()
+    });
+  });
+  
+  // Disconnect handling
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+    
+    // Check if player was in a game
+    if (players.has(socket.id)) {
+      const gameId = players.get(socket.id);
+      
+      if (activeGames.has(gameId)) {
+        const game = activeGames.get(gameId);
+        
+        // Remove player from the game
+        const playerIndex = game.players.findIndex(p => p.id === socket.id);
+        if (playerIndex !== -1) {
+          const playerNumber = game.players[playerIndex].number;
+          game.players.splice(playerIndex, 1);
+          
+          // Notify remaining players
+          io.to(gameId).emit('player-disconnected', { playerNumber });
+          
+          // If no players left, clean up the game
+          if (game.players.length === 0) {
+            activeGames.delete(gameId);
+            console.log(`Game ${gameId} removed - no players left`);
+          }
+        }
+      }
+      
+      // Remove player from players map
+      players.delete(socket.id);
+    }
   });
 });
 
-// Clean up inactive games periodically
+// Game code generator
+function generateGameCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Clean up inactive games periodically (every 15 minutes)
 setInterval(() => {
-  const currentTime = Date.now();
-  const inactiveThreshold = 60 * 60 * 1000; // 1 hour
+  const now = Date.now();
+  let cleanedCount = 0;
   
-  // Check each game for inactivity
-  for (const [gameId, game] of activeGames.entries()) {
-    if (currentTime - game.lastActivity > inactiveThreshold) {
-      console.log(`Game ${gameId} is inactive for more than 1 hour. Removing...`);
+  activeGames.forEach((game, gameId) => {
+    // If the game has been inactive for more than 30 minutes, remove it
+    if (now - game.lastActivity > 30 * 60 * 1000) {
       activeGames.delete(gameId);
+      cleanedCount++;
+      
+      // Remove any players still associated with this game
+      players.forEach((playerGameId, playerId) => {
+        if (playerGameId === gameId) {
+          players.delete(playerId);
+        }
+      });
     }
+  });
+  
+  if (cleanedCount > 0) {
+    console.log(`Cleaned up ${cleanedCount} inactive games`);
   }
-}, 30 * 60 * 1000); // Run every 30 minutes
+}, 15 * 60 * 1000);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
