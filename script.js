@@ -5,6 +5,9 @@
     // --- Variable Declarations ---
     let boardSize = CONFIG.BOARD_SIZE; // Define boardSize using CONFIG - Moved to top
     let currentPlayer = 1; // Initialize currentPlayer immediately - Moved to top
+    let board; // Game board array - Initialize here
+    let powerUpCounts = { 1: { wildcard: 0, sabotage: 0, teleport: 0 }, 2: { wildcard: 0, sabotage: 0, teleport: 0 } }; // Initialize here
+    let playerColors = { 1: null, 2: null }; // Initialize playerColors
     let canvas = document.getElementById('game-board');
     let ctx = canvas.getContext('2d');
     let playerNameInput = document.getElementById('playerName');
@@ -44,8 +47,8 @@
         canvas = document.getElementById('gameCanvas');
         ctx = canvas.getContext('2d');
 
-        board = initializeBoard(); // Initialize board here, after DOM is ready
-    
+        board = initializeBoard(); // Re-initialize board here, after DOM is ready
+
         renderGameBoard();
         updateScoreDisplay();
         resizeGame(); // Initial resize
