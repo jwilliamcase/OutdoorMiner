@@ -69,37 +69,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let opponentName = ''; // Name of the opponent
     let waitingForOpponent = false; // Whether we're waiting for an opponent's move
     
-    // Initialize the game - handles both single and multiplayer setup
+    // Initialize the game
     function initializeGame() {
         createGameBoard();
         setupInitialTiles();
         resetAvailableColors();
-
+        
         // Clear any exploded tiles from previous games
         explodedTiles = [];
-
+        
         // Reset power-ups
         player1PowerUps = [];
         player2PowerUps = [];
         selectedPowerUp = null;
         updatePowerUpDisplay();
-
+        
         // Handle responsive canvas sizing
         resizeGame();
-
+        
         renderGameBoard();
-        updateScoreDisplay(); // Update scores *before* player names
+        updateScoreDisplay();
         updateTurnIndicator();
         setupColorButtons();
         setupPowerUpListeners();
-
-        if (!isOnlineGame) {
-            messageElement.textContent = "Welcome to Outdoor Miner! Player 1's turn. Watch out for hidden landmines!";
-        } else {
-            // Online specific messages are handled in initializeOnlineGame
-        }
+        messageElement.textContent = "Welcome to Outdoor Miner! Your turn. Watch out for hidden landmines!";
     }
-
+    
     // Function to handle responsive canvas scaling
     function resizeGame() {
         const container = document.getElementById('game-container');
@@ -729,33 +724,25 @@ document.addEventListener('DOMContentLoaded', () => {
             messageElement.textContent = "This color is not available this turn!";
             return;
         }
-
-        // Check if this is the same as current color.
+        
+        // Check if this is the same as current color
         const isCurrentColor = (currentPlayer === 1 && selectedColor === player1Color) ||
                                (currentPlayer === 2 && selectedColor === player2Color);
-
-        // If re-selecting current color, just switch turns.
-        if (isCurrentColor){
-            if (isOnlineGame){
-                sendMoveToServer(selectedColor); // Still send to server for turn switch.
-            } else {
-              switchPlayerTurn();
-            }
-            return;
-        }
-
+        
         // Update player's color
         if (currentPlayer === 1) {
             player1Color = selectedColor;
         } else {
             player2Color = selectedColor;
         }
-
+        
         // Find tiles to capture
         const playerTiles = currentPlayer === 1 ? player1Tiles : player2Tiles;
-        const capturable = getCaptureableTiles(playerTiles, selectedColor);
-
-        if (capturable.size === 0) {
+        
+        // Only check for new tiles if not re-selecting current color
+        const capturable = isCurrentColor ? new Set() : getCaptureableTiles(playerTiles, selectedColor);
+        
+        if (capturable.size === 0 && !isCurrentColor) {
             messageElement.textContent = `No tiles can be captured with this color. Try another!`;
             return;
         }
@@ -849,10 +836,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Start the animation for capturing new tiles (handles turn switch).
-        animateCapture();
+        // If re-selecting the same color, just switch turns
+        if (isCurrentColor) {
+            messageElement.textContent = `${currentPlayer === 1 ? 'You' : 'Opponent'} kept the same color.`;
+            updateScoreDisplay();
+            switchPlayerTurn();
+        } else {
+            // Start the animation for capturing new tiles
+            animateCapture();
+        }
     }
-
+    
     // Award a random power-up to the current player
     function awardPowerUp() {
         // Choose a random power-up type
@@ -923,20 +917,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Update the turn indicator UI
-function updateTurnIndicator() {
-    // Update turn indicator text - handle online/offline and undefined names
-    if (isOnlineGame) {
-        currentPlayerElement.textContent = currentPlayer === playerNumber ?
-            (playerName || (playerNumber === 1 ? 'You' : 'Opponent')) :
-            (opponentName || (playerNumber === 1 ? 'Opponent' : 'You'));
-    } else {
-        currentPlayerElement.textContent = currentPlayer === 1 ? 'Player 1' : 'Player 2';
+    function updateTurnIndicator() {
+        // Update turn indicator text
+        currentPlayerElement.textContent = currentPlayer === 1 ? 'You' : 'Opponent';
+        
+        // Update turn indicator styling
+        turnIndicator.classList.remove('player1-turn', 'player2-turn');
+        turnIndicator.classList.add(currentPlayer === 1 ? 'player1-turn' : 'player2-turn');
     }
-
-    // Update turn indicator styling
-    turnIndicator.classList.remove('player1-turn', 'player2-turn');
-    turnIndicator.classList.add(currentPlayer === 1 ? 'player1-turn' : 'player2-turn');
-}
     
     // Switch to the next player's turn
     function switchPlayerTurn() {
@@ -1063,30 +1051,27 @@ function updateTurnIndicator() {
         const player2Score = player2Tiles.size;
         
         // Update score display based on player number
-    if (isOnlineGame) {
-        // For player 1
-        if (playerNumber === 1) {
-            player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
-            player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+        if (isOnlineGame) {
+            // For player 1
+            if (playerNumber === 1) {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            } 
+            // For player 2
+            else {
+                player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
+                player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
+            }
+            
+            // Update turn indicator
+            currentPlayerElement.textContent = currentPlayer === playerNumber ? 
+                (playerName || 'Your') : (opponentName || 'Opponent\'s');
+        } else {
+            // Single player mode
+            player1ScoreElement.textContent = player1Score;
+            player2ScoreElement.textContent = player2Score;
         }
-        // For player 2
-        else {
-            player1ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">${player1Score}</span>`;
-            player2ScoreElement.innerHTML = `<span class="player-name ${currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">${player2Score}</span>`;
-        }
-
-        // Update turn indicator - more robust check for names
-        currentPlayerElement.textContent = currentPlayer === playerNumber ?
-            (playerName || (playerNumber === 1 ? 'You' : 'Opponent')) :
-            (opponentName || (playerNumber === 1 ? 'Opponent' : 'You'));
-
-    } else {
-        // Single player mode
-        player1ScoreElement.textContent = player1Score;
-        player2ScoreElement.textContent = player2Score;
-        currentPlayerElement.textContent = currentPlayer === 1 ? 'Player 1' : 'Player 2'; // Display player number
     }
-}
     
     // Set up color buttons
     function setupColorButtons() {
@@ -1197,7 +1182,7 @@ function updateTurnIndicator() {
             usePowerUp(selectedPowerUp, closestHex.row, closestHex.col);
             return;
         }
-
+        
         // Debug: Show info about the clicked tile
         if (closestHex) {
             const { row, col } = closestHex;
@@ -1270,69 +1255,50 @@ function updateTurnIndicator() {
                 break;
         }
         
-    function handlePowerUpMove(clickedHex) {
-    if (!selectedPowerUp || animationInProgress) return;
-
-    let r = clickedHex.row;
-    let c = clickedHex.col;
-
-    if (isOnlineGame) {
-        //Online Powerup
-        if (selectedPowerUp == "landmine" && availablePowerUps[playerNumber] > 0) {
-            //Send to server
-            socket.emit('move', { type: 'powerup', gameId: gameId, player: playerNumber, powerUpType: selectedPowerUp, r: r, c: c, updatedBoard: board, color: board[r][c].color }) //send whole board for simplicity
-        }
-        selectedPowerUp = null; // Reset the selected power-up
+        // Reset selected power-up
+        selectedPowerUp = null;
         updatePowerUpDisplay();
-    } else {
-        //Single Player Powerup
-        if (selectedPowerUp == "landmine" && availablePowerUps[playerTurn] > 0) {
-            //Apply Landmine
-            const neighbors = getNeighbors(r, c);
-            neighbors.push({ row: r, col: c }); // Include the clicked hexagon itself
-            //Set to neutral
-            for (const neighbor of neighbors) {
-                if (board[neighbor.row] && board[neighbor.row][neighbor.col]) {
-                    board[neighbor.row][neighbor.col].owner = 0;
-                    board[neighbor.row][neighbor.col].color = 'white';
-                }
-            }
-            availablePowerUps[playerTurn] -= 1;
-
-            //Switch turn
-            playerTurn = 3 - playerTurn;
-            selectedPowerUp = null; // Reset the selected power-up
-            updatePowerUpDisplay();
-            updateScores();
-            updateTurnIndicator();
-            drawBoard();
-            //Trigger computer turn
-            if (playerTurn === 2 && singlePlayer) {
-                setTimeout(computerMove, 100); // Small delay for the computer to move
-            }
-        }
     }
-}
-          return;
+    
+    // Apply sabotage power-up (convert opponent territory to neutral over time)
+    function applySabotage(row, col) {
+        const tileKey = `${row},${col}`;
+        const sabotagedColor = gameBoard[row][col].color;
+        
+        // Remove from opponent's territory
+        if (currentPlayer === 1) {
+            player2Tiles.delete(tileKey);
+        } else {
+            player1Tiles.delete(tileKey);
         }
-
+        
+        // Change the tile color to indicate sabotage (dark red)
+        gameBoard[row][col].color = '#8B0000';
+        
+        // Remove this power-up from the player's inventory
+        const playerPowerUps = currentPlayer === 1 ? player1PowerUps : player2PowerUps;
+        const powerUpIndex = playerPowerUps.indexOf(POWER_UPS.SABOTAGE);
+        if (powerUpIndex !== -1) {
+            playerPowerUps.splice(powerUpIndex, 1);
+        }
+        
+        // Add to exploded tiles with longer recovery time (sabotage lasts longer)
+        explodedTiles.push({
+            row: row,
+            col: col,
+            turnsLeft: 3, // 3 turns to recover
+            type: 'sabotage'
+        });
+        
+        messageElement.textContent = "Sabotage successful! Territory will return to neutral over time.";
+        renderGameBoard();
+        updateScoreDisplay();
+        updatePowerUpDisplay();
+        
         // Switch turns
         switchPlayerTurn();
     }
-
-    // Send Power Up move to Server
-    function sendPowerUpMoveToServer(powerUpType, row, col){
-      const moveData = {
-          type: 'power-up',
-          powerUpType: powerUpType,
-          row: row,
-          col: col,
-          player1PowerUps: player1PowerUps, // Send updated powerup counts.
-          player2PowerUps: player2PowerUps
-      };
-      sendMove(moveData); // Use the existing sendMove function
-    }
-
+    
     // Apply wildcard power-up (place a tile that matches any color)
     function applyWildcard(row, col) {
         const tileKey = `${row},${col}`;
@@ -1354,142 +1320,93 @@ function updateTurnIndicator() {
             playerPowerUps.splice(powerUpIndex, 1);
         }
         
-        }
+        messageElement.textContent = "Wildcard successfully played! Territory expanded.";
+        renderGameBoard();
+        updateScoreDisplay();
+        updatePowerUpDisplay();
+        
+        // Switch turns
+        switchPlayerTurn();
     }
-
-    // Initial setup for the game board.
-   function initializeGame(initialSetup = {}) {
-    if (initialSetup.board) {
-        // Online Game
-        board = initialSetup.board;
-        playerTurn = initialSetup.turn;
-        scores = initialSetup.scores;
-        availablePowerUps = initialSetup.availablePowerUps;
-
-        // Set up player names
-        if (initialSetup.playerNames) {
-            playerName = initialSetup.playerNames[playerNumber];
-            opponentName = initialSetup.playerNames[3 - playerNumber];
-            document.getElementById('player-name').textContent = playerName;
+    
+    // Apply teleport power-up (claim a tile anywhere on the board)
+    function applyTeleport(row, col) {
+        const tileKey = `${row},${col}`;
+        
+        // Add to player's territory
+        if (currentPlayer === 1) {
+            player1Tiles.add(tileKey);
+        } else {
+            player2Tiles.add(tileKey);
         }
-
-        // Apply board rotation for player 2 *AFTER* receiving the board.
-        if (playerNumber === 2) {
-            board = rotateBoard180(board);
+        
+        // Set tile to player's current color
+        gameBoard[row][col].color = currentPlayer === 1 ? player1Color : player2Color;
+        
+        // Remove this power-up from the player's inventory
+        const playerPowerUps = currentPlayer === 1 ? player1PowerUps : player2PowerUps;
+        const powerUpIndex = playerPowerUps.indexOf(POWER_UPS.TELEPORT);
+        if (powerUpIndex !== -1) {
+            playerPowerUps.splice(powerUpIndex, 1);
         }
-        // Set starting positions *AFTER* potentially rotating.
-        setStartingPositions();
-
-
-    } else {
-        // New Game or Single Player
-        board = createBoard(boardSize);
-        playerTurn = 1; // Player 1 always starts in a new/single-player game
-        scores = { 1: 0, 2: 0 }; // Initialize scores
-        availablePowerUps = { 1: 3, 2: 3 };
-
-        // Set starting positions for a new/single-player game.
-        setStartingPositions();
-
-        if (singlePlayer) {
-            //For a single player game, set the opponent's name to "Computer"
-            opponentName = "Computer";
-        }
-
+        
+        messageElement.textContent = "Teleport successful! New foothold established.";
+        renderGameBoard();
+        updateScoreDisplay();
+        updatePowerUpDisplay();
+        
+        // Switch turns
+        switchPlayerTurn();
     }
-
-    if (opponentName) {
-        document.getElementById('opponent-name').textContent = opponentName; // Update opponent name
-    }
-
-    updateScoreDisplay();
-    updateTurnIndicator();
-    drawBoard(); // Draw the board after setting up.
-}
-    function setStartingPositions() {
-        // Player 1's starting position (bottom-left)
-
-        if(playerNumber === 2){ //Player two starts with the rotated board, meaning their bottom left has different co-ords
-            if (board && board.length > 0) {
-                board[board.length - 1][0].color = playerColors[1];
-                board[board.length - 1][0].owner = 2;
-                // Player 2's starting position (top-right, but will be bottom-left after rotation if applicable)
-                board[0][board[0].length - 1].color = playerColors[0];
-                board[0][board[0].length - 1].owner = 1;
-            }
-        } else { //Player one and single player
-            if (board && board.length > 0) {
-                board[board.length - 1][0].color = playerColors[0];
-                board[board.length - 1][0].owner = 1;
-                // Player 2's starting position (top-right, but will be bottom-left after rotation if applicable)
-                board[0][board[0].length - 1].color = playerColors[1];
-                board[0][board[0].length - 1].owner = 2;
-            }
-        }
-        updateScores(); //Ensure scores are accurate.
-    }
-
-    // Add a click event listener to the canvas.
-    canvas.addEventListener('click', function (event) {
-        if (animationInProgress) return;
-        if (isOnlineGame && playerTurn !== playerNumber) return; // Prevent actions if it's not the player's turn
-
+    
+    // Handle mouse movement for hover effects
+    canvas.addEventListener('mousemove', (event) => {
         const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        const clickedHex = getHexAtCanvasXY(x, y);
-
-        if (clickedHex) {
-            // Handle power-up selection
-            if (selectedPowerUp) {
-                handlePowerUpMove(clickedHex);
-            } else {
-                // Handle regular move
-                handleMove(clickedHex);
-            }
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        
+        const hoveredHex = findHexAtPosition(mouseX, mouseY);
+        
+        // If the hovered hex has changed, update and redraw
+        if (JSON.stringify(hoveredHex) !== JSON.stringify(hoverTile)) {
+            hoverTile = hoveredHex;
+            renderGameBoard();
         }
     });
-
-    function handleMove(clickedHex) {
-        let r = clickedHex.row;
-        let c = clickedHex.col;
-        const newColor = playerColors[playerNumber - 1];
-
-        if (!isOnlineGame) {
-            //Single Player Logic
-            if (board[r][c].owner === playerTurn) {
-                const oldColor = board[r][c].color;
-
-
-                if (oldColor !== newColor) {
-                    animationInProgress = true;
-                    // Start the flood fill animation and switch turns when it's done.
-                    floodFillAnimation(board, newColor, oldColor, r, c, playerTurn, () => {
-                        playerTurn = 3 - playerTurn;
-                        updateScores();
-                        updateTurnIndicator();
-                        drawBoard();
-                        animationInProgress = false;
-
-                        // If it's now the computer's turn, initiate the computer's move.
-                        if (playerTurn === 2 && singlePlayer) {
-                            setTimeout(computerMove, 100); // Small delay
-                        }
-                    });
-                }
-            }
-        } else {
-            //Online Game Logic
-            if (board[r][c].owner === playerNumber || board[r][c].owner === 0 ) {
-                const oldColor = board[r][c].color;
-                if (oldColor !== newColor) {
-                    // Send the move to the server
-                    socket.emit('move', { type: 'color', gameId: gameId, player: playerNumber, r: r, c: c, newColor: newColor, oldColor: oldColor });
-                }
-            }
-        }
-    }
+    
+    // Reset hover state when mouse leaves canvas
+    canvas.addEventListener('mouseleave', () => {
+        hoverTile = null;
+        renderGameBoard();
+    });
+    
+    // Set up color button click handlers
+    document.querySelectorAll('.color-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const selectedColor = button.getAttribute('data-color');
+            handleColorSelection(selectedColor);
+        });
+    });
+    
+    // Game control event listeners
+    startGameButton.addEventListener('click', () => {
+        // Local game mode
+        isOnlineGame = false;
+        playerNumber = 1;
+        gameId = null;
+        initializeGame();
+        messageElement.textContent = "Started Outdoor Miner in local mode. Both players use this screen.";
+    });
+    
+    createChallengeButton.addEventListener('click', () => {
+        // Create a new online game
+        isOnlineGame = true;
+        playerNumber = 1;
+        gameId = generateGameCode();
+        
+        // Initialize a new game
+        initializeGame();
+        
         // In a real implementation, we would send the initial game state to the server here
         // For now, we'll just show the game code
         messageElement.textContent = `Created Outdoor Miner challenge! Your code is: ${gameId}`;
@@ -1580,18 +1497,17 @@ function updateTurnIndicator() {
             playerNameInput.value = playerName;
         }
         
-    // Initialize game *after* setting up multiplayer variables
-    initializeGame();
-    updateScoreDisplay(); // Update score display *after* setting player names
-
-    // If we're player 2, disable controls until game starts
-    if (playerNumber === 2) {
-        waitingForOpponent = true;
-        disableControls();
-        messageElement.textContent = "Waiting for Player 1 to start the game...";
-      }
+        // Initialize game with random board
+        initializeGame();
+        
+        // If we're player 2, disable controls until game starts
+        if (playerNumber === 2) {
+            waitingForOpponent = true;
+            disableControls();
+            messageElement.textContent = "Waiting for Player 1 to start the game...";
+        }
     };
-
+    
     // Get current game state for syncing
     window.getGameState = function() {
         console.log("Getting game state to send to server");
@@ -1740,18 +1656,16 @@ function updateTurnIndicator() {
         
         if (!existingButton) {
             const playAgainButton = document.createElement('button');
-            // Function to start or join a multiplayer game.
-        function initializeOnlineGame() {
-            // Generate a unique game ID if the player is creating a new game.
-            gameId = isCreatingGame ? generateGameId() : document.getElementById('game-id-input').value;
-            playerName = document.getElementById('player-name-input').value || 'Player ' + playerNumber; // Default name
-    
-            showGameScreen();
-            // Join the game room.
-            socket.emit('initialize-game', { gameId: gameId, playerName: playerName, singlePlayer: false });
-            document.getElementById('game-id-display').textContent = "Game ID: " + gameId;
-            document.getElementById('player-name').textContent = playerName; // Ensure the player's name is displayed.
-    
+            playAgainButton.id = 'play-again-button';
+            playAgainButton.className = 'action-button';
+            playAgainButton.textContent = 'Play Again';
+            playAgainButton.addEventListener('click', window.restartGame);
+            
+            // Add to game controls
+            document.getElementById('game-controls').appendChild(playAgainButton);
         }
+    }
+    
+    // Initialize the game when the page loads
     initializeGame();
 });
