@@ -1,18 +1,22 @@
 (function() {
+    // --- Verify CONFIG ---
+    console.log("CONFIG object:", CONFIG);
+
     // --- Variable Declarations ---
+    let boardSize = CONFIG.BOARD_SIZE; // Define boardSize using CONFIG - Moved to top
+    let currentPlayer = 1; // Initialize currentPlayer immediately - Moved to top
     let canvas = document.getElementById('game-board');
     let ctx = canvas.getContext('2d');
-    let boardSize = CONFIG.BOARD_SIZE; // Define boardSize using CONFIG
     let playerNameInput = document.getElementById('playerName');
     let gameIdDisplay = document.getElementById('gameIdDisplay');
     let playerScoreDisplay = document.getElementById('player1Score');
-    let opponentScoreDisplay = document.getElementById('player2Score');
+    let opponentScoreDisplay = document.getElementById('opponentScore');
     let messageDisplay = document.getElementById('messageDisplay');
     let chatMessages = document.getElementById('chat-messages');
     let chatInput = document.getElementById('chat-input');
     let sendButton = document.getElementById('send-button');
     let tauntButtons = document.querySelectorAll('.taunt-button');
-    
+
     let board; // Game board array
     // board = initializeBoard(); // Initialize board here, globally - Moved to DOMContentLoaded
     let hexSize = 30;
@@ -25,7 +29,6 @@
     let wildcardActive = false;
     let teleportActive = false;
     let activePowerUp = null;
-    let currentPlayer = 1; // Initialize currentPlayer immediately
     let lastMove = null;
     let moveHistory = [];
     let sabotageAvailable = true;
