@@ -2,18 +2,19 @@
     // --- Variable Declarations ---
     let canvas = document.getElementById('game-board');
     let ctx = canvas.getContext('2d');
-    let hexSize = CONFIG.HEX_SIZE;
-    let boardSize = CONFIG.BOARD_SIZE;
-    let board = initializeBoard();
-    let currentPlayer = 1; // 1 for player 1, 2 for player 2
-    let selectedColor = null;
-    let playerColors = { 1: null, 2: null };
-    let playerScores = { 1: 0, 2: 0 };
-    let gameStarted = false;
-    let powerUpCounts = { 1: { wildcard: 0, sabotage: 0, teleport: 0 }, 2: { wildcard: 0, sabotage: 0, teleport: 0 } };
-    let currentPlayerName = 'You';
-    let opponentPlayerName = 'Opponent';
-    let landmineLocations = [];
+    let playerNameInput = document.getElementById('playerName');
+    let gameIdDisplay = document.getElementById('gameIdDisplay');
+    let playerScoreDisplay = document.getElementById('player1Score');
+    let opponentScoreDisplay = document.getElementById('player2Score');
+    let messageDisplay = document.getElementById('messageDisplay');
+    let chatMessages = document.getElementById('chat-messages');
+    let chatInput = document.getElementById('chat-input');
+    let sendButton = document.getElementById('send-button');
+    let tauntButtons = document.querySelectorAll('.taunt-button');
+    
+    let board; // Game board array
+    board = initializeBoard(); // Initialize board here, globally
+    let hexSize = 30;
     let isOnlineMultiplayer = false;
     let gameId = null;
     let playerNumber = 1;
@@ -33,18 +34,17 @@
     // --- Event Listeners ---
     document.addEventListener('DOMContentLoaded', () => {
         canvas = document.getElementById('game-board');
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize canvas and context
+        canvas = document.getElementById('gameCanvas');
         ctx = canvas.getContext('2d');
-        attachColorPaletteListeners();
-        attachPowerUpListeners();
-
-        const startGameButton = document.getElementById('start-game');
-        if (startGameButton) {
-            startGameButton.addEventListener('click', startGame);
-        }
-
-        // Initialize game board rendering
+    
         renderGameBoard();
         updateScoreDisplay();
+        resizeGame(); // Initial resize
+    
+        // ... rest of DOMContentLoaded code ...
+    });
         updateTurnIndicator();
         initializePowerUpCountsDisplay();
 
