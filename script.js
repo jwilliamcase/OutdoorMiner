@@ -34,25 +34,29 @@
     let sabotageAvailable = true;
     let wildcardAvailable = true;
     let teleportAvailable = true;
-  let canvas;
-  let ctx;
+    let canvas;
+    let ctx;
 
     // --- Event Listeners ---
     document.addEventListener('DOMContentLoaded', () => {
-        // Initialize canvas and context
+        // Initialize canvas and context FIRST
         canvas = document.getElementById('game-board');
         ctx = canvas.getContext('2d');
 
-        initializeBoard(); // Initialize the board AFTER the DOM is ready
+        initializeBoard(); // Initialize the board AFTER the DOM and canvas are ready
         attachColorPaletteListeners();
         attachPowerUpListeners();
-        renderGameBoard(); // Now safe to call, as board is initialized
         updateScoreDisplay();
-        resizeGame(); // Initial resize
-
-
-        updateTurnIndicator();
         initializePowerUpCountsDisplay(); // Call after powerUpCounts is defined
+        resizeGame(); // Initial resize
+        renderGameBoard(); // Now safe to call, as board is initialized and canvas is ready
+        updateTurnIndicator();
+
+
+        // Attach event listeners AFTER canvas is initialized
+        canvas.addEventListener('click', handleCanvasClick);
+        window.addEventListener('resize', resizeGame); // Move resize listener inside DOMContentLoaded, after canvas init
+
 
         // Expose functions to window for multiplayer interaction
         window.initializeOnlineGame = initializeOnlineGame;
@@ -62,11 +66,8 @@
         window.resizeGame = resizeGame;
         window.updateScoreDisplay = updateScoreDisplay;
         window.restartGame = restartGame;
-
-        window.addEventListener('resize', resizeGame); // Move resize listener inside DOMContentLoaded
     });
 
-    canvas.addEventListener('click', handleCanvasClick);
 
     function initializeBoard() {
         board = [];
@@ -82,14 +83,14 @@
             }
         }
         // Initialize starting positions for players (example, adjust as needed)
-      if(playerColors[1]){
-        board[boardSize - 1][0].player = 1;
-        board[boardSize - 1][0].color = playerColors[1];
-      }
-      if(playerColors[2]){
-        board[0][boardSize - 1].player = 2;
-        board[0][boardSize - 1].color = playerColors[2];
-      }
+        if(playerColors[1]){
+            board[boardSize - 1][0].player = 1;
+            board[boardSize - 1][0].color = playerColors[1];
+        }
+        if(playerColors[2]){
+            board[0][boardSize - 1].player = 2;
+            board[0][boardSize - 1].color = playerColors[2];
+        }
     }
     function initializeLandmines() {
         landmineLocations = []; // Clear existing landmines
@@ -279,24 +280,24 @@
 
     // --- Rendering Functions ---
     function renderGameBoard() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let centerX = canvas.width / 2;
-      let centerY = canvas.height / 2;
-      let startX = centerX - (boardSize / 2) * hexSize * 1.5;
-      let startY = centerY - (boardSize / 2) * hexHeight();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let centerX = canvas.width / 2;
+        let centerY = canvas.height / 2;
+        let startX = centerX - (boardSize / 2) * hexSize * 1.5;
+        let startY = centerY - (boardSize / 2) * hexHeight();
 
-      for (let row = 0; row < boardSize; row++) {
-          for (let col = 0; col < boardSize; col++) {
-              let hexCenterX = startX + col * hexSize * 1.5;
-              let hexCenterY = startY + row * hexHeight() + (col % 2) * hexHeight() / 2;
+        for (let row = 0; row < boardSize; row++) {
+            for (let col = 0; col < boardSize; col++) {
+                let hexCenterX = startX + col * hexSize * 1.5;
+                let hexCenterY = startY + row * hexHeight() + (col % 2) * hexHeight() / 2;
 
-              drawHexagon(ctx, hexCenterX, hexCenterY, hexSize, board[row][col].color, board[row][col].player, row, col);
+                drawHexagon(ctx, hexCenterX, hexCenterY, hexSize, board[row][col].color, board[row][col].player, row, col);
 
-              if (board[row][col].landmine && gameStarted) {
-                  drawLandmine(ctx, hexCenterX, hexCenterY, hexSize / 3);
-              }
-          }
-      }
+                if (board[row][col].landmine && gameStarted) {
+                    drawLandmine(ctx, hexCenterX, hexCenterY, hexSize / 3);
+                }
+            }
+        }
     }
 
     function resizeGame() {
@@ -308,7 +309,7 @@
         return Math.sqrt(3) / 2 * hexSize;
     }
 
-  function drawHexagon(ctx, centerX, centerY, size, fillColor, player, row, col) { // Added row, col
+    function drawHexagon(ctx, centerX, centerY, size, fillColor, player, row, col) { // Added row, col
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
             const angle = 2 * Math.PI / 6 * i;
