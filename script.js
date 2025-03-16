@@ -8,6 +8,7 @@
     let board; // Game board array - Initialize here
     let powerUpCounts = { 1: { wildcard: 0, sabotage: 0, teleport: 0 }, 2: { wildcard: 0, sabotage: 0, teleport: 0 } }; // Initialize here
     let playerColors = { 1: null, 2: null }; // Initialize playerColors
+    let playerScores = { 1: 0, 2: 0 }; // Initialize playerScores here!
     let playerNameInput = document.getElementById('playerName');
     let gameIdDisplay = document.getElementById('gameIdDisplay');
     let playerScoreDisplay = document.getElementById('player1Score');
@@ -61,9 +62,10 @@
         window.resizeGame = resizeGame;
         window.updateScoreDisplay = updateScoreDisplay;
         window.restartGame = restartGame;
+
+        window.addEventListener('resize', resizeGame); // Move resize listener inside DOMContentLoaded
     });
 
-    window.addEventListener('resize', resizeGame);
     canvas.addEventListener('click', handleCanvasClick);
 
     function initializeBoard() {
@@ -876,7 +878,7 @@
         // Update UI to reflect active power-up
         document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
         event.currentTarget.classList.add('active');
-    } // <-- ADDED CLOSING BRACE HERE
+    }
 
     function activateSabotage() {
         activePowerUp = 'sabotage';
