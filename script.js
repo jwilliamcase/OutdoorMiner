@@ -2,6 +2,7 @@
     // --- Variable Declarations ---
     let canvas = document.getElementById('game-board');
     let ctx = canvas.getContext('2d');
+    let boardSize = CONFIG.BOARD_SIZE; // Define boardSize using CONFIG
     let playerNameInput = document.getElementById('playerName');
     let gameIdDisplay = document.getElementById('gameIdDisplay');
     let playerScoreDisplay = document.getElementById('player1Score');
@@ -24,6 +25,7 @@
     let wildcardActive = false;
     let teleportActive = false;
     let activePowerUp = null;
+    let currentPlayer = 1; // Initialize currentPlayer immediately
     let lastMove = null;
     let moveHistory = [];
     let sabotageAvailable = true;
