@@ -1,15 +1,14 @@
+===
 (function() {
     // --- Verify CONFIG ---
     console.log("CONFIG object:", CONFIG);
 
     // --- Variable Declarations ---
-    let boardSize = CONFIG.BOARD_SIZE; // Define boardSize using CONFIG - Moved to top
-    let currentPlayer = 1; // Initialize currentPlayer immediately - Moved to top
+    let boardSize = CONFIG.BOARD_SIZE; // Define boardSize using CONFIG
+    let currentPlayer = 1; // Initialize currentPlayer immediately
     let board; // Game board array - Initialize here
     let powerUpCounts = { 1: { wildcard: 0, sabotage: 0, teleport: 0 }, 2: { wildcard: 0, sabotage: 0, teleport: 0 } }; // Initialize here
     let playerColors = { 1: null, 2: null }; // Initialize playerColors
-    let canvas = document.getElementById('game-board');
-    let ctx = canvas.getContext('2d');
     let playerNameInput = document.getElementById('playerName');
     let gameIdDisplay = document.getElementById('gameIdDisplay');
     let playerScoreDisplay = document.getElementById('player1Score');
@@ -20,7 +19,7 @@
     let sendButton = document.getElementById('send-button');
     let tauntButtons = document.querySelectorAll('.taunt-button');
 
-    let board; // Game board array
+    //let board; // Moved up
     // board = initializeBoard(); // Initialize board here, globally - Moved to DOMContentLoaded
     let hexSize = 30;
     let isOnlineMultiplayer = false;
@@ -37,26 +36,25 @@
     let sabotageAvailable = true;
     let wildcardAvailable = true;
     let teleportAvailable = true;
-
+  let canvas;
+  let ctx;
 
     // --- Event Listeners ---
     document.addEventListener('DOMContentLoaded', () => {
-        canvas = document.getElementById('game-board');
-    document.addEventListener('DOMContentLoaded', () => {
         // Initialize canvas and context
-        canvas = document.getElementById('gameCanvas');
+        canvas = document.getElementById('game-board');
         ctx = canvas.getContext('2d');
 
-        board = initializeBoard(); // Re-initialize board here, after DOM is ready
-
-        renderGameBoard();
+        initializeBoard(); // Initialize the board AFTER the DOM is ready
+        attachColorPaletteListeners();
+        attachPowerUpListeners();
+        renderGameBoard(); // Now safe to call, as board is initialized
         updateScoreDisplay();
         resizeGame(); // Initial resize
-    
-        // ... rest of DOMContentLoaded code ...
-    });
+
+
         updateTurnIndicator();
-        initializePowerUpCountsDisplay();
+        initializePowerUpCountsDisplay(); // Call after powerUpCounts is defined
 
         // Expose functions to window for multiplayer interaction
         window.initializeOnlineGame = initializeOnlineGame;
@@ -70,24 +68,29 @@
 
     window.addEventListener('resize', resizeGame);
     canvas.addEventListener('click', handleCanvasClick);
-function initializeBoard() {
+
+    function initializeBoard() {
         board = [];
-        for (let row = 0; row < rows; row++) {
+        for (let row = 0; row < boardSize; row++) {
             board[row] = [];
-            for (let col = 0; col < cols; col++) {
+            for (let col = 0; col < boardSize; col++) {
                 board[row][col] = {
-                    color: null, // Default color to null (unowned)
+                    color: null, // Default color
                     player: 0,    // 0 for unowned
-                    isMine: false,
-                    isPowerUp: null
+                    isMine: false, // Assuming you have landmines
+                    isPowerUp: null // Assuming you might have power-ups on tiles
                 };
             }
         }
-        // Initialize starting positions for players in corners
-        board[rows - 1][0].player = 1; // Player 1 starts at bottom-left
-        board[rows - 1][0].color = playerColors[1]; // Assign Player 1's color
-        board[0][cols - 1].player = 2; // Player 2 starts at top-right
-        board[0][cols - 1].color = playerColors[2]; // Assign Player 2's color
+        // Initialize starting positions for players (example, adjust as needed)
+      if(playerColors[1]){
+        board[boardSize - 1][0].player = 1;
+        board[boardSize - 1][0].color = playerColors[1];
+      }
+      if(playerColors[2]){
+        board[0][boardSize - 1].player = 2;
+        board[0][boardSize - 1].color = playerColors[2];
+      }
     }
     function initializeLandmines() {
         landmineLocations = []; // Clear existing landmines
@@ -180,7 +183,7 @@ function initializeBoard() {
         playerName = pName;
         opponentName = oppName;
         currentPlayerName = playerName;
-        opponentPlayerName = opponentName || 'Opponent';
+        opponentPlayerName = oppName || 'Opponent';
 
 
         // Set player turn based on player number (player 1 starts)
@@ -277,30 +280,24 @@ function initializeBoard() {
 
     // --- Rendering Functions ---
     function renderGameBoard() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        let centerX = canvas.width / 2;
-        let centerY = canvas.height / 2;
-        let startX = centerX - (boardSize / 2) * hexSize * 1.5;
-        let startY = centerY - (boardSize / 2) * hexHeight();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let centerX = canvas.width / 2;
+      let centerY = canvas.height / 2;
+      let startX = centerX - (boardSize / 2) * hexSize * 1.5;
+      let startY = centerY - (boardSize / 2) * hexHeight();
 
-        for (let row = 0; row < boardSize; row++) {
-            for (let col = 0; col < boardSize; col++) {
-                let hexCenterX = startX + col * hexSize * 1.5;
-                let hexCenterY = startY + row * hexHeight() + (col % 2) * hexHeight() / 2;
+      for (let row = 0; row < boardSize; row++) {
+          for (let col = 0; col < boardSize; col++) {
+              let hexCenterX = startX + col * hexSize * 1.5;
+              let hexCenterY = startY + row * hexHeight() + (col % 2) * hexHeight() / 2;
 
-                console.log(`Rendering Hexagon at Row: ${row}, Col: ${col}`);
-                console.log(`  Center X: ${hexCenterX}, Center Y: ${hexCenterY}`);
-                console.log(`  Hex Size: ${hexSize}, Hex Height: ${hexHeight()}`);
-                console.log(`  Start X: ${startX}, Start Y: ${startY}`);
-                console.log(`  Color: ${board[row][col].color}, Player: ${board[row][col].player}`);
+              drawHexagon(ctx, hexCenterX, hexCenterY, hexSize, board[row][col].color, board[row][col].player, row, col);
 
-                drawHexagon(ctx, hexCenterX, hexCenterY, hexSize, board[row][col].color, board[row][col].player);
-
-                if (board[row][col].landmine && gameStarted) {
-                    drawLandmine(ctx, hexCenterX, hexCenterY, hexSize / 3);
-                }
-            }
-        }
+              if (board[row][col].landmine && gameStarted) {
+                  drawLandmine(ctx, hexCenterX, hexCenterY, hexSize / 3);
+              }
+          }
+      }
     }
 
     function resizeGame() {
@@ -312,7 +309,7 @@ function initializeBoard() {
         return Math.sqrt(3) / 2 * hexSize;
     }
 
-    function drawHexagon(ctx, centerX, centerY, size, fillColor, player) {
+  function drawHexagon(ctx, centerX, centerY, size, fillColor, player, row, col) { // Added row, col
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
             const angle = 2 * Math.PI / 6 * i;
@@ -330,7 +327,6 @@ function initializeBoard() {
             ctx.fill();
         }
 
-        ctx.fillStyle = board[row][col].color || 'rgba(200, 200, 200, 0.8)'; // Use tile color from board, default to placeholder if null
         ctx.strokeStyle = 'black';
         ctx.stroke();
     }
@@ -842,269 +838,4 @@ function initializeBoard() {
             highlightActivePowerUp(powerUpType);
         } else {
             alert(`No ${powerUpType} power-ups available.`);
-        }
-    }
-
-    function activatePowerUp(type) {
-        activePowerUp = type;
-        switch (type) {
-            case 'sabotage':
-                sabotageActive = true;
-                wildcardActive = false;
-                teleportActive = false;
-                break;
-            case 'wildcard':
-                wildcardActive = true;
-                sabotageActive = false;
-                teleportActive = false;
-                break;
-            case 'teleport':
-                teleportActive = true;
-                wildcardActive = false;
-                sabotageActive = false;
-                break;
-            default:
-                activePowerUp = null;
-                sabotageActive = false;
-                wildcardActive = false;
-                teleportActive = false;
-                break;
-        }
-    }
-
-    function highlightActivePowerUp(type) {
-        // Reset highlight on all slots
-        document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
-
-        // Highlight the selected slot
-        const slot = document.querySelector(`.power-up-slot[data-type="${type}"]`);
-        if (slot) {
-            slot.classList.add('active');
-        }
-    }
-
-    function resetPowerUpHighlight() {
-        document.querySelectorAll('.power-up-slot').forEach(slot => slot.classList.remove('active'));
-    }
-
-
-    // --- Sabotage Power-Up ---
-    function handleSabotageClick(hex) {
-        if (!sabotageActive || !sabotageAvailable) return;
-
-        if (hex.player !== 0 && hex.player !== currentPlayer) {
-            sabotageHex(hex);
-            deactivatePowerUps();
-            sabotageAvailable = false; // Use only once per game for now
-            decrementPowerUpCount('sabotage');
-            finalizeMove(); // End turn after sabotage
-        } else {
-            alert('Sabotage can only be used on opponent occupied tiles.');
-        }
-    }
-
-    function sabotageHex(hex) {
-        hex.player = 0;
-        hex.color = null;
-        playSound('power-up-sound'); // Indicate power-up use
-
-        if (isOnlineMultiplayer) {
-            sendMove({
-                type: 'power-up',
-                powerUp: 'sabotage',
-                targetHex: { row: hex.row, col: hex.col },
-                player1PowerUps: powerUpCounts[1],
-                player2PowerUps: powerUpCounts[2],
-                player1Tiles: getPlayerTileLocations(1),
-                player2Tiles: getPlayerTileLocations(2)
-            });
-        }
-        renderGameBoard(); // Update display after sabotage
-    }
-
-
-    // --- Wildcard Power-Up ---
-    function handleWildcardClick(hex) {
-        if (!wildcardActive || !wildcardAvailable) return;
-
-        if (hex.player === 0 && isAdjacentToPlayer(hex.row, hex.col, currentPlayer)) {
-            captureHexWithWildcard(hex);
-            deactivatePowerUps();
-            wildcardAvailable = false; // Limit wildcard to once per game for now
-            decrementPowerUpCount('wildcard');
-            finalizeMove(); // End turn after wildcard use
-        } else {
-            alert('Wildcard can only be used on unclaimed tiles adjacent to your territory.');
-        }
-    }
-
-    function captureHexWithWildcard(hex) {
-        hex.player = currentPlayer;
-        hex.color = playerColors[currentPlayer];
-        playSound('power-up-sound'); // Play power-up sound
-
-        if (isOnlineMultiplayer) {
-            sendMove({
-                type: 'power-up',
-                powerUp: 'wildcard',
-                targetHex: { row: hex.row, col: hex.col },
-                player1PowerUps: powerUpCounts[1],
-                player2PowerUps: powerUpCounts[2],
-                player1Tiles: getPlayerTileLocations(1),
-                player2Tiles: getPlayerTileLocations(2)
-            });
-        }
-        renderGameBoard(); // Update board after wildcard capture
-    }
-
-
-    // --- Teleport Power-Up ---
-    function handleTeleportClick(hex) {
-        if (!teleportActive || !teleportAvailable) return;
-
-        if (hex.player === 0) {
-            captureHexWithTeleport(hex);
-            deactivatePowerUps();
-            teleportAvailable = false; // Limit teleport to once per game
-            decrementPowerUpCount('teleport');
-            finalizeMove(); // End turn after teleport use
-        } else {
-            alert('Teleport can only be used on unclaimed tiles.');
-        }
-    }
-
-    function captureHexWithTeleport(hex) {
-        hex.player = currentPlayer;
-        hex.color = playerColors[currentPlayer];
-        playSound('power-up-sound'); // Power-up sound effect
-
-        if (isOnlineMultiplayer) {
-            sendMove({
-                type: 'power-up',
-                powerUp: 'teleport',
-                targetHex: { row: hex.row, col: hex.col },
-                player1PowerUps: powerUpCounts[1],
-                player2PowerUps: powerUpCounts[2],
-                player1Tiles: getPlayerTileLocations(1),
-                player2Tiles: getPlayerTileLocations(2)
-            });
-        }
-        renderGameBoard(); // Update display after teleport capture
-    }
-
-
-    function deactivatePowerUps() {
-        sabotageActive = false;
-        wildcardActive = false;
-        teleportActive = false;
-        activePowerUp = null;
-        resetPowerUpHighlight();
-    }
-
-    function incrementPowerUpCount(powerUpType) {
-        powerUpCounts[currentPlayer][powerUpType]++;
-        updatePowerUpCountsDisplay();
-    }
-
-    function decrementPowerUpCount(powerUpType) {
-        if (powerUpCounts[currentPlayer][powerUpType] > 0) {
-            powerUpCounts[currentPlayer][powerUpType]--;
-            updatePowerUpCountsDisplay();
-        }
-    }
-
-    function initializePowerUpCountsDisplay() {
-        for (let player = 1; player <= 2; player++) {
-            for (const type of ['wildcard', 'sabotage', 'teleport']) {
-                const countElementId = `${type}-count`;
-                const countElement = document.getElementById(countElementId);
-                if (countElement) {
-                    countElement.textContent = powerUpCounts[player][type];
-                }
-            }
-        }
-    }
-
-    function updatePowerUpCountsDisplay() {
-        for (const type of ['wildcard', 'sabotage', 'teleport']) {
-            const countElementId = `${type}-count`;
-            const countElement = document.getElementById(countElementId);
-            if (countElement) {
-                let displayCount = playerNumber === 1 ? powerUpCounts[1][type] : powerUpCounts[2][type]; // Display based on local player number
-                countElement.textContent = displayCount;
-            }
-        }
-    }
-
-
-    // --- Multiplayer Send Move Function ---
-    function sendMove(moveData) {
-        if (isOnlineMultiplayer && gameId) {
-            if (window.sendMove) {
-                window.sendMove(moveData); // Use globally exposed sendMove function from multiplayer.js
-            } else {
-                console.error('sendMove function not available in window scope.');
-            }
-        } else {
-            // --- AI Move Logic (Placeholder) ---
-            if (moveData.type !== 'color-selection' && moveData.type !== 'restart-game') { // Prevent AI move on color selection
-                setTimeout(makeAiMove, 500); // Example: AI move after 500ms delay for local game
-            }
-        }
-    }
-
-
-    // --- AI Logic (Basic Placeholder) ---
-    function makeAiMove() {
-        if (currentPlayer === 2 && gameStarted && !isOnlineMultiplayer && !isGameFinished()) { // AI only moves if game is started, not online, and not finished
-            let possibleMoves = [];
-            for (let row = 0; row < boardSize; row++) {
-                for (let col = 0; col < boardSize; col++) {
-                    if (isValidMove(row, col, 2)) { // Check for player 2 (AI)
-                        possibleMoves.push({ row: row, col: col });
-                    }
-                }
-            }
-
-            if (possibleMoves.length > 0) {
-                let move = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-                if (board[move.row][move.col].landmine) {
-                    handleLandmineExplosion(move.row, move.col);
-                }
-                captureHex(move.row, move.col);
-                finalizeMove();
-            } else {
-                switchPlayerTurn(); // If no moves available, just switch turn
-            }
-        }
-    }
-
-
-    // --- Taunt and Sound Effects ---
-    function playSound(elementId) {
-        const soundElement = document.getElementById(elementId);
-        if (soundElement) {
-            soundElement.currentTime = 0; // Rewind to the start if it's currently playing
-            soundElement.play().catch(error => console.error("Sound play failed:", error));
-        }
-    }
-
-
-    // --- Initial Rendering and Setup ---
-    resizeGame(); // Initial resize based on canvas dimensions
-    renderGameBoard(); // Render initial board state
-    updateScoreDisplay();
-    updateTurnIndicator();
-    initializePowerUpCountsDisplay();
-
-    // Expose functions globally if not in a module environment
-    if (typeof module === 'undefined') {
-        window.initializeOnlineGame = initializeOnlineGame;
-        window.getGameState = getGameState;
-        window.syncGameState = syncGameState;
-        window.renderGameBoard = renderGameBoard;
-        window.resizeGame = resizeGame;
-        window.updateScoreDisplay = updateScoreDisplay;
-        window.restartGame = restartGame;
-    }
-})();
+        
