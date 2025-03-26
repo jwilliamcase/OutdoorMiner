@@ -253,36 +253,36 @@ document.addEventListener('DOMContentLoaded', () => {
         playerName = name;
         window.playerName = name; // Make global if needed elsewhere quickly
         opponentName = 'Player 2'; // Default opponent name for local
-        window.opponentName = opponentName;
-        isOnlineGame = false;
-        playerNumber = 1; // Local player is always player 1 perspective
-        initializeGame(); // Start local game
-        showGameScreen();
-        messageElement.textContent = `Started Local Game. ${playerName}'s turn.`;
-    });
-
-    setupCreateChallengeButton.addEventListener('click', () => {
-        const name = playerNameSetupInput.value.trim();
-        if (!name) {
-            setupMessageElement.textContent = "Please enter your name.";
-            setupMessageElement.style.color = 'red';
+    joinChallengeButton.addEventListener('click', () => {
+        playerName = nameInput.value.trim();
+        if (!playerName) {
+            setupMessage.textContent = 'Please enter your name.';
             return;
         }
-        setupMessageElement.textContent = "Creating challenge...";
-        setupMessageElement.style.color = 'black';
-        playerName = name;
-        window.playerName = name;
-        isOnlineGame = true; // Set flag early
-        // Trigger multiplayer logic (multiplayer.js should define window.createGame)
-        if (window.createGame) {
-            window.createGame(name);
-            // UI transition (showGameScreen) will be handled by initializeOnlineGame or syncGameState later
-        } else {
-            setupMessageElement.textContent = "Error: Multiplayer function (createGame) not available.";
-            setupMessageElement.style.color = 'red';
+        showGameScreen();
+        const gameId = prompt("Enter the Game ID to join:"); // Simple prompt for now
+        if (!gameId) {
+            // User cancelled or entered nothing
+            setupMessage.textContent = 'Game ID is required to join.';
+        // Update status message
+        updateMessage("Connecting...", false);
+
+        console.log(`Requesting to join challenge ${gameId} as ${playerName}`);
+        gameState.isOnline = true; // Set online mode
+        showGameScreen();
+        updateMessage("Connecting...", false);
+
+        // Connect to server and pass the action 'join'
+        if (window.connectToServer) {
+            // Pass action 'join' and necessary args
+            window.connectToServer(playerName, 'join', { playerName: playerName, gameId: gameId });
+            // joinChallenge will be called by multiplayer.js after connection
+        }
+            console.error("Multiplayer functions not available.");
+            updateMessage('Error: Multiplayer unavailable.', true);
+            showSetupScreen(); // Go back to setup
             isOnlineGame = false; // Reset flag
         }
-    });
 
     setupJoinChallengeButton.addEventListener('click', () => {
         const name = playerNameSetupInput.value.trim();

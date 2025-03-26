@@ -3,8 +3,10 @@
     // --- State Variables ---
     let socket = null;
     let connected = false;
-    let gameId = null;
-    let isOnlineGame = false; // Flag managed by script.js, but useful here
+    let playerId = null;
+    let localPlayerNumber = null; // 1 or 2
+    let pendingAction = null;
+    let pendingArgs = {};
     let unreadMessages = 0;
 
     // --- UI Elements (Mainly for Chat/Status) ---
@@ -25,32 +27,49 @@
         if (typeof io === 'undefined') {
             console.error('Socket.IO library not found!');
             if (statusIndicator) statusIndicator.innerHTML = '<span class="connection-status status-error"></span> Error: Lib Missing';
+        // Function to connect to the server
+    function connectToServer(playerName, action, args) {
+        // Prevent multiple connections if already connected
+        if (connected) {
+            console.log("Already connected.");
+            // If connection exists, try the action immediately?
+            // Or rely on caller to check? Let's assume caller handles this for now.
+            // If an action was requested, attempt it directly.
+            if (action === 'create' && args.playerName) {
+                createChallenge(args.playerName);
+            } else if (action === 'join' && args.playerName && args.gameId) {
+                joinChallenge(args.playerName, args.gameId);
+            }
             return;
         }
-        setupUIEventListeners();
-        setupTaunts();
-        updateStatusIndicator(false, 'Offline'); // Initial status
-    }
-
-    // --- Connection Management ---
-    function connectToServer(playerNameFromSetup) {
-        // Prevent multiple connection attempts
-        if (connected || (socket && socket.connecting)) {
-            console.log("Already connected or connecting.");
-            return Promise.resolve(socket); // Indicate already connected/connecting
+    
+        // Avoid multiple connection attempts simultaneously
+        if (socket && socket.connecting) {
+            console.log("Connection already in progress.");
+            return;
         }
-
-        return new Promise((resolve, reject) => {
-            console.log("Attempting to connect to server:", CONFIG.SERVER_URL);
-            updateStatusIndicator(false, 'Connecting...');
-
-            // Disconnect existing socket if present (e.g., from a previous failed attempt)
-            if (socket) {
-                disconnectFromServer(true); // Pass true to indicate it's part of a new connection attempt
-            }
-
-            try {
-                socket = io(CONFIG.SERVER_URL, {
+    
+    
+        // Store the intended action
+        pendingAction = action;
+        pendingArgs = args || {}; // Store arguments like playerName, gameId
+        pendingArgs.playerName = playerName; // Ensure playerName is always included
+    
+        // Show connecting message
+        window.updateMessage('Connecting to server...', false);
+        console.log(`Attempting to connect to server for action: ${action}`);
+    
+        // Connect to the server (adjust URL if needed)
+        const serverUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "/"; // Use relative path for deployed
+        socket = io(serverUrl, {
+            reconnectionAttempts: 3, // Limit reconnection attempts
+            timeout: 5000 // Connection timeout
+        });
+    
+        // --- Socket Event Listeners ---
+        setupSocketListeners(playerName); // Setup listeners immediately (they are defined below)
+        // Connection attempt is initiated by io()
+    }
                     // withCredentials: true, // Use if sessions/cookies are needed
                     transports: ['websocket'], // Prioritize WebSocket
                     reconnection: true,
@@ -65,17 +84,31 @@
 
             } catch (error) {
                 console.error("Socket.IO connection initiation failed:", error);
-                updateStatusIndicator(false, 'Connection Error');
-                reject(error); // Reject the promise on immediate error
-            }
-        });
-    }
+            socket.on('connect', () => {
+        connected = true;
+        playerId = socket.id;
+        console.log('Connected to server with ID:', playerId);
+        window.updateMessage('Connected! Ready.', false); // General connected message
+        // heartbeatInterval = setupHeartbeat(socket); // Optional: If implementing heartbeats
+        // syncInterval = setupStateSync(socket); // Optional: If implementing periodic sync
 
-    function setupSocketListeners(socketInstance, resolve, reject, clientPlayerName) {
-        // --- Basic Connection Events ---
-        socketInstance.on('connect', () => {
-            console.log('Connected to server with ID:', socketInstance.id);
-            connected = true;
+        // Execute the pending action now that connection is established
+        if (pendingAction) {
+            console.log(`Executing pending action: ${pendingAction}`);
+            if (pendingAction === 'create' && pendingArgs.playerName) {
+                createChallenge(pendingArgs.playerName);
+            } else if (pendingAction === 'join' && pendingArgs.playerName && pendingArgs.gameId) {
+                joinChallenge(pendingArgs.playerName, pendingArgs.gameId);
+            }
+            // Clear pending action once executed or attempted
+            pendingAction = null;
+            pendingArgs = {};
+        }
+
+        // UI is managed by script.js based on game state updates, not here directly
+        // window.hideSetupScreen(); // Should already be hidden by script.js
+        // window.showGameScreen(); // Should already be shown by script.js
+    });
             isOnlineGame = true; // Mark as online mode potentially starting
             updateStatusIndicator(true, 'Connected');
             resolve(socketInstance); // Resolve the connection promise
@@ -215,31 +248,39 @@
 
 
     // --- Actions (Called by script.js, exposed via window) ---
-    function createChallenge(pName) {
-        if (!connected || !socket) {
-            console.error("Not connected. Cannot create challenge.");
-            window.handleConnectionError("Cannot create challenge: Not connected.");
+    // Function to create a new challenge
+    function createChallenge(playerName) {
+        if (socket && socket.connected) { // Check socket.connected specifically
+            console.log(`Emitting create-challenge for player: ${playerName}`);
+            socket.emit('create-challenge', { playerName });
+            window.updateMessage('Challenge created. Waiting for opponent...', false);
+            // UI should update based on server response ('game-created')
+        } else {
+            console.error('Socket not connected when trying to create challenge.');
+            window.updateMessage('Error: Could not create challenge. Not connected.', true);
+    // Function to join an existing challenge
+    function joinChallenge(playerName, gameId) {
+        if (!gameId) {
+            console.error("Game ID is required to join.");
+            window.updateMessage('Error: Game ID is required.', true);
+            // Reset pending action if it failed?
+            pendingAction = null;
+            pendingArgs = {};
             return;
         }
-        console.log(`Emitting create-challenge for player: ${pName}`);
-        socket.emit('create-challenge', { playerName: pName });
-        window.updateMessage("Challenge created. Waiting for opponent..."); // Update UI via script.js
+        if (socket && socket.connected) { // Check socket.connected specifically
+            console.log(`Emitting join-challenge for game ${gameId}, player: ${playerName}`);
+            socket.emit('join-challenge', { gameId, playerName });
+            window.updateMessage(`Attempting to join game ${gameId}...`, false);
+            // UI should update based on server response ('game-joined' or error)
+        } else {
+            console.error('Socket not connected when trying to join challenge.');
+            window.updateMessage('Error: Could not join challenge. Not connected.', true);
+            // Reset pending action if it failed?
+            pendingAction = null;
+            pendingArgs = {};
+        }
     }
-
-    function joinChallenge(gId, pName) {
-        if (!connected || !socket) {
-            console.error("Not connected. Cannot join challenge.");
-             window.handleConnectionError("Cannot join challenge: Not connected.");
-            return;
-        }
-        if (!gId || !pName) {
-             console.error("Game ID or Player Name missing for join challenge.");
-             window.updateMessage("Error: Game ID or Player Name missing.");
-             return;
-        }
-        console.log(`Emitting join-challenge for game ${gId} as player: ${pName}`);
-        socket.emit('join-challenge', { gameId: gId, playerName: pName });
-        window.updateMessage(`Joining game ${gId}...`); // Update UI via script.js
     }
 
     function sendMove(moveData) {
