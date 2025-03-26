@@ -68,7 +68,8 @@ io.on('connection', (socket) => {
       player2PowerUps: [],
       landmines: [],
       started: false,
-      lastActivity: Date.now()
+      lastActivity: Date.now(),
+      availablePowerUps: { "1": 3, "2": 3 }
     };
     
     // Store the game
@@ -115,35 +116,6 @@ io.on('connection', (socket) => {
     // Notify all players in the room
     socket.emit('game-joined', { gameId, playerNumber: 2 });
     io.to(gameId).emit('player-joined', { playerNumber: 2, playerName: name });
-<<<<<<< HEAD
-      gameState[gameId].turn = 1;
-    gameState[gameId].availablePowerUps = { "1": 3, "2": 3 };
-    addStartingSquares(gameId); // Add this line back in
-
-}
-
-function addStartingSquares(gameId) {
-    const board = gameState[gameId].board;
-    const size = board.length;
-
-
-    // Player 1
-    board[size - 1][0].color = gameState[gameId].playerColors[1];
-    board[size - 1][0].owner = 1;
-    gameState[gameId].scores[1] = 1;
-
-
-    // Player 2
-    board[0][size - 1].color = gameState[gameId].playerColors[2];
-    board[0][size - 1].owner = 2;
-    gameState[gameId].scores[2] = 1;
-}
-
-socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
-    if (!games[gameId]) {
-        games[gameId] = { players: {}, playerCount: 0, singlePlayer: singlePlayer };
-    }
-=======
   });
   
   // Initialize game with board state
@@ -167,7 +139,6 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
     game.started = true;
     game.lastActivity = Date.now();
     
->>>>>>> parent of 7da93be (improve code com)
     // Mark the player as ready
     const playerIndex = game.players.findIndex(p => p.id === socket.id);
     if (playerIndex !== -1) {
@@ -189,6 +160,9 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
         p1Name: player1?.name,
         p2Name: player2?.name
       });
+      
+      // Add starting squares
+      addStartingSquares(game);
       
       // Broadcast game state to all players
       io.to(gameId).emit('game-started', { gameState: {
@@ -234,6 +208,7 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
       game.landmines = [];
       game.started = false;
       game.lastActivity = Date.now();
+      game.availablePowerUps = { "1": 3, "2": 3 };
       
       // Notify all players about restart
       io.to(gameId).emit('game-restarted', {});
@@ -246,104 +221,13 @@ socket.on('initialize-game', ({ gameId, playerName, singlePlayer }) => {
       return;
     }
     
-    // Update game state based on the move
-    // Move data should include color selection and any power-up usage
-    
-    // Example of updating color
+    // Handle different move types
     if (move.type === 'color-selection') {
-      if (playerNumber === 1) {
-        game.player1Color = move.color;
-      } else {
-        game.player2Color = move.color;
-      }
-      
-      // Always update both players' tiles to ensure consistency
-      if (move.player1Tiles) {
-        game.player1Tiles = move.player1Tiles;
-      }
-      
-      if (move.player2Tiles) {
-        game.player2Tiles = move.player2Tiles;
-      }
-      
-      // Update colors if explicitly provided
-      if (move.player1Color) {
-        game.player1Color = move.player1Color;
-      }
-      
-      if (move.player2Color) {
-        game.player2Color = move.player2Color;
-      }
-      
-      // Log the state after update for debugging
-      console.log(`After move from Player ${playerNumber}:`);
-      console.log(`- Player 1 has ${game.player1Tiles.length} tiles`);
-      console.log(`- Player 2 has ${game.player2Tiles.length} tiles`);
-      console.log(`- Player 1 color: ${game.player1Color}`);
-      console.log(`- Player 2 color: ${game.player2Color}`);
-      
-      // Switch turns
-      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
-    }
-    
-    // Example of power-up usage
-    if (move.type === 'power-up') {
-      // Update power-ups
-      if (playerNumber === 1) {
-        game.player1PowerUps = move.player1PowerUps;
-      } else {
-        game.player2PowerUps = move.player2PowerUps;
-      }
-      
-      // Update tiles after power-up (if applicable)
-      if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
-      if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
-      
-      // Switch turns
-      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
-    }
-    
-    // Example of landmine explosion
-    if (move.type === 'landmine') {
-      // Update tiles
-      game.player1Tiles = move.player1Tiles;
-      game.player2Tiles = move.player2Tiles;
-      
-      // Update landmines
-      game.landmines = move.landmines;
-      
-<<<<<<< HEAD
-      let move = moves.shift();
-if (move) {
-if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
-    // Process the move
-    gameState[move.gameId].turn = 3 - move.player; // Switch turns: 1 -> 2, 2 -> 1
-    if (move.type === 'color') {
-        floodFill(gameState[move.gameId].board, move.newColor, move.oldColor, move.r, move.c, move.player);
-        updateScores(move.gameId, move.player, move.newColor);
-        io.to(move.gameId).emit('update-board', { board: gameState[move.gameId].board, scores: gameState[move.gameId].scores, turn: gameState[move.gameId].turn, availablePowerUps: gameState[move.gameId].availablePowerUps });
-    } else if (move.type === 'powerup') {
-        gameState[move.gameId].availablePowerUps[move.player] -= 1;
-        if (move.powerUpType === 'landmine') {
-            //move.updatedBoard is correct and represents the changes, we just need to deep copy it.
-            gameState[move.gameId].board = JSON.parse(JSON.stringify(move.updatedBoard));
-            updateScores(move.gameId, move.player, move.color); //color here is the color of the clicked hexagon
-            io.to(move.gameId).emit('update-board', { board: gameState[move.gameId].board, scores: gameState[move.gameId].scores, turn: gameState[move.gameId].turn, availablePowerUps: gameState[move.gameId].availablePowerUps }); //Send whole game state
-        }
-    }
-} else {
-    console.log(`[${move.timestamp}] Move rejected: Not player ${move.player}'s turn in game ${move.gameId} (or game undefined)`);
-}
-}
-}, 100); // Process one move every 100ms
-=======
-      // Update board state (for explosion effects)
-      if (move.updatedBoard) {
-        game.board = JSON.parse(JSON.stringify(move.updatedBoard)); // Deep copy to avoid reference issues
-      }
-      
-      // Switch turns
-      game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+      handleColorSelection(game, playerNumber, move);
+    } else if (move.type === 'power-up') {
+      handlePowerUp(game, playerNumber, move);
+    } else if (move.type === 'landmine') {
+      handleLandmine(game, move);
     }
     
     // Update last activity
@@ -364,7 +248,6 @@ if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
         board: game.board,
         currentPlayer: game.currentPlayer,
         player1Color: game.player1Color,
->>>>>>> parent of 7da93be (improve code com)
         player2Color: game.player2Color,
         player1Tiles: game.player1Tiles,
         player2Tiles: game.player2Tiles,
@@ -373,7 +256,8 @@ if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
         landmines: game.landmines,
         player1Name: player1 ? player1.name : 'Player 1',
         player2Name: player2 ? player2.name : 'Player 2',
-        moveDetails: move
+        moveDetails: move,
+        availablePowerUps: game.availablePowerUps
       } 
     });
   });
@@ -439,6 +323,77 @@ if (gameState[move.gameId] && gameState[move.gameId].turn === move.player) {
     }
   });
 });
+
+// Helper Functions
+function addStartingSquares(game) {
+  const board = game.board;
+  const size = board.length;
+  
+  // Player 1 starting position
+  board[size - 1][0].color = game.player1Color;
+  board[size - 1][0].owner = 1;
+  game.player1Tiles = [[size - 1, 0]];
+  
+  // Player 2 starting position
+  board[0][size - 1].color = game.player2Color;
+  board[0][size - 1].owner = 2;
+  game.player2Tiles = [[0, size - 1]];
+}
+
+function handleColorSelection(game, playerNumber, move) {
+  if (playerNumber === 1) {
+    game.player1Color = move.color;
+  } else {
+    game.player2Color = move.color;
+  }
+  
+  // Update tiles
+  if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
+  if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
+  
+  // Update colors
+  if (move.player1Color) game.player1Color = move.player1Color;
+  if (move.player2Color) game.player2Color = move.player2Color;
+  
+  // Switch turns
+  game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+}
+
+function handlePowerUp(game, playerNumber, move) {
+  // Update power-ups count
+  game.availablePowerUps[playerNumber.toString()] -= 1;
+  
+  // Update power-ups
+  if (playerNumber === 1) {
+    game.player1PowerUps = move.player1PowerUps;
+  } else {
+    game.player2PowerUps = move.player2PowerUps;
+  }
+  
+  // Update tiles
+  if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
+  if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
+  
+  // Switch turns
+  game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+}
+
+function handleLandmine(game, move) {
+  // Update tiles
+  game.player1Tiles = move.player1Tiles;
+  game.player2Tiles = move.player2Tiles;
+  
+  // Update landmines
+  game.landmines = move.landmines;
+  
+  // Update board state
+  if (move.updatedBoard) {
+    game.board = JSON.parse(JSON.stringify(move.updatedBoard));
+  }
+  
+  // Switch turns
+  game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+}
 
 // Game code generator
 function generateGameCode() {
