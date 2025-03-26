@@ -38,17 +38,116 @@ document.addEventListener('DOMContentLoaded', () => {
     const EXPLOSION_COLOR = '#000000'; // Black
     const EXPLOSION_RECOVERY_TURNS = 3; // Number of turns before exploded tiles fully recover
     
-    // Game state
-    let gameBoard = [];
-    let player1Tiles = new Set(); // Set of coordinates owned by player 1 (format: "row,col")
-    let player2Tiles = new Set(); // Set of coordinates owned by player 2
-    let currentPlayer = 1;
-    let player1Color = '';
-    let player2Color = '';
-    let availableColors = [...COLORS];
-    let hoverTile = null; // Track which tile the mouse is hovering over
-    let landmines = []; // Array to store landmine positions
-    let explodedTiles = []; // Array to track exploded tiles and their recovery status
+// Game state management
+class GameState {
+    constructor() {
+        this.gameBoard = [];
+        this.player1Tiles = new Set();
+        this.player2Tiles = new Set();
+        this.currentPlayer = 1;
+        this.player1Color = '';
+        this.player2Color = '';
+        this.availableColors = [...COLORS];
+        this.hoverTile = null;
+        this.landmines = [];
+        this.explodedTiles = [];
+        this.lastMove = null;
+        this.moveHistory = [];
+        this.gameStarted = false;
+        this.gameOver = false;
+        this.winner = null;
+    }
+
+    serialize() {
+        return {
+            board: this.gameBoard,
+            player1Tiles: Array.from(this.player1Tiles),
+            player2Tiles: Array.from(this.player2Tiles),
+            currentPlayer: this.currentPlayer,
+            player1Color: this.player1Color,
+            player2Color: this.player2Color,
+            landmines: this.landmines,
+            explodedTiles: this.explodedTiles,
+            lastMove: this.lastMove,
+            gameStarted: this.gameStarted,
+            gameOver: this.gameOver,
+            winner: this.winner
+        };
+    }
+
+    deserialize(data) {
+        this.gameBoard = data.board;
+        this.player1Tiles = new Set(data.player1Tiles);
+        this.player2Tiles = new Set(data.player2Tiles);
+        this.currentPlayer = data.currentPlayer;
+        this.player1Color = data.player1Color;
+        this.player2Color = data.player2Color;
+        this.landmines = data.landmines;
+        this.explodedTiles = data.explodedTiles;
+        this.lastMove = data.lastMove;
+        this.gameStarted = data.gameStarted;
+        this.gameOver = data.gameOver;
+        this.winner = data.winner;
+    }
+
+    validateMove(row, col, color) {
+        // Check if it's a valid tile
+        if (!this.gameBoard[row] || !this.gameBoard[row][col]) {
+            return { valid: false, reason: 'Invalid coordinates' };
+        }
+
+        // Check if it's the player's turn
+        const playerTiles = this.currentPlayer === 1 ? this.player1Tiles : this.player2Tiles;
+        if (!playerTiles.has(`${row},${col}`)) {
+            return { valid: false, reason: 'Not your territory' };
+        }
+
+        // Check if the color is available
+        if (!this.availableColors.includes(color)) {
+            return { valid: false, reason: 'Color not available' };
+        }
+
+        return { valid: true };
+    }
+
+    applyMove(row, col, color) {
+        const move = {
+            row,
+            col,
+            color,
+            player: this.currentPlayer,
+            timestamp: Date.now()
+        };
+
+        this.lastMove = move;
+        this.moveHistory.push(move);
+
+        // Apply the move
+        const playerTiles = this.currentPlayer === 1 ? this.player1Tiles : this.player2Tiles;
+        const capturable = this.getCaptureableTiles(playerTiles, color);
+
+        // Add captured tiles
+        for (const tileKey of capturable) {
+            playerTiles.add(tileKey);
+        }
+
+        // Update colors
+        if (this.currentPlayer === 1) {
+            this.player1Color = color;
+        } else {
+            this.player2Color = color;
+        }
+
+        // Switch turns
+        this.currentPlayer = 3 - this.currentPlayer;
+        this.resetAvailableColors();
+
+        return capturable;
+    }
+}
+
+// Initialize game state
+const gameState = new GameState();
     
     // Power-up system
     const COMBO_THRESHOLD = 4; // Minimum tiles to capture to possibly get a power-up
@@ -110,11 +209,26 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.style.height = '';
         }
         
-        // Flip the board for player 2 if in multiplayer mode
+        // Handle Player 2's perspective without rotating the canvas
         if (isOnlineGame && playerNumber === 2) {
-            canvas.style.transform = 'rotate(180deg)';
-        } else {
-            canvas.style.transform = '';
+            // Transform coordinates instead of rotating canvas
+            const transformCoord = (coord, max) => max - coord - 1;
+            
+            // Apply coordinate transformation for rendering
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const transformedRow = transformCoord(row, BOARD_SIZE);
+                    const transformedCol = transformCoord(col, BOARD_SIZE);
+                    
+                    // Store original coordinates for move handling
+                    gameBoard[row][col].originalRow = row;
+                    gameBoard[row][col].originalCol = col;
+                    
+                    // Use transformed coordinates for display
+                    gameBoard[row][col].displayRow = transformedRow;
+                    gameBoard[row][col].displayCol = transformedCol;
+                }
+            }
         }
     }
     
@@ -342,10 +456,77 @@ document.addEventListener('DOMContentLoaded', () => {
         return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
     
-    // Draw the entire game board
+    // Enhanced board rendering with proper coordinate handling
     function renderGameBoard() {
-        // Clear the canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Clear the canvas with a subtle gradient background
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#f8f9fa');
+        gradient.addColorStop(1, '#e9ecef');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Calculate board dimensions and scaling
+        const boardWidth = BOARD_SIZE * HEX_WIDTH;
+        const boardHeight = BOARD_SIZE * HEX_HEIGHT * 0.75;
+        
+        // Calculate maximum scaling factor while maintaining aspect ratio
+        const xScale = (canvas.width - BOARD_PADDING * 2) / boardWidth;
+        const yScale = (canvas.height - BOARD_PADDING * 2) / boardHeight;
+        const scaleFactor = Math.min(xScale, yScale, 1.0);
+        
+        // Center the board
+        const scaledWidth = boardWidth * scaleFactor;
+        const scaledHeight = boardHeight * scaleFactor;
+        const startX = (canvas.width - scaledWidth) / 2;
+        const startY = (canvas.height - scaledHeight) / 2;
+
+        // Draw board grid (subtle background)
+        drawBoardGrid(startX, startY, scaleFactor);
+
+        // Draw hexagons with proper coordinate transformation
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                const { displayRow, displayCol } = transformCoordinates(row, col);
+                const tile = gameState.gameBoard[row][col];
+                
+                // Calculate hex position with proper offset for odd rows
+                const x = startX + (displayCol * HEX_WIDTH + (displayRow % 2) * (HEX_WIDTH / 2)) * scaleFactor;
+                const y = startY + (displayRow * (HEX_HEIGHT * 0.75)) * scaleFactor;
+
+                // Determine tile ownership and color
+                const isPlayer1 = gameState.player1Tiles.has(`${row},${col}`);
+                const isPlayer2 = gameState.player2Tiles.has(`${row},${col}`);
+                const displayColor = isPlayer1 ? gameState.player1Color :
+                                   isPlayer2 ? gameState.player2Color :
+                                   tile.color;
+
+                // Draw the hexagon with enhanced visual effects
+                drawEnhancedHexagon(
+                    x, y,
+                    HEX_SIZE * scaleFactor,
+                    displayColor,
+                    isPlayer1 || isPlayer2,
+                    isPlayer1 ? 1 : (isPlayer2 ? 2 : 0),
+                    tile.hasMine,
+                    gameState.hoverTile && gameState.hoverTile.row === row && gameState.hoverTile.col === col
+                );
+            }
+        }
+
+        // Draw any active animations
+        drawAnimations();
+    }
+
+    // Transform coordinates based on player perspective
+    function transformCoordinates(row, col) {
+        if (isOnlineGame && playerNumber === 2) {
+            return {
+                displayRow: BOARD_SIZE - 1 - row,
+                displayCol: BOARD_SIZE - 1 - col
+            };
+        }
+        return { displayRow: row, displayCol: col };
+    }
         
         // Calculate the center position for the board
         const boardWidth = BOARD_SIZE * HEX_WIDTH;
@@ -1626,8 +1807,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.sendMove(moveData);
     }
     
+<<<<<<< HEAD
     // Initialize the game for online play
     window.initializeOnlineGame = function(pNumber, gId, pName) {
+=======
+    // Initialize the game for online play - now accepts opponentName
+    window.initializeOnlineGame = function(pNumber, gId, pName, oName) {
+>>>>>>> parent of 10af48f (gamestate tracking)
         // Set multiplayer variables
         isOnlineGame = true;
         playerNumber = pNumber;

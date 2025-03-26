@@ -30,17 +30,27 @@
     statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Offline';
     document.body.appendChild(statusIndicator);
     
-    // Socket connection
-    let socket = null;
-    let gameId = null;
-    let playerNumber = 1;
-    let playerName = '';
-    let opponentName = '';
-    let connected = false;
-    let unreadMessages = 0;
+    // Socket and game state management
+    const gameState = {
+        socket: null,
+        gameId: null,
+        playerNumber: 1,
+        playerName: '',
+        opponentName: '',
+        connected: false,
+        unreadMessages: 0,
+        isOnlineGame: false,
+        currentTurn: 1,
+        board: null,
+        scores: { 1: 0, 2: 0 },
+        powerUps: { 1: [], 2: [] },
+        lastMove: null,
+        gameStarted: false
+    };
 
-    // Game state
-    let isOnlineGame = false;
+    // Game synchronization
+    const syncInterval = 5000; // Sync every 5 seconds
+    let syncTimer = null;
     
     // Initialize multiplayer
     function init() {
@@ -247,11 +257,21 @@
             // Update status to connecting
             statusIndicator.innerHTML = '<span class="connection-status status-connecting"></span> Connecting...';
             
-            // Initialize Socket.io connection with simplified CORS settings
-            socket = io(CONFIG.SERVER_URL, {
+            // Initialize Socket.io connection with improved settings
+            gameState.socket = io(CONFIG.SERVER_URL, {
                 withCredentials: false,
-                transports: ['websocket', 'polling']
+                transports: ['websocket'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                timeout: 10000
             });
+
+            // Setup heartbeat
+            setupHeartbeat();
+            
+            // Setup state synchronization
+            setupStateSync();
             
             // Connection event handlers
             socket.on('connect', handleConnect);
@@ -276,11 +296,54 @@
         }
     }
     
+    // Setup heartbeat mechanism
+    function setupHeartbeat() {
+        if (!gameState.socket) return;
+        
+        // Send heartbeat every 30 seconds
+        setInterval(() => {
+            if (gameState.connected) {
+                gameState.socket.emit('heartbeat', {
+                    gameId: gameState.gameId,
+                    playerNumber: gameState.playerNumber,
+                    timestamp: Date.now()
+                });
+            }
+        }, 30000);
+    }
+
+    // Setup state synchronization
+    function setupStateSync() {
+        if (syncTimer) clearInterval(syncTimer);
+        
+        syncTimer = setInterval(() => {
+            if (gameState.gameStarted && gameState.connected) {
+                requestStateSync();
+            }
+        }, syncInterval);
+    }
+
+    // Request state sync from server
+    function requestStateSync() {
+        if (!gameState.socket || !gameState.gameId) return;
+        
+        gameState.socket.emit('request-sync', {
+            gameId: gameState.gameId,
+            playerNumber: gameState.playerNumber,
+            lastMove: gameState.lastMove
+        });
+    }
+
     // Handle successful connection
     function handleConnect() {
         console.log('Connected to server!');
-        connected = true;
+        gameState.connected = true;
         statusIndicator.innerHTML = '<span class="connection-status status-connected"></span> Connected';
+        
+        // Request immediate sync if game is in progress
+        if (gameState.gameStarted) {
+            requestStateSync();
+        }
     }
     
     // Handle disconnection
