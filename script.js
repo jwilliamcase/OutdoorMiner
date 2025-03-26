@@ -30,6 +30,88 @@ let canvas, ctx, player1ScoreElement, player2ScoreElement, messageElement, turnI
 let setupContainer, playerNameSetupInput, startLocalButton, setupCreateChallengeButton, challengeCodeSetupInput, setupJoinChallengeButton, setupMessageElement;
 let scoreContainer, gameArea, colorPalette, gameControls, landmineInfo, chatContainer, toggleChatButton, leaveGameButton; // Added leaveGameButton
 
+// ============================================================================
+// Game State Class
+// ============================================================================
+class GameState {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.gameBoard = [];
+        this.player1Tiles = new Set();
+        this.player2Tiles = new Set();
+        this.currentPlayer = 1;
+        this.player1Color = '';
+        this.player2Color = '';
+        this.availableColors = [...COLORS];
+        this.hoverTile = null; // { row, col }
+        this.landmines = []; // { row, col }
+        this.explodedTiles = []; // { row, col, turnsLeft, type? }
+        this.lastMove = null;
+        this.moveHistory = [];
+        this.gameStarted = false;
+        this.gameOver = false;
+        this.winner = null;
+    }
+
+    serialize() {
+        // Basic serialization, consider refining if needed
+        return {
+            board: this.gameBoard, // Note: This could be large
+            player1Tiles: Array.from(this.player1Tiles),
+            player2Tiles: Array.from(this.player2Tiles),
+            currentPlayer: this.currentPlayer,
+            player1Color: this.player1Color,
+            player2Color: this.player2Color,
+            landmines: this.landmines,
+            explodedTiles: this.explodedTiles,
+            // lastMove and moveHistory might not be needed by server always
+            gameStarted: this.gameStarted,
+            gameOver: this.gameOver,
+            winner: this.winner
+            // Note: Does not include power-ups managed outside the class currently
+        };
+    }
+
+    deserialize(data) {
+        // Basic deserialization, consider refining
+        if (!data) return;
+        this.gameBoard = data.board || [];
+        this.player1Tiles = new Set(data.player1Tiles || []);
+        this.player2Tiles = new Set(data.player2Tiles || []);
+        this.currentPlayer = data.currentPlayer || 1;
+        this.player1Color = data.player1Color || '';
+        this.player2Color = data.player2Color || '';
+        this.landmines = data.landmines || [];
+        this.explodedTiles = data.explodedTiles || [];
+        this.lastMove = data.lastMove || null;
+        this.gameStarted = data.gameStarted || false;
+        this.gameOver = data.gameOver || false;
+        this.winner = data.winner || null;
+        // Note: Assumes board structure matches
+    }
+
+    getTile(row, col) {
+        return this.gameBoard?.[row]?.[col];
+    }
+
+    isOwnedBy(row, col, player) {
+        const key = `${row},${col}`;
+        if (player === 1) return this.player1Tiles.has(key);
+        if (player === 2) return this.player2Tiles.has(key);
+        return false;
+    }
+
+    getOwner(row, col) {
+        const key = `${row},${col}`;
+        if (this.player1Tiles.has(key)) return 1;
+        if (this.player2Tiles.has(key)) return 2;
+        return 0; // 0 means unowned
+    }
+}
+
 // Game State Variables (consider moving more into the GameState class eventually)
 const gameState = new GameState(); // Central game state object
 let player1PowerUps = []; // Array of power-ups player 1 has available
@@ -41,14 +123,6 @@ let playerName = ''; // Local player's name
 let opponentName = ''; // Opponent's name
 let gameId = null; // ID for online games
 let waitingForOpponent = false; // Flag when waiting for server response/opponent move
-
-// ============================================================================
-// Game State Class
-// ============================================================================
-class GameState {
-    constructor() {
-        this.reset();
-    }
 
     reset() {
         this.gameBoard = [];
