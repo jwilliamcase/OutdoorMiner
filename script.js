@@ -523,10 +523,10 @@ document.addEventListener('DOMContentLoaded', () => {
             circleGradient.addColorStop(0, '#fff');
             circleGradient.addColorStop(0.7, ownerColor);
             circleGradient.addColorStop(1, darkenColor(ownerColor, 0.3));
-            
-            ctx.fillStyle = circleGradient;
+            ctx.globalAlpha = 1.0; // Reset alpha for fill
+            // Set fill style based on owner
+            ctx.fillStyle = owner === 0 ? '#CCCCCC' : (owner === 1 ? playerColors[0] : playerColors[1]); // Use playerColors
             ctx.fill();
-        } else {
             // Add a slightly softer, inset-like border for unowned tiles
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)'; // Dark grey, slightly transparent
             ctx.lineWidth = 1.5;

@@ -623,10 +623,13 @@ try {
     } else {
         console.error(`Player state not found for index ${playerIndex} (playerId: ${playerId})`);
     }
-} catch (error) {
+} catch (error) { // Added catch block
     console.error("Error updating power-up counts:", error);
-}
-}
+} // End of try-catch block
+} // This seems to be the end of a misplaced function definition inside handleGameStarted
+
+        // This part seems unrelated to the updatePowerUpCounts function above and should likely be outside it
+        if (data.gameState.player2Name && playerNumber === 2) {
         
         if (data.gameState.player2Name && playerNumber === 2) {
             playerName = data.gameState.player2Name;
