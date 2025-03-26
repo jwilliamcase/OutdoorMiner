@@ -828,13 +828,13 @@ function drawHexagon(x, y, size, color, owner) {
     ctx.fill();
 
      // Clear shadow for stroke
-     ctx.shadowColor = 'transparent';
-
-    // Draw border/outline
-    if (owner !== 0) {
-        // Owned tiles: thicker, slightly darker border matching player general color theme maybe?
-        // Or just a subtle dark border
-        ctx.strokeStyle = '#333'; // Dark border for owned
+    if (tile && tile.owner !== null) {
+        // Darker shade of owner color for border
+        ctx.strokeStyle = darkenColor(fillColor, 0.7);
+    } else { // Correctly associate else with the if
+        ctx.strokeStyle = '#888888'; // Dark grey border for unowned
+    }
+    ctx.stroke();
         ctx.lineWidth = 1.5;
     } else {
         // Unowned tiles: lighter grey border
