@@ -93,17 +93,17 @@
         // syncInterval = setupStateSync(socket); // Optional: If implementing periodic sync
 
         // Execute the pending action now that connection is established
-        if (pendingAction) {
-            console.log(`Executing pending action: ${pendingAction}`);
-            if (pendingAction === 'create' && pendingArgs.playerName) {
-                createChallenge(pendingArgs.playerName);
-            } else if (pendingAction === 'join' && pendingArgs.playerName && pendingArgs.gameId) {
-                joinChallenge(pendingArgs.playerName, pendingArgs.gameId);
+        console.log("Executing pending action:", pendingAction, pendingArgs);
+            if (pendingAction === 'create') {
+                // Ensure createChallenge uses the stored player name from pendingArgs
+                createChallenge(pendingArgs.playerName); // Correctly access playerName
+            } else if (pendingAction === 'join') {
+                // Ensure joinChallenge uses stored name and gameId from pendingArgs
+                joinChallenge(pendingArgs.playerName, pendingArgs.gameId); // Correctly access properties
             }
-            // Clear pending action once executed or attempted
-            pendingAction = null;
-            pendingArgs = {};
-        }
+            pendingAction = null; // Clear pending action
+            pendingArgs = null;
+        });
 
         // UI is managed by script.js based on game state updates, not here directly
         // window.hideSetupScreen(); // Should already be hidden by script.js
