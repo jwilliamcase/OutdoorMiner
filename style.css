@@ -80,13 +80,128 @@ h1 {
     100% { opacity: 1; }
 }
 
+
+/* Setup Container Styles */
+#setup-container {
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 30px 40px;
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    text-align: center;
+    border: 2px solid #A8D0E6;
+    max-width: 500px;
+    width: 90%;
+    margin-top: 20px;
+}
+
+#setup-container h2 {
+    color: #0F1A40;
+    margin-bottom: 25px;
+    font-size: 2rem;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+#setup-container .input-group,
+#setup-container .button-group,
+#setup-container .join-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+#setup-container label {
+    font-weight: bold;
+    color: #374785;
+    margin-bottom: 5px;
+}
+
+#setup-container input[type="text"] {
+    padding: 12px 15px;
+    border: 2px solid #A8D0E6;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1rem;
+    background-color: white;
+    color: #24305E;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    width: 80%;
+    max-width: 300px;
+}
+
+#setup-container input[type="text"]:focus {
+    border-color: #F76C6C;
+    outline: none;
+    box-shadow: 0 0 8px rgba(247, 108, 108, 0.5), inset 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#setup-container .button-group {
+    flex-direction: row;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+#setup-container button {
+    padding: 12px 25px;
+    background-image: linear-gradient(to bottom, #374785, #24305E);
+    color: white;
+    border: none;
+    border-radius: 25px; /* More rounded */
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border-bottom: 3px solid #1a2244; /* Subtle 3D effect */
+}
+
+#setup-container button:hover {
+    background-image: linear-gradient(to bottom, #4a5a9a, #374785);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+}
+
+#setup-container button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+
+#setup-container .join-group {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#setup-container .join-group input[type="text"] {
+    width: 150px; /* Adjust width for code input */
+}
+
+#setup-container .message-area {
+    margin-top: 20px;
+    padding: 10px;
+    border-radius: 6px;
+    background-color: rgba(248, 233, 161, 0.8);
+    color: #24305E;
+    font-style: italic;
+    min-height: 20px; /* Ensure it has some height even when empty */
+    border: 1px solid #F8E9A1;
+}
+
+
 #player-score {
     padding: 10px 15px;
     border: 2px solid #374785;
     border-radius: 8px;
     color: #374785;
     font-weight: bold;
-    box-shadow: 0 2px 5px rgba(55, 71, 133, 0.3);
+    box-shadow: 0 3px 8px rgba(55, 71, 133, 0.3); /* Enhanced shadow */
+    background-color: #e7f0ff; /* Light blue background */
 }
 
 #turn-indicator {
@@ -117,7 +232,8 @@ h1 {
     border-radius: 8px;
     color: #F76C6C;
     font-weight: bold;
-    box-shadow: 0 2px 5px rgba(247, 108, 108, 0.3);
+    box-shadow: 0 3px 8px rgba(247, 108, 108, 0.3); /* Enhanced shadow */
+    background-color: #ffe8e8; /* Light pink background */
 }
 
 #game-board {
@@ -137,29 +253,31 @@ h1 {
 }
 
 .color-swatch {
-    padding: 5px;
-    border-radius: 10px;
-    background: #f8f8f8;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    padding: 6px; /* Slightly more padding */
+    border-radius: 12px; /* More rounded */
+    background: linear-gradient(to bottom, #ffffff, #e9ecef); /* Subtle gradient */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,255,255,0.5); /* Outer and inner shadow */
     transition: all 0.2s ease;
     flex-grow: 1;
     text-align: center;
-    margin: 0 5px;
+    margin: 0 6px; /* Slightly more margin */
 }
 
 .color-button {
     width: 100%;
     height: 60px;
-    border-radius: 6px;
-    border: none;
+    border-radius: 8px; /* Match swatch rounding */
+    border: 1px solid rgba(0,0,0,0.1); /* Subtle border */
     cursor: pointer;
     transition: all 0.2s ease;
     min-width: 60px;
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.1); /* Inner shadow for 3D */
 }
 
-.color-button:hover {
-    transform: scale(1.08);
-    box-shadow: 0 0 12px rgba(0,0,0,0.2);
+.color-button:hover:not(.disabled) { /* Don't apply hover effect if disabled */
+    transform: scale(1.06) translateY(-2px); /* Lift effect */
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.2);
+    border-color: rgba(0,0,0,0.2);
 }
 
 .color-button.disabled {
@@ -170,23 +288,26 @@ h1 {
 }
 
 .color-swatch.disabled {
-    opacity: 0.6;
-    transform: scale(0.9);
-    box-shadow: none;
+    opacity: 0.5; /* More faded */
+    transform: scale(0.95); /* Less drastic scale */
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); /* Keep subtle inner shadow */
+    background: #e9ecef; /* Flat background */
 }
 
 .color-swatch.current-player {
-    background: linear-gradient(to bottom, #374785, #f8f8f8);
-    box-shadow: 0 0 15px rgba(55, 71, 133, 0.7);
-    transform: scale(1.05);
-    border: 2px solid #F8E9A1;
+    /* Use border and shadow to indicate, keep gradient subtle */
+    background: linear-gradient(to bottom, #ffffff, #e9ecef);
+    box-shadow: 0 0 15px rgba(55, 71, 133, 0.7), 0 4px 10px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,255,255,0.5);
+    transform: scale(1.03); /* Slightly less scale */
+    border: 3px solid #374785; /* Thicker border for current player */
 }
 
 .color-swatch.opponent-player {
-    background: linear-gradient(to bottom, #F76C6C, #f8f8f8);
-    box-shadow: 0 0 15px rgba(247, 108, 108, 0.7);
-    transform: scale(1.05);
-    border: 2px solid #F8E9A1;
+     /* Use border and shadow to indicate, keep gradient subtle */
+    background: linear-gradient(to bottom, #ffffff, #e9ecef);
+    box-shadow: 0 0 15px rgba(247, 108, 108, 0.7), 0 4px 10px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,255,255,0.5);
+    transform: scale(1.03); /* Slightly less scale */
+    border: 3px solid #F76C6C; /* Thicker border for opponent */
 }
 
 #game-controls {
@@ -199,63 +320,22 @@ h1 {
     align-items: center;
 }
 
-#game-controls button {
-    padding: 12px 15px;
-    background-color: #374785;
-    color: white;
-    border: 2px solid #F8E9A1;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
-}
-
-#game-controls button:hover {
-    background-color: #24305E;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 12px rgba(0,0,0,0.3);
-    border-color: #F76C6C;
-}
-
-#player-name, #challenge-code {
-    padding: 12px;
-    border: 2px solid #A8D0E6;
-    border-radius: 8px;
-    text-align: center;
-    font-size: 16px;
-    background-color: rgba(255, 255, 255, 0.9);
-    color: #24305E;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-}
-
-#challenge-code {
-    width: 120px;
-}
-
-#player-name {
-    width: 150px;
-}
-
-#player-name:focus, #challenge-code:focus {
-    border-color: #F76C6C;
-    outline: none;
-    box-shadow: 0 0 8px rgba(247, 108, 108, 0.5), inset 0 2px 4px rgba(0,0,0,0.1);
-}
-
+/* Style the message areas within game-controls */
 #message {
-    margin-top: 15px;
-    padding: 12px;
+    margin-top: 15px; /* Keep margin if needed */
+    padding: 12px 15px; /* More padding */
     border-radius: 8px;
     background-color: rgba(248, 233, 161, 0.9);
     color: #24305E;
     font-style: italic;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     line-height: 1.5;
-    border: 1px solid #F8E9A1;
+    border: 1px solid #e0ca8a; /* Darker border */
     width: 100%;
+    max-width: 640px; /* Match palette width */
     text-align: center;
+    font-size: 1rem; /* Slightly larger */
+    display: none; /* Controlled by JS */
 }
 
 #landmine-info {
@@ -268,14 +348,17 @@ h1 {
     font-weight: bold;
     text-align: center;
     animation: pulse 2s infinite;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25); /* Enhanced shadow */
     width: 100%;
+    max-width: 640px; /* Match palette width */
+    display: none; /* Controlled by JS */
 }
 
+/* Refine pulse animation for landmine info */
 @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+    50% { transform: scale(1.03); box-shadow: 0 6px 18px rgba(247, 108, 108, 0.5); }
+    100% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
 }
 
 .online-note {
@@ -336,18 +419,21 @@ h1 {
     transition: all 0.3s ease;
     cursor: pointer;
     position: relative;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Softer shadow */
+    border: 2px solid #cdddee; /* Lighter border */
+    background: linear-gradient(to bottom, #ffffff, #f0f4f8); /* Very subtle gradient */
 }
 
-.power-up-slot:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+.power-up-slot:hover:not(.disabled) { /* Add :not(.disabled) */
+    transform: translateY(-4px) scale(1.02); /* Slightly more lift and scale */
+    box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
+    border-color: #a8d0e6;
 }
 
 .power-up-slot.active {
     border-color: #F76C6C;
-    background-color: rgba(247, 108, 108, 0.2);
-    box-shadow: 0 0 15px rgba(247, 108, 108, 0.5);
+    background-color: rgba(247, 108, 108, 0.15); /* Slightly less intense background */
+    box-shadow: 0 0 15px rgba(247, 108, 108, 0.6), 0 4px 12px rgba(0, 0, 0, 0.15); /* Keep base shadow + glow */
     animation: pulse-border 1.5s infinite;
 }
 
@@ -358,10 +444,12 @@ h1 {
 }
 
 .power-up-slot.disabled {
-    opacity: 0.5;
+    opacity: 0.4; /* More faded */
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); /* Subtle inner shadow when disabled */
+    background: #e9ecef;
+    border-color: #ddd;
 }
 
 .power-up-icon {
@@ -388,9 +476,10 @@ h1 {
     font-size: 14px;
     font-weight: bold;
     position: absolute;
-    top: -8px;
-    right: -8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    top: -10px; /* Adjust position */
+    right: -10px; /* Adjust position */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); /* Stronger shadow */
+    border: 1px solid rgba(255,255,255,0.5); /* Subtle border */
 }
 
 /* Tooltip styles for power-ups */
@@ -673,6 +762,27 @@ h1 {
     font-weight: bold;
     border: 2px solid white;
 }
+
+/* Chat Toggle Button Refinement */
+#toggle-chat {
+    background-image: linear-gradient(to bottom, #F76C6C, #d35454); /* Gradient */
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-bottom: 3px solid #b04343; /* Subtle 3D */
+}
+
+#toggle-chat:hover {
+    background-image: linear-gradient(to bottom, #374785, #24305E); /* Change color on hover */
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+    border-bottom-color: #1a2244;
+}
+
+#toggle-chat:active {
+    transform: scale(1.05) translateY(1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 
 /* Multiplayer UI styles */
 .connection-status {

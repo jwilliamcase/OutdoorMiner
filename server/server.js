@@ -225,11 +225,25 @@ io.on('connection', (socket) => {
     if (move.type === 'color-selection') {
       handleColorSelection(game, playerNumber, move);
     } else if (move.type === 'power-up') {
+      // Ensure the player has the power-up and decrement count
+      const powerUps = playerNumber === 1 ? game.player1PowerUps : game.player2PowerUps;
+      const powerUpIndex = powerUps.indexOf(move.powerUpType);
+
+      if (powerUpIndex === -1) {
+          socket.emit('game-error', { message: 'You do not have that power-up.' });
+          return;
+      }
+      // Remove the used power-up
+      powerUps.splice(powerUpIndex, 1);
+
       handlePowerUp(game, playerNumber, move);
+
     } else if (move.type === 'landmine') {
-      handleLandmine(game, move);
+       // This move type is triggered by the client *after* the explosion happens locally.
+       // The server just needs to sync the resulting state.
+      handleLandmineSync(game, playerNumber, move);
     }
-    
+
     // Update last activity
     game.lastActivity = Date.now();
     
@@ -359,40 +373,46 @@ function handleColorSelection(game, playerNumber, move) {
   game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
 }
 
+// Handles applying the state changes resulting from a power-up move reported by the client
 function handlePowerUp(game, playerNumber, move) {
-  // Update power-ups count
-  game.availablePowerUps[playerNumber.toString()] -= 1;
-  
-  // Update power-ups
-  if (playerNumber === 1) {
-    game.player1PowerUps = move.player1PowerUps;
-  } else {
-    game.player2PowerUps = move.player2PowerUps;
-  }
-  
-  // Update tiles
+  console.log(`Handling power-up move: ${move.powerUpType} by Player ${playerNumber}`);
+
+  // Update power-up lists based on client data (already updated locally before sending)
+  game.player1PowerUps = move.player1PowerUps || [];
+  game.player2PowerUps = move.player2PowerUps || [];
+
+  // Update tiles based on client data
   if (move.player1Tiles) game.player1Tiles = move.player1Tiles;
   if (move.player2Tiles) game.player2Tiles = move.player2Tiles;
-  
-  // Switch turns
+
+  // Update board if provided (e.g., for Sabotage color change)
+  if (move.updatedBoard) {
+      game.board = JSON.parse(JSON.stringify(move.updatedBoard));
+  }
+
+  // Switch turns (Power-up usage counts as a turn)
   game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
 }
 
-function handleLandmine(game, move) {
-  // Update tiles
-  game.player1Tiles = move.player1Tiles;
-  game.player2Tiles = move.player2Tiles;
-  
-  // Update landmines
-  game.landmines = move.landmines;
-  
-  // Update board state
+
+// Handles syncing the state after a landmine was triggered on the client
+function handleLandmineSync(game, playerNumber, move) {
+   console.log(`Syncing state after landmine triggered by Player ${playerNumber}`);
+  // Update tiles based on client's post-explosion state
+  game.player1Tiles = move.player1Tiles || [];
+  game.player2Tiles = move.player2Tiles || [];
+
+  // Update landmines list based on client's state (mine should be removed)
+  game.landmines = move.landmines || [];
+
+  // Update board state based on client's post-explosion board
   if (move.updatedBoard) {
     game.board = JSON.parse(JSON.stringify(move.updatedBoard));
   }
-  
-  // Switch turns
-  game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+
+  // Switch turns (triggering a landmine ends the current player's turn)
+   // The player who triggered the mine was 'playerNumber'. It becomes the other player's turn.
+  game.currentPlayer = playerNumber === 1 ? 2 : 1;
 }
 
 // Game code generator

@@ -11,13 +11,32 @@
         <h1>Outdoor Miner</h1>
     </header>
 
-    <div id="score-container">
+    <!-- Setup Container - Shown Initially -->
+    <div id="setup-container">
+        <h2>Welcome!</h2>
+        <div class="input-group">
+            <label for="player-name-setup">Enter Your Name:</label>
+            <input type="text" id="player-name-setup" placeholder="Player Name" maxlength="20">
+        </div>
+        <div class="button-group">
+            <button id="start-local-game">Play Local Game</button>
+            <button id="setup-create-challenge">Create Online Challenge</button>
+        </div>
+        <div class="join-group">
+            <input type="text" id="challenge-code-setup" placeholder="Enter Code to Join">
+            <button id="setup-join-challenge">Join Online Challenge</button>
+        </div>
+        <div id="setup-message" class="message-area"></div>
+    </div>
+
+    <!-- Main Game Elements - Hidden Initially -->
+    <div id="score-container" style="display: none;">
         <div id="player-score">You: <span id="your-score">0</span></div>
         <div id="turn-indicator">Current Turn: <span id="current-player">You</span></div>
         <div id="opponent-score">Opponent: <span id="opponent-score-value">0</span></div>
     </div>
 
-    <div id="game-area">
+    <div id="game-area" style="display: none;">
         <div id="left-powers" class="power-side">
             <div class="power-up-slot" data-type="sabotage">
                 <div class="power-up-icon">🧨</div>
@@ -101,7 +120,10 @@
             <button id="show-taunts">😈</button>
         </div>
     </div>
-    
+
+    <!-- Chat toggle button -->
+    <button id="toggle-chat" style="display: none;">💬</button>
+
     <!-- Socket.io Client -->
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <!-- Config -->
