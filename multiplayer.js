@@ -250,12 +250,12 @@
     // --- Actions (Called by script.js, exposed via window) ---
     // Function to create a new challenge
     function createChallenge(playerName) {
-        if (socket && socket.connected) { // Check socket.connected specifically
-            console.log(`Emitting create-challenge for player: ${playerName}`);
-            socket.emit('create-challenge', { playerName });
-            window.updateMessage('Challenge created. Waiting for opponent...', false);
-            // UI should update based on server response ('game-created')
-        } else {
+        if (socket && socket.connected) {
+            console.log(`Attempting to create game with name: ${playerName}`);
+            socket.emit('create-game', { playerName }); // Use server's expected event name
+            window.updateMessage("Challenge created. Waiting for opponent...", 'info');
+            pendingAction = null; // Clear pending action
+            pendingArgs = {};
             console.error('Socket not connected when trying to create challenge.');
             window.updateMessage('Error: Could not create challenge. Not connected.', true);
     // Function to join an existing challenge
@@ -268,11 +268,11 @@
             pendingArgs = {};
             return;
         }
-        if (socket && socket.connected) { // Check socket.connected specifically
-            console.log(`Emitting join-challenge for game ${gameId}, player: ${playerName}`);
-            socket.emit('join-challenge', { gameId, playerName });
-            window.updateMessage(`Attempting to join game ${gameId}...`, false);
-            // UI should update based on server response ('game-joined' or error)
+        if (socket && socket.connected) {
+            console.log(`Attempting to join game ${gameId} with name: ${playerName}`);
+            socket.emit('join-game', { gameId, playerName }); // Use server's expected event name
+            pendingAction = null; // Clear pending action
+            pendingArgs = {};
         } else {
             console.error('Socket not connected when trying to join challenge.');
             window.updateMessage('Error: Could not join challenge. Not connected.', true);
