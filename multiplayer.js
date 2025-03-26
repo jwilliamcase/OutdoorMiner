@@ -205,42 +205,73 @@
             connectToServer();
         }
         
-        // Get player name
-        const playerNameInput = document.getElementById('player-name');
-        const playerName = playerNameInput.value.trim() || 'Player 1';
-        
-        // Emit create game event with player name
-        socket.emit('create-game', { playerName: playerName });
-        
-        // Update UI
-        messageElement.textContent = 'Creating game...';
-        
-        // Disable all game buttons while waiting
-        createChallengeButton.disabled = true;
-        connectChallengeButton.disabled = true;
-    }
-    
-    // Join an existing challenge
-    function joinChallenge() {
-        const enteredCode = challengeCodeInput.value.trim();
-        if (!enteredCode) {
-            messageElement.textContent = 'Please enter a challenge code.';
+        // Function to create a new challenge
+    function createChallenge(pName) {
+        if (!connected || !socket) {
+            console.error("Not connected to server. Cannot create challenge.");
+            updateMessage("Error: Not connected to server.");
+            // Potentially re-enable setup buttons or show error message persistently
             return;
         }
-        
-        // Connect to server if not already connected
-        if (!connected) {
-            connectToServer();
+        // Player name should already be set globally in script.js before calling connectToServer/createChallenge
+        console.log(`Attempting to create challenge for player: ${playerName}`);
+        if (!playerName) {
+            console.error("Player name is not set before creating challenge.");
+            updateMessage("Error: Player name not set.");
+            return; // Should not happen if setup flow is correct
         }
-        
-        // Get player name
-        const playerNameInput = document.getElementById('player-name');
-        const playerName = playerNameInput.value.trim() || 'Player 2';
-        
-        // Emit join game event
-        socket.emit('join-game', { 
-            gameId: enteredCode,
-            playerName: playerName 
+        socket.emit('create-challenge', { playerName: playerName });
+        updateMessage("Challenge created. Waiting for opponent...");
+        console.log("create-challenge event emitted with playerName:", playerName);
+        // Buttons are part of the setup screen, which is now hidden. No need to disable here.
+    }
+    
+    // Function to join an existing challenge
+    function joinChallenge(gId, pName) {
+         if (!connected || !socket) {
+            console.error("Not connected to server. Cannot join challenge.");
+            updateMessage("Error: Not connected to server.");
+            // Potentially re-enable setup buttons or show error message persistently
+            return;
+        }
+        // Player name should already be set globally. Game ID comes from prompt.
+        gameId = gId; // Store game ID
+        console.log(`Attempting to join challenge ${gameId} as player: ${playerName}`);
+        if (!playerName || !gameId) {
+            console.error("Player name or Game ID is missing for joining challenge.");
+            updateMessage("Error: Player name or Game ID missing.");
+            return; // Should not happen if setup flow is correct
+        }
+        socket.emit('join-challenge', { gameId: gameId, playerName: playerName });
+        updateMessage(`Joining game ${gameId}...`);
+        // Buttons are part of the setup screen, which is now hidden. No need to disable here.
+    }
+    
+    // Define hideGameUI helper (or move this logic if defined elsewhere)
+    function hideGameUI() {
+        const UIElementsToHide = [
+            'score-container', 'game-area', 'color-palette',
+            'game-controls', 'message', 'landmine-info',
+            'chat-container', 'toggle-chat'
+        ];
+        UIElementsToHide.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
+         // Also reset relevant game state variables if needed
+         gameActive = false;
+         // Reset player index?
+         // playerIndex = -1;
+    }
+    
+    
+    // --- Socket Event Handlers ---
+    function setupSocketListeners(socket) {
+    
+        // Listen for game setup confirmation
+        socket.on('game-setup', (data) => {
         });
         
         // Update UI
@@ -283,148 +314,215 @@
             socket.on('game-joined', handleGameJoined);
             socket.on('game-error', handleGameError);
             socket.on('player-joined', handlePlayerJoined);
-            socket.on('game-started', handleGameStarted);
-            socket.on('game-update', handleGameUpdate);
-            socket.on('game-restarted', handleGameRestarted);
-            socket.on('player-disconnected', handlePlayerDisconnected);
-            
-            // Chat events
-            socket.on('receive-message', handleReceiveMessage);
-        } catch (error) {
-            console.error('Error connecting to server:', error);
-            statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Connection Failed';
-        }
+            document.getElementById('joinChallengeButton').disabled = true; // These buttons might not exist or be relevant anymore
     }
     
-    // Setup heartbeat mechanism
-    function setupHeartbeat() {
-        if (!gameState.socket) return;
-        
-        // Send heartbeat every 30 seconds
-        setInterval(() => {
-            if (gameState.connected) {
-                gameState.socket.emit('heartbeat', {
-                    gameId: gameState.gameId,
-                    playerNumber: gameState.playerNumber,
-                    timestamp: Date.now()
-                });
+    
+    // --- Socket Event Handlers ---
+    // Encapsulate listeners setup to be called after connection is established
+    function setupSocketListeners(socket) {
+    
+        // Remove existing listeners to prevent duplicates if re-connecting
+        socket.off('game-setup');
+        socket.off('game-state');
+        socket.off('chat-message');
+        socket.off('game-over');
+        socket.off('player-disconnected');
+        socket.off('game-restarted');
+        socket.off('error-message');
+    
+        // Listen for game setup confirmation
+        socket.on('game-setup', (data) => {
+            console.log("Game setup received:", data);
+            gameId = data.gameId;
+            // Player name is already set on the client during setup
+            // Server confirms names and assigns index based on join order/creation
+            playerNames = data.playerNames;
+            playerIndex = playerNames.findIndex(name => name === playerName); // Find our index
+            opponentPlayerIndex = 1 - playerIndex; // Determine opponent index
+    
+            playerColors = data.playerColors; // Get colors from server
+            isOnlineGame = true;
+            console.log(`Assigned player index: ${playerIndex} (${playerNames[playerIndex]})`);
+            updateMessage(`Game ${gameId} ready. You are ${playerNames[playerIndex]}. Waiting for first state...`);
+    
+            // Server should send initial game state either with setup or immediately after
+            if (data.gameState) {
+                initializeOnlineGame(data.gameState); // Initialize based on server state
+            } else {
+                console.log("Waiting for initial game state sync...");
+                // UI is shown in initializeOnlineGame or syncGameState
             }
-        }, 30000);
-    }
-
-    // Setup state synchronization
-    function setupStateSync() {
-        if (syncTimer) clearInterval(syncTimer);
-        
-        syncTimer = setInterval(() => {
-            if (gameState.gameStarted && gameState.connected) {
-                requestStateSync();
-            }
-        }, syncInterval);
-    }
-
-    // Request state sync from server
-    function requestStateSync() {
-        if (!gameState.socket || !gameState.gameId) return;
-        
-        gameState.socket.emit('request-sync', {
-            gameId: gameState.gameId,
-            playerNumber: gameState.playerNumber,
-            lastMove: gameState.lastMove
+    
+            // Enable chat if not already visible
+            const chatContainer = document.getElementById('chat-container');
+            const toggleChatButton = document.getElementById('toggle-chat');
+            if (chatContainer) chatContainer.style.display = 'flex'; // Show chat interface
+            if (toggleChatButton) toggleChatButton.style.display = 'block'; // Show toggle button
         });
+    
+        // Listen for game state updates
+        socket.on('game-state', (gameState) => {
+            console.log("Received game state update");
+            syncGameState(gameState); // This function now also handles showing the UI if needed
+        });
+    
+        // Listen for chat messages
+        socket.on('chat-message', (data) => {
+            displayChatMessage(data.sender, data.message);
+        });
+    
+    
+        // Listen for game over
+        socket.on('game-over', (data) => {
+            console.log('Game Over:', data);
+            gameActive = false;
+            if(data.gameState) { // Ensure final state is provided
+               syncGameState(data.gameState); // Sync final state
+            }
+            updateMessage(data.message || "Game Over!");
+            enablePlayerControls(false); // Disable controls
+            displayGameResults(); // Show results overlay or message
+        });
+    
+        // Listen for player disconnection
+        socket.on('player-disconnected', (data) => {
+            console.log('Opponent disconnected:', data);
+            gameActive = false; // Stop the game
+            updateMessage(data.message || 'Opponent disconnected. Game over.');
+            enablePlayerControls(false); // Disable controls
+            // Maybe offer to start a new game or return to setup
+            const restartBtn = document.getElementById('restartGameButton');
+            if (restartBtn) {
+                 restartBtn.textContent = "Find New Game"; // Change button text/functionality
+                 // Or disable it if returning to main menu
+                 restartBtn.disabled = true;
+            }
+             const leaveBtn = document.getElementById('leaveGameButton');
+             if(leaveBtn) leaveBtn.textContent = "Back to Menu"; // Change leave button text
+    
+    
+        });
+    
+        // Listen for game restart confirmation or initiation
+        socket.on('game-restarted', (data) => {
+            console.log('Game is restarting with new state:', data);
+            // Re-initialize the game with the new state provided by the server
+            initializeOnlineGame(data.gameState); // This handles UI setup and state sync
+            updateMessage('Game restarted! New round begins.');
+            // Ensure buttons are correctly enabled/named
+             const restartBtn = document.getElementById('restartGameButton');
+             if (restartBtn) {
+                 restartBtn.textContent = "Restart Game";
+                 restartBtn.disabled = false; // Re-enable if previously disabled
+             }
+              const leaveBtn = document.getElementById('leaveGameButton');
+             if(leaveBtn) leaveBtn.textContent = "Leave Game";
+    
+        });
+    
+    
+        // Listen for errors from the server
+        socket.on('error-message', (data) => {
+            console.error('Server Error:', data.message);
+            updateMessage(`Error: ${data.message}`);
+    
+            // Go back to setup screen for critical errors like game not found/full
+            if (data.errorType === 'GAME_FULL' || data.errorType === 'GAME_NOT_FOUND') {
+                 // Hide game elements, show setup screen
+                 hideGameUI();
+                 const setupContainer = document.getElementById('setup-container');
+                 if(setupContainer) setupContainer.style.display = 'block';
+    
+                 const setupMessage = document.getElementById('setup-message');
+                 if(setupMessage) {
+                     setupMessage.textContent = data.message;
+                     setupMessage.style.color = 'red';
+                 }
+    
+                 // Disconnect if the error means we can't proceed
+                 disconnectFromServer();
+            }
+        });
+socket.on('connect', () => {
+    console.log('Connected to server with ID:', socket.id);
+    connected = true; // Update connection status
+    resolve(socket); // Resolve the promise when connected
+    // Maybe update UI to show connected status
+    updateMessage("Connected to server. Ready to create or join a game."); // Inform user
+});
+    function sendChatMessage(message) {
+        if (socket && connected && gameId) {
+            socket.emit('chat-message', { gameId, message });
+        } else {
+            console.log("Cannot send chat message. Not connected or not in a game.");
+        }
     }
+    
+    // Request restart game (client asks server)
+    function requestRestartGame() {
+        if (socket && connected && gameId) {
+            console.log("Requesting game restart...");
+            socket.emit('request-restart', { gameId });
+            updateMessage("Restart requested. Waiting for opponent...");
+            // Disable restart button temporarily
+            const restartBtn = document.getElementById('restartGameButton');
+            if(restartBtn) restartBtn.disabled = true;
+        } else {
+            console.log("Cannot request restart. Not connected or not in a game.");
+             // If not online, maybe just call local restart? Check isOnlineGame flag.
+             if (!isOnlineGame) {
+                 console.log("Performing local restart.");
+                 initializeGame(playerNames[0], playerNames[1]); // Restart local game
+             }
+        }
+    }
+    
+    // Notify server of leaving the game
+    function notifyLeaveGame() {
+        console.log('Connected to server with ID:', socket.id);
+        connected = true; // Update connection status
+        setupSocketListeners(socket); // Setup event listeners now
+        resolve(socket); // Resolve the promise when connected
+        // Maybe update UI to show connected status
+        // Message is now updated within button handlers based on next action
+        // updateMessage("Connected to server. Ready to create or join a game.");
+    });
 
-    // Handle successful connection
-    function handleConnect() {
-        console.log('Connected to server!');
-        gameState.connected = true;
-        statusIndicator.innerHTML = '<span class="connection-status status-connected"></span> Connected';
-        
-        // Request immediate sync if game is in progress
-        if (gameState.gameStarted) {
-            requestStateSync();
+    socket.on('connect_error', (error) => {
+        const setupContainer = document.getElementById('setup-container');
+        if(setupContainer) setupContainer.style.display = 'block';
+        // Reset relevant state
+        gameId = null;
+        isOnlineGame = false;
+        playerIndex = -1;
+        opponentPlayerIndex = -1;
+        // Clear messages
+        updateMessage("Choose an option to play.");
+        const setupMessage = document.getElementById('setup-message');
+        if(setupMessage) setupMessage.textContent = ''; // Clear previous errors
+        // Reset button states in setup if needed (e.g., if they were disabled)
+    
+    }
+    
+    // Disconnect function
+    function disconnectFromServer() {
+        if (socket) {
+            // Remove listeners before disconnecting to avoid issues on manual disconnect
+            socket.off('connect');
+            socket.off('disconnect');
+            socket.off('connect_error');
+            // Call the function to remove game-specific listeners
+            setupSocketListeners(socket); // Call with socket to remove listeners added by it
+    
+            socket.disconnect();
+            console.log("Disconnected manually.");
+            // 'disconnect' event handler should set connected = false
         }
+         connected = false; // Ensure flag is false even if event doesn't fire immediately
+         gameId = null; // Clear gameId on disconnect
+         isOnlineGame = false; // Assume not in online game anymore
     }
-    
-    // Handle disconnection
-    function handleDisconnect() {
-        console.log('Disconnected from server!');
-        connected = false;
-        statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Disconnected';
-        
-        if (isOnlineGame) {
-            messageElement.textContent = 'Disconnected from the game server!';
-        }
-    }
-    
-    // Handle connection error
-    function handleConnectionError(error) {
-        console.error('Connection error:', error);
-        connected = false;
-        
-        // First, check if the server is even reachable with a simple fetch
-        fetch(`${CONFIG.SERVER_URL}/api/status`)
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                }
-                throw new Error('Server reached but status endpoint failed');
-            })
-            .then(data => {
-                console.log('Server status check success:', data);
-                statusIndicator.innerHTML = '<span class="connection-status status-connecting"></span> Server reachable, Socket.io connection failed';
-                messageElement.textContent = 'Server is online but Socket.io connection failed. Try refreshing the page.';
-            })
-            .catch(err => {
-                console.error('Server status check failed:', err);
-                statusIndicator.innerHTML = '<span class="connection-status status-disconnected"></span> Server Unreachable';
-                messageElement.textContent = 'Failed to connect to the game server! The server may be offline or starting up.';
-            });
-    }
-    
-    // Handle game created event
-    function handleGameCreated(data) {
-        console.log('Game created:', data);
-        gameId = data.gameId;
-        playerNumber = data.playerNumber;
-        playerName = data.playerName || document.getElementById('player-name').value.trim() || 'Player 1';
-        isOnlineGame = true;
-        
-        // Update UI
-        messageElement.textContent = `Game created! Your code is: ${gameId}. Waiting for opponent...`;
-        challengeCodeInput.value = gameId;
-        
-        // Re-enable buttons
-        createChallengeButton.disabled = false;
-        connectChallengeButton.disabled = false;
-        
-        // Add game code to URL for easy sharing
-        updateUrlWithGameCode(gameId);
-        
-        // Initialize game for player 1
-        window.initializeOnlineGame(playerNumber, gameId, playerName);
-    }
-    
-    // Update URL with game code for easy sharing
-    function updateUrlWithGameCode(code) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('game', code);
-        window.history.replaceState({}, '', url);
-    }
-    
-    // Handle game joined event
-    function handleGameJoined(data) {
-        console.log('Game joined:', data);
-        gameId = data.gameId;
-        playerNumber = data.playerNumber;
-        playerName = document.getElementById('player-name').value.trim() || 'Player 2';
-        isOnlineGame = true;
-        
-        // Update UI
-        messageElement.textContent = `Joined game ${gameId} as Player ${playerNumber}! Waiting for game to start...`;
-        
-        // Re-enable buttons
-        createChallengeButton.disabled = false;
         connectChallengeButton.disabled = false;
         
         // Update URL with game code
@@ -604,18 +702,23 @@
             messageElement.textContent = `${opponentName || `Player ${data.playerNumber}`} has disconnected! Game ended.`;
             opponentName = ''; // Clear opponent name
              window.opponentName = '';
-            updatePlayerNames(); // Update display to reflect missing opponent
-            disableControls(); // Disable game controls
-            isOnlineGame = false; // Consider the online session over
-            gameId = null;
-            gameState.gameStarted = false; // Mark game as not started
-            // Optionally show a button to return to main menu or start new game
-        }
-    }
+            });
 
-    // Handle receiving a chat message
-    function handleReceiveMessage(data) {
-        console.log('Message received:', data);
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected from server:', reason);
+            connected = false; // Reset connection status
+            updateMessage('Disconnected from server. Please refresh to reconnect.');
+            gameActive = false; // Stop game activity
+            enablePlayerControls(false); // Disable controls
+             // Hide game elements and potentially show setup screen again or a message
+             hideGameUI(); // You might need to define this function or implement the logic here
+             // Show setup container again
+             const setupContainer = document.getElementById('setup-container');
+             if (setupContainer) setupContainer.style.display = 'block';
+
+        });
+
+        // Handle errors during connection or gameplay
         
         // Create message element
         const messageDiv = document.createElement('div');

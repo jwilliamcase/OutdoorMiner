@@ -175,135 +175,136 @@ const gameState = new GameState();
     let player2PowerUps = []; // Array of power-ups player 2 has available
     let selectedPowerUp = null; // Currently selected power-up
     
-    // Online multiplayer variables
-    let gameId = null; // Unique identifier for this game
-    let isOnlineGame = false; // Whether this is an online multiplayer game
-    let playerNumber = 1; // Which player this client represents (1 or 2)
-    let playerName = ''; // Name of the current player - Set during setup
-    let opponentName = 'Opponent'; // Default opponent name for local
-    let waitingForOpponent = false; // Whether we're waiting for an opponent's move
+    initializeGame(player1NameLocal, player2NameLocal); // Use provided names
+}
 
-    // --- Setup Flow Functions ---
 
-    function showSetupScreen() {
-        setupContainer.style.display = 'block';
-        scoreContainer.style.display = 'none';
-        gameArea.style.display = 'none';
-        colorPalette.style.display = 'none';
-        gameControls.style.display = 'none'; // Hide the container for message divs
-        messageElement.style.display = 'none'; // Hide specific message div
-        landmineInfo.style.display = 'none';
-        chatContainer.classList.add('hidden');
-        toggleChatButton.style.display = 'none';
-    }
+// Initial setup when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // References to setup elements
+    const setupContainer = document.getElementById('setup-container');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const localGameButton = document.getElementById('localGameButton');
+    const createChallengeButton = document.getElementById('createChallengeButton');
+    const joinChallengeButton = document.getElementById('joinChallengeButton');
+    const setupMessage = document.getElementById('setup-message');
 
-    function showGameScreen() {
+    // References to main game elements that need to be shown/hidden
+    const scoreContainer = document.getElementById('score-container');
+    const gameArea = document.getElementById('game-area');
+    const colorPalette = document.getElementById('color-palette');
+    const gameControls = document.getElementById('game-controls');
+    const messageDiv = document.getElementById('message'); // Renamed from message
+    const landmineInfo = document.getElementById('landmine-info');
+    const chatContainer = document.getElementById('chat-container');
+    const toggleChatButton = document.getElementById('toggle-chat'); // Added toggle chat button reference
+
+    function showGameUI() {
         setupContainer.style.display = 'none';
-        scoreContainer.style.display = 'flex'; // Use flex for score layout
-        gameArea.style.display = 'flex';       // Use flex for game area layout
-        colorPalette.style.display = 'flex';   // Use flex for palette layout
-        gameControls.style.display = 'block'; // Show the container for message divs
-        messageElement.style.display = 'block'; // Show specific message div
-        landmineInfo.style.display = 'block'; // Show landmine info
-        // Chat visibility is controlled by its own logic/toggle button
-        toggleChatButton.style.display = 'flex'; // Show chat toggle button
-    }
-
-
-    // --- Game Initialization ---
-
-    // Initialize the game (called after setup)
-    function initializeGame(isOnline = false, pName = 'You', oName = 'Opponent') {
-        playerName = pName;
-        opponentName = oName;
-        isOnlineGame = isOnline; // Set based on how it was started
-
-        // Make names globally accessible if needed by multiplayer.js
-        window.playerName = playerName;
-        window.opponentName = opponentName;
-
-        // Reset state using the gameState object
-        gameState.gameBoard = [];
-        gameState.player1Tiles = new Set();
-        gameState.player2Tiles = new Set();
-        gameState.currentPlayer = 1; // Player 1 starts by default
-        gameState.player1Color = '';
-        gameState.player2Color = '';
-        gameState.availableColors = [...COLORS];
-        gameState.hoverTile = null;
-        gameState.landmines = [];
-        gameState.explodedTiles = [];
-        gameState.lastMove = null;
-        gameState.moveHistory = [];
-        gameState.gameStarted = false; // Will be set true by sync or after local setup
-        gameState.gameOver = false;
-        gameState.winner = null;
-
-        player1PowerUps = []; // Reset local power-up tracking
-        player2PowerUps = [];
-        selectedPowerUp = null;
-
-        // Only create board locally if not waiting for server state
-        if (!isOnlineGame || (isOnlineGame && playerNumber === 1)) {
-            createGameBoard(); // Create board structure and place mines
-            setupInitialTiles(); // Set starting positions and colors
-            resetAvailableColors();
-            gameState.gameStarted = true; // Start immediately for local or P1 online
-        } else {
-            // Player 2 in online game waits for server state
-            messageElement.textContent = "Waiting for game state from server...";
-            disableControls(); // Disable until state arrives
-        }
-
-        // Handle responsive canvas sizing
-        resizeGame();
-
-        renderGameBoard();
-        updateScoreDisplay(); // Use the names passed in
-        updateTurnIndicator();
-        setupColorButtons();
-        setupPowerUpListeners();
-        updatePowerUpDisplay(); // Initialize power-up display
-
-        // Set initial message
-        if (gameState.gameStarted) {
-            messageElement.textContent = `Welcome ${playerName}! ${currentPlayer === playerNumber ? "Your" : opponentName + "'s"} turn. Watch out for hidden landmines!`;
-        }
-
-        // Show the game screen elements now that setup is done
-        showGameScreen();
-    }
-
-    // Legacy function, keeping for potential reference but initializeGame is primary now
-    function _initializeGame_legacy() {
-        createGameBoard();
-        setupInitialTiles();
-        resetAvailableColors();
-        
-        // Clear any exploded tiles from previous games
-        explodedTiles = [];
-        
-        // Reset power-ups
-        player1PowerUps = [];
-        player2PowerUps = [];
-        selectedPowerUp = null;
-        updatePowerUpDisplay();
-        
-        // Handle responsive canvas sizing
-        resizeGame();
-        
-        renderGameBoard();
-        updateScoreDisplay();
-        updateTurnIndicator();
-        setupColorButtons();
-        setupPowerUpListeners();
-        messageElement.textContent = "Welcome to Outdoor Miner! Your turn. Watch out for hidden landmines!";
-    }
+        scoreContainer.style.display = 'flex'; // Or 'block' depending on your layout
+        gameArea.style.display = 'block';
+        colorPalette.style.display = 'flex';
+        gameControls.style.display = 'block'; // Or 'flex'
+        messageDiv.style.display = 'block';
+        landmineInfo.style.display = 'block';
+    // Function to initialize or sync the game state for online play
+    function initializeOnlineGame(gameState) {
+        console.log("Initializing online game with state:", gameState);
+        isOnlineGame = true;
+        gameBoard = gameState.board;
+        scores = gameState.scores;
+        playerColors = gameState.playerColors;
+        currentPlayerIndex = gameState.currentPlayerIndex;
+        playerNames = gameState.playerNames; // Sync player names
+        landmines = gameState.landmines || {}; // Sync landmines
+        powerUpInventory = gameState.powerUpInventory || initialPowerUpInventory(); // Sync power-ups
+        gameActive = gameState.gameActive;
     
-    // Function to handle responsive canvas scaling
-    function resizeGame() {
-        const container = document.getElementById('game-container');
-        const containerWidth = container.clientWidth - 30; // Account for padding
+        // Determine local player's index and name based on socket ID or other identifier if needed
+        // Player name should be set during the setup phase before connection.
+        playerIndex = playerNames.findIndex(name => name === playerName);
+    
+        // Fallback if name isn't found (shouldn't happen in normal flow)
+        if (playerIndex === -1) {
+            console.warn("Player name not found in game state, attempting identification via socket ID.");
+             if (socket && socket.id === gameState.playerSocketIds[0]) {
+                playerIndex = 0;
+            } else if (socket && socket.id === gameState.playerSocketIds[1]) {
+                playerIndex = 1;
+            } else {
+                 console.error("Could not determine player index. Defaulting to 0.");
+                 playerIndex = 0; // Default assumption if name not found and socket ID doesn't match
+            }
+            // Update playerName if identified via socket ID and name was missing/wrong
+            playerName = playerNames[playerIndex];
+             createChallenge(playerName); // Call multiplayer function
+        opponentPlayerIndex = 1 - playerIndex;
+    
+        console.log(`Local player determined as Player ${playerIndex + 1} (${playerNames[playerIndex]})`);
+    
+    
+        lastPlayedColor = gameState.lastPlayedColors ? gameState.lastPlayedColors[playerIndex] : null; // Sync last played color for the local player
+    
+        // Show the game UI now that the game state is received
+        showGameUI(); // Defined in DOMContentLoaded listener
+    
+        setupInitialTiles(); // Make sure starting tiles are correctly owned
+            setupMessage.textContent = "Failed to connect to the server. Please try again.";
+        updateScoreDisplay();
+        updateColorPalette();
+        updatePowerUpDisplay(); // Update power-up UI
+        updateMessage(`Game started! It's ${playerNames[currentPlayerIndex]}'s turn.`);
+            isOnlineGame = false; // Reset flag if connection failed
+        updateLandmineInfo(); // Update landmine display
+    
+        // Disable controls if it's not the local player's turn
+        const isMyTurn = currentPlayerIndex === playerIndex;
+        enablePlayerControls(isMyTurn);
+    
+        // Add canvas listeners now that the game is set up
+        canvas.removeEventListener('click', handleCanvasClick); // Remove potential duplicates if any
+        canvas.removeEventListener('mousemove', handleCanvasMouseMove);
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('mousemove', handleCanvasMouseMove);
+    }
+        if (!name) {
+            setupMessage.textContent = "Please enter your name.";
+            setupMessage.style.color = 'red';
+            return;
+        }
+        const gameId = prompt("Enter the Game ID to join:");
+        if (!gameId) {
+            // Don't show error in setup message, prompt handles cancellation
+            return; // Don't proceed if no game ID entered
+        }
+
+        isOnlineGame = true; // Set game mode flag
+        playerName = name; // Set the global player name
+
+        // Attempt to connect first
+        connectToServer().then(() => {
+            console.log("Connected to server, joining challenge...");
+             // Don't show UI here, wait for 'game-setup' or 'game-state' from server
+            joinChallenge(gameId, playerName); // Call multiplayer function
+            chatContainer.style.display = 'flex'; // Show chat for online games
+        }).catch(error => {
+            console.error("Failed to connect to server:", error);
+            setupMessage.textContent = "Failed to connect to the server. Please try again.";
+            setupMessage.style.color = 'red';
+            isOnlineGame = false; // Reset flag if connection failed
+        });
+    });
+
+
+    // General listeners (restart, leave, chat toggle) - should be active after game starts
+    restartGameButton.addEventListener('click', restartGame);
+    leaveGameButton.addEventListener('click', leaveGame);
+    toggleChatButton.addEventListener('click', toggleChat);
+
+    // Logic to show game UI is now inside the specific button handlers (local, create, join)
+    // or triggered by server events for online games ('game-setup', 'sync-game-state').
+
+});
         
         // Only resize if the container is smaller than canvas size
         if (containerWidth < canvas.width) {
