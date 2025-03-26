@@ -602,29 +602,31 @@ socket.on('connect', () => {
         messageElement.textContent = `Game started! ${data.gameState.currentPlayer === playerNumber ? 'Your' : 'Opponent\'s'} turn.`;
     }
     
-    // Update player names in the UI
-    function updatePlayerNames() {
-        const player1ScoreElement = document.getElementById('player-score');
-        const player2ScoreElement = document.getElementById('opponent-score');
-        
-        if (playerNumber === 1) {
-            player1ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 1 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="your-score">0</span>`;
-            player2ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 2 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="opponent-score-value">0</span>`;
-        } else {
-            player1ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 1 ? 'active-player' : ''}">${opponentName || 'Opponent'}</span>: <span id="your-score">0</span>`;
-            player2ScoreElement.innerHTML = `<span class="player-name ${window.currentPlayer === 2 ? 'active-player' : ''}">${playerName || 'You'}</span>: <span id="opponent-score-value">0</span>`;
+    console.log(`Updating power-up counts for player ${playerId}`, counts); // Debug log
+
+try {
+    const playerIndex = playerId === socket.id ? 0 : 1;
+    if (playerStates[playerIndex]) {
+         // Ensure the powerUpCounts object exists
+        if (!playerStates[playerIndex].powerUpCounts) {
+            playerStates[playerIndex].powerUpCounts = { landmine: 0, shield: 0, steal: 0 };
         }
+         // Update counts safely
+        playerStates[playerIndex].powerUpCounts.landmine = counts.landmine !== undefined ? counts.landmine : playerStates[playerIndex].powerUpCounts.landmine;
+        playerStates[playerIndex].powerUpCounts.shield = counts.shield !== undefined ? counts.shield : playerStates[playerIndex].powerUpCounts.shield;
+        playerStates[playerIndex].powerUpCounts.steal = counts.steal !== undefined ? counts.steal : playerStates[playerIndex].powerUpCounts.steal;
+
+        // Update the UI if this is the local player
+        if (playerId === socket.id) {
+            updatePowerUpDisplay(playerStates[playerIndex].powerUpCounts);
+        }
+    } else {
+        console.error(`Player state not found for index ${playerIndex} (playerId: ${playerId})`);
     }
-    
-    // Handle game update event
-    function handleGameUpdate(data) {
-        console.log('Game update:', data);
-        
-        // Update player names if available
-        if (data.gameState.player1Name && playerNumber === 1) {
-            playerName = data.gameState.player1Name;
-            window.playerName = playerName;
-        }
+} catch (error) {
+    console.error("Error updating power-up counts:", error);
+}
+}
         
         if (data.gameState.player2Name && playerNumber === 2) {
             playerName = data.gameState.player2Name;

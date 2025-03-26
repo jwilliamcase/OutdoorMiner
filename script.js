@@ -490,28 +490,27 @@ document.addEventListener('DOMContentLoaded', () => {
         gradient.addColorStop(0.7, color);
         gradient.addColorStop(1, darkerColor);
         
-        ctx.fillStyle = gradient;
-        ctx.fill();
-
-        // Draw border with no shadow
-        ctx.shadowColor = 'transparent';
-
-        // --- Border/Highlight Logic ---
-        ctx.lineWidth = 1.5; // Default border width
-
-        if (isOwned) {
-            // Thicker border for owned tiles in owner's color
-            ctx.strokeStyle = ownedBy === 1 ? '#24305E' : '#c05050'; // Darker shades of player colors
-            ctx.lineWidth = 3;
+        // Draw a subtle border for definition
+        ctx.strokeStyle = '#222'; // Darker border color
+        ctx.lineWidth = 0.5; // Fine line
+        ctx.stroke();
+    
+        // Draw highlight if applicable
+        if (highlight) {
+            ctx.strokeStyle = '#FFFFFF'; // White highlight
+            ctx.lineWidth = 2; // Thicker line for highlight
             ctx.stroke();
-
-            // Subtle inner highlight line
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Faint white highlight
+        }
+    
+        // Draw outline for unowned tiles
+        if (!ownerColor || ownerColor === 'white' || ownerColor === '#FFFFFF') { // Assuming 'white' or hex equivalent is unowned
+            ctx.strokeStyle = '#CCCCCC'; // Light gray outline for unowned
             ctx.lineWidth = 1;
-            ctx.stroke(); // Stroke again inside the main border
-
-
-            // Draw a glowing circle to indicate ownership (Keep this)
+            ctx.stroke();
+        }
+    }
+    
+    function drawBoard() {
             ctx.beginPath();
             ctx.arc(x, y, size / 3, 0, 2 * Math.PI);
             const ownerColor = ownedBy === 1 ? '#374785' : '#F76C6C';
