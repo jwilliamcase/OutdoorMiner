@@ -230,25 +230,21 @@ export function sendTilePlacement(q, r, color) {
 
 // Function to emit create challenge event, uses callback for response
 export function emitCreateChallenge(playerName) {
+    if (!socketInstance || !socketInstance.connected) {
+        connectToServer(); // Ensure connection exists first
+    }
+    
     if (socketInstance && socketInstance.connected) {
         console.log(`Emitting create-challenge for player: ${playerName}`);
-        // Emit with a callback function to handle the server's response
-        socketInstance.emit('create-challenge', { playerName }, (response) => {
-            console.log('create-challenge response:', response);
+        socketInstance.emit('create-challenge', playerName, (response) => {
             if (response.success) {
-                currentRoomId = response.roomCode;
-                displayMessage(`Challenge created! Code: ${response.roomCode}. Waiting for opponent...`, false);
-                updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
-                // Optionally, update UI further (e.g., show waiting state)
+                displayMessage(`Challenge created! Code: ${response.challengeCode}`);
             } else {
-                console.error('Failed to create challenge:', response.message);
-                displayMessage(`Error creating challenge: ${response.message}`, true);
-                // Optionally, reset UI state
+                displayMessage(response.message || "Failed to create challenge", true);
             }
         });
     } else {
-        console.error("Cannot create challenge: Not connected.");
-        displayMessage("Connect to the server first.", true);
+        throw new Error("Socket connection not available");
     }
 }
 

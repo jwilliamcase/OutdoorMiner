@@ -24,12 +24,11 @@
             <button id="create-challenge-button">Create Game</button>
         </div>
         <div class="join-group">
-            <input type="text" id="game-id-input" placeholder="Enter Game ID to Join">
+            <input type="text" id="room-code-input" placeholder="Enter Room Code">
             <button id="join-challenge-button">Join Game</button>
         </div>
-        <p id="setup-message" class="message-area"></p> <!-- Message area for setup screen -->
+        <p id="message-area" class="message-area"></p>
     </div>
-</div>
     <!-- Main Game Elements - Hidden Initially -->
     <div id="score-container" style="display: none;">
          <!-- Score display structure needs review/fixing -->
@@ -101,6 +100,7 @@
             <div id="taunt-menu" class="hidden">
                 <div class="taunt-list"></div>
             </div>
+        </div> <!-- Fix unclosed chat-container div -->
 
     <!-- Load Socket.IO client library -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>

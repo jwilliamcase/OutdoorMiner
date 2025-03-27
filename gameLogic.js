@@ -43,13 +43,11 @@ export class GameState {
         const board = {};
         for (let r = 0; r < rows; r++) {
             for (let q = 0; q < cols; q++) {
-                // Offset coordinates for axial storage, can represent hex grid
-                 // In axial coordinates, q + r + s = 0. We use q, r.
                 const key = `${q},${r}`;
-                 board[key] = { q, r, owner: null, color: '#cccccc' }; // Neutral color
+                board[key] = { q, r, owner: null, color: '#cccccc' };
             }
         }
-        return `${q},${r}`;
+        return board; // Return the board object, not a key string
     }
 
     // Method to get the owner of a tile (useful for checking wins, etc.)
