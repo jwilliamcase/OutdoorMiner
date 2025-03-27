@@ -8,10 +8,9 @@ import {
     joinChallengeButton,
     gameIdInput,
     playerNameInput
- } from './ui.js';
- // GameState might be needed if main orchestrates starting local games, but not for network focus
+} from './ui.js';
+// GameState might be needed if main orchestrates starting local games, but not for network focus
 // Main application entry point
-import { initializeUI, showSetupScreen, displayMessage, getBoardDimensions } from './ui.js'; // Import UI functions
 import { connectToServer, emitCreateChallenge, emitJoinChallenge } from './network.js'; // Import Network functions
 import { CONFIG } from './config.js'; // Import config if needed directly (e.g., validation)
 
