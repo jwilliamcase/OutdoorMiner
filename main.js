@@ -13,7 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded - START");
 
     // Initialize UI elements and basic event listeners
-    initializeUI();
+    if (!initializeUI()) {
+        console.error("Failed to initialize UI - stopping initialization");
+        displayMessage("Failed to initialize game interface", true);
+        return;
+    }
 
     // --- Get DOM elements for setup actions ---
     const createChallengeButton = document.getElementById('create-challenge-button');

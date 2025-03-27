@@ -27,10 +27,13 @@ let chatMessages = null;
 let rowsInput = null;
 let colsInput = null;
 
+// Change to module-level elements object instead of using 'this'
+let elements = {};
+
 // --- Initialization ---
 export function initializeUI() {
     // Get DOM elements with error checking
-    const elements = {
+    elements = {
         canvas: document.getElementById('gameCanvas'),
         setupContainer: document.getElementById('setup-container'),
         gameContainer: document.getElementById('game-container'),
@@ -56,35 +59,34 @@ export function initializeUI() {
         return false;
     }
 
-    // Store elements for later use
-    this.elements = elements;
-    
     // Initialize canvas context
-    this.ctx = elements.canvas.getContext('2d');
+    canvas = elements.canvas;
+    ctx = canvas.getContext('2d');
     
-    // Add event listeners
+    // Set up event listeners using the stored elements
     window.addEventListener('resize', resizeGame);
     canvas.addEventListener('click', handleCanvasClick);
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseleave', handleMouseUp); // Stop dragging if mouse leaves canvas
+    canvas.addEventListener('mouseleave', handleMouseUp);
 
-    colorButtons.forEach(button => {
+    elements.colorButtons.forEach(button => {
         button.addEventListener('click', handleColorSelection);
     });
 
-    // Chat input listener
-    chatInput.addEventListener('keypress', function(event) {
-        if (event.key === 'Enter' && chatInput.value.trim() !== '') {
-            sendMessage(chatInput.value.trim()); // Use network function
-            chatInput.value = ''; // Clear input
-        }
-    });
+    if (elements.chatInput) {
+        elements.chatInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter' && this.value.trim() !== '') {
+                sendMessage(this.value.trim());
+                this.value = '';
+            }
+        });
+    }
 
     // Initial setup
-    resizeGame(); // Initial sizing
-    showSetupScreen(); // Start on the setup screen
+    resizeGame();
+    showSetupScreen();
     console.log("UI Initialized successfully");
     return true;
 }
@@ -110,14 +112,14 @@ export function showSetupScreen() {
 
 export function showGameScreen() {
     console.log("showGameScreen - START");
-    if (!this.elements) {
-        console.error("Cannot show game screen: UI not initialized");
+    if (!elements.gameContainer) {
+        console.error("Cannot show game screen: Game container not found");
         return;
     }
 
-    this.elements.setupContainer.style.display = 'none';
-    this.elements.gameContainer.style.display = 'block';
-    this.elements.colorPalette.style.display = 'flex';
+    elements.setupContainer.style.display = 'none';
+    elements.gameContainer.style.display = 'block';
+    elements.colorPalette.style.display = 'flex';
 
     console.log("Game screen elements displayed");
     resizeGame();

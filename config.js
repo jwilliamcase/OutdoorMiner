@@ -4,7 +4,9 @@ const CONFIG = {
     // Note: process.env won't work directly in browser-side JS without a build tool.
     // Defaulting to localhost for typical local development.
     // Ensure this URL points to your *running* server.
-    SERVER_URL: 'http://localhost:3000',
+    SERVER_URL: window.location.hostname === 'localhost' 
+        ? 'http://localhost:3000' 
+        : 'https://your-production-server.com', // Update this with your actual production server
     BOARD_SIZE: 12,
     HEX_SIZE: 30,
     COMBO_THRESHOLD: 4,
