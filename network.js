@@ -10,7 +10,8 @@ import {
     addChatMessage,
     updatePlayerInfo,
     showGameOver,
-    playSound // Import playSound
+    playSound,
+    updateGameCode // Add this import
 } from './ui.js';
 
 let socketInstance = null;
@@ -259,10 +260,67 @@ export function emitCreateChallenge(playerName) {
             console.log(`Emitting create-challenge for player: ${playerName}`);
             socketInstance.emit('create-challenge', playerName, (response) => {
                 console.log("Create challenge response:", response);
+                try {
+                    if (response.success) {
+                        currentRoomId = response.challengeCode;
+                        // Show the game code in UI
+                        updateGameCode(response.challengeCode);
+                        // Initialize game state with default board
+                        const initialState = {
+                            rows: CONFIG.BOARD_SIZE,
+                            cols: CONFIG.BOARD_SIZE,
+                            board: {},
+                            players: {
+                                [socketInstance.id]: {
+                                    name: playerName,
+                                    color: '#F76C6C', // Player 1 color (red)
+                                    score: 1,
+                                    playerNumber: 1,
+                                    position: { q: 0, r: 0 } // Top-left start
+                                }
+                            },
+                            currentPlayerIndex: 0,
+                            turnNumber: 1
+                        };
+                        
+                        // Initialize board with proper hex grid
+                        for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
+                            for (let q = 0; q < CONFIG.BOARD_SIZE; q++) {
+                                initialState.board[`${q},${r}`] = {
+                                    q, r,
+                                    owner: null,
+                                    color: '#cccccc',
+                                    captured: false
+                                };
+                            }
+                        }
+                        
+                        // Set starting positions
+                        initialState.board['0,0'].owner = socketInstance.id;
+                        initialState.board['0,0'].color = '#F76C6C';
+                        initialState.board['0,0'].captured = true;
+                        
+                        // Pass to UI for initialization
+                        handleInitialState(initialState, initialState.players, socketInstance.id);
+                        displayMessage(`Challenge created! Code: ${response.challengeCode}`);
+                    }
+                } catch (error) {
+                    console.error("Error handling create challenge response:", error);
+                    displayMessage("Error creating game. Please try again.", true);
+                }
+            });
+        });
+    } else {
+        // Already connected case
+        socketInstance.emit('create-challenge', playerName, (response) => {
+            console.log("Create challenge response:", response);
+            try {
                 if (response.success) {
                     currentRoomId = response.challengeCode;
-                    updateGameCode(response.challengeCode); // Add this line
-                    // Initialize game state with default board
+                    // Show the game code in UI
+                    updateGameCode(response.challengeCode);
+                    // Rest of initialization...
+                    // Initialize game state with default board (same as above)
                     const initialState = {
                         rows: CONFIG.BOARD_SIZE,
                         cols: CONFIG.BOARD_SIZE,
@@ -280,7 +338,6 @@ export function emitCreateChallenge(playerName) {
                         turnNumber: 1
                     };
                     
-                    // Initialize board with proper hex grid
                     for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
                         for (let q = 0; q < CONFIG.BOARD_SIZE; q++) {
                             initialState.board[`${q},${r}`] = {
@@ -292,63 +349,16 @@ export function emitCreateChallenge(playerName) {
                         }
                     }
                     
-                    // Set starting positions
                     initialState.board['0,0'].owner = socketInstance.id;
                     initialState.board['0,0'].color = '#F76C6C';
                     initialState.board['0,0'].captured = true;
                     
-                    // Pass to UI for initialization
                     handleInitialState(initialState, initialState.players, socketInstance.id);
                     displayMessage(`Challenge created! Code: ${response.challengeCode}`);
-                } else {
-                    displayMessage(response.message || "Failed to create challenge", true);
                 }
-            });
-        });
-    } else {
-        // Similar code for when already connected
-        socketInstance.emit('create-challenge', playerName, (response) => {
-            console.log("Create challenge response:", response);
-            if (response.success) {
-                currentRoomId = response.challengeCode;
-                updateGameCode(response.challengeCode); // Add this line
-                // Initialize game state with default board (same as above)
-                const initialState = {
-                    rows: CONFIG.BOARD_SIZE,
-                    cols: CONFIG.BOARD_SIZE,
-                    board: {},
-                    players: {
-                        [socketInstance.id]: {
-                            name: playerName,
-                            color: '#F76C6C', // Player 1 color (red)
-                            score: 1,
-                            playerNumber: 1,
-                            position: { q: 0, r: 0 } // Top-left start
-                        }
-                    },
-                    currentPlayerIndex: 0,
-                    turnNumber: 1
-                };
-                
-                for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
-                    for (let q = 0; q < CONFIG.BOARD_SIZE; q++) {
-                        initialState.board[`${q},${r}`] = {
-                            q, r,
-                            owner: null,
-                            color: '#cccccc',
-                            captured: false
-                        };
-                    }
-                }
-                
-                initialState.board['0,0'].owner = socketInstance.id;
-                initialState.board['0,0'].color = '#F76C6C';
-                initialState.board['0,0'].captured = true;
-                
-                handleInitialState(initialState, initialState.players, socketInstance.id);
-                displayMessage(`Challenge created! Code: ${response.challengeCode}`);
-            } else {
-                displayMessage(response.message || "Failed to create challenge", true);
+            } catch (error) {
+                console.error("Error handling create challenge response:", error);
+                displayMessage("Error creating game. Please try again.", true);
             }
         });
     }

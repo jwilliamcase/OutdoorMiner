@@ -35,6 +35,13 @@ h1 {
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 #score-container {
@@ -552,6 +559,7 @@ h1 {
     z-index: 1000;
     transition: all 0.3s ease;
     max-height: 400px;
+    margin-top: 60px; /* Add space below game code display */
 }
 
 #chat-container.hidden {
@@ -882,6 +890,8 @@ footer {
     text-align: center;
     color: #666;
     font-size: 0.9rem;
+    padding: 20px;
+    width: 100%;
 }
 
 /* Hide Power-up displays via CSS */
@@ -893,8 +903,6 @@ footer {
 /* Add styles for responsiveness if needed */
 @media (max-width: 768px) {
     /* Adjust layout for smaller screens */
-}
-    
     #game-board {
         max-width: 100%;
         height: auto;
@@ -981,6 +989,7 @@ footer {
     align-items: center;
     gap: 10px;
     z-index: 1000;
+    border: 2px solid #374785;
 }
 
 .game-code-display #copy-code {
@@ -996,4 +1005,11 @@ footer {
 .game-code-display #copy-code:hover {
     background-color: rgba(55, 71, 133, 0.1);
     transform: scale(1.1);
+}
+
+/* Add missing clearfix for float layouts if needed */
+.clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
 }

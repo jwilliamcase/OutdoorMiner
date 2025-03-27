@@ -4,7 +4,7 @@ const CONFIG = {
     SERVER_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3000'
         : 'https://outdoor-miner-server.onrender.com', // Update with your actual deployed server URL
-    BOARD_SIZE: 12,
+    BOARD_SIZE: 8, // Smaller board for faster games
     HEX_SIZE: 30,
     COMBO_THRESHOLD: 4,
     LANDMINE_COUNT: 4,
