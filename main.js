@@ -10,18 +10,78 @@ import {
     playerNameInput
  } from './ui.js';
  // GameState might be needed if main orchestrates starting local games, but not for network focus
- // import { GameState } from './gameLogic.js';
+// Main application entry point
+import { initializeUI, showSetupScreen, displayMessage, getBoardDimensions } from './ui.js'; // Import UI functions
+import { connectToServer, emitCreateChallenge, emitJoinChallenge } from './network.js'; // Import Network functions
+import { CONFIG } from './config.js'; // Import config if needed directly (e.g., validation)
 
-let currentGameState = null;
-let localPlayerId = null;
-
-// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded - START");
 
-    // Initialize Modules
-    initializeUI(); // Sets up DOM elements and basic UI listeners
-    initializeNetwork(); // Prepares network module (finds socket.io)
+    // Initialize UI elements and basic event listeners
+    initializeUI();
+
+    // --- Get DOM elements for setup actions ---
+    const createChallengeButton = document.getElementById('create-challenge-button');
+    const joinChallengeButton = document.getElementById('join-challenge-button');
+    const playerNameInput = document.getElementById('player-name-input');
+    const roomCodeInput = document.getElementById('room-code-input');
+
+    // --- Add Event Listeners for Setup ---
+    if (createChallengeButton) {
+        createChallengeButton.addEventListener('click', () => {
+            console.log("DEBUG: createChallengeButton clicked.");
+            const playerName = playerNameInput ? playerNameInput.value.trim() : 'Player';
+            if (!playerName) {
+                displayMessage("Please enter a player name.", true);
+                return;
+            }
+            // Connect AND create challenge (simplified flow)
+            // We might need a two-step process: connect first, then create/join
+            // Let's try emitting directly, assuming network.js handles connection state
+            if (!CONFIG.SERVER_URL) {
+                 displayMessage("Server URL not configured.", true);
+                 return;
+            }
+             // Assume connectToServer is called implicitly or needs explicit call first
+             // For now: Try direct emit, network.js should check connection
+             // connectToServer(); // Potentially needed if not auto-connecting
+             emitCreateChallenge(playerName);
+
+        });
+    } else {
+        console.error("Create Challenge button not found");
+    }
+
+    if (joinChallengeButton) {
+        joinChallengeButton.addEventListener('click', () => {
+            console.log("DEBUG: joinChallengeButton clicked.");
+            const playerName = playerNameInput ? playerNameInput.value.trim() : 'Player';
+            const roomCode = roomCodeInput ? roomCodeInput.value.trim() : '';
+            if (!playerName) {
+                displayMessage("Please enter a player name.", true);
+                return;
+            }
+            if (!roomCode) {
+                displayMessage("Please enter a room code to join.", true);
+                return;
+            }
+             if (!CONFIG.SERVER_URL) {
+                 displayMessage("Server URL not configured.", true);
+                 return;
+            }
+            // connectToServer(); // Potentially needed if not auto-connecting
+            emitJoinChallenge(playerName, roomCode);
+        });
+    } else {
+        console.error("Join Challenge button not found");
+    }
+
+    // Show the initial screen
+    showSetupScreen(); // Make sure setup is visible first
+
+    console.log("DEBUG: DOMContentLoaded - END");
+});
 
     // --- Add Event Listeners for Network Actions ---
     if (createChallengeButton) {

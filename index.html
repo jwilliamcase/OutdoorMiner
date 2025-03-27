@@ -101,25 +101,25 @@
             <div id="taunt-menu" class="hidden">
                 <div class="taunt-list"></div>
             </div>
-            <button id="show-taunts">😈</button>
-        </div>
-    </div>
 
-    <!-- Chat toggle button -->
-    <button id="toggle-chat" style="display: none;">💬</button>
+    <!-- Load Socket.IO client library -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-    <!-- Load scripts at the very end, ensuring order and single inclusion -->
-    <!-- 1. Socket.IO Client Library (v4) -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
-    <!-- 2. Game Configuration -->
-    <script src="/socket.io/socket.io.js"></script> <!-- Assumes server serves client library -->
-    <script src="config.js"></script>
-    <!-- multiplayer.js and script.js are replaced by modules loaded via main.js -->
+    <!-- Load Game Logic - main.js is the entry point -->
     <script type="module" src="main.js"></script>
+
+    <!-- Sounds -->
+    <!-- Preloading sounds - ensure these files exist -->
+    <!-- <audio id="sound-place_tile" src="sounds/place_tile.mp3" preload="auto"></audio> --> <!-- Removed, may cause 404 if file missing -->
+    <!-- <audio id="sound-capture" src="sounds/capture.mp3" preload="auto"></audio> --> <!-- Removed, may cause 404 if file missing -->
+    <audio id="sound-powerup" src="sounds/power-up.mp3" preload="auto"></audio> <!-- Powerups removed, but keep for now if used elsewhere? -->
+    <!-- <audio id="sound-error" src="sounds/error.mp3" preload="auto"></audio> --> <!-- Removed, may cause 404 if file missing -->
+    <audio id="sound-message" src="sounds/message.mp3" preload="auto"></audio>
+    <audio id="sound-taunt" src="sounds/taunt.mp3" preload="auto"></audio>
+    <audio id="sound-explosion" src="sounds/explosion.mp3" preload="auto"></audio>
+
 </body>
 </html>
-    <!-- Ensure no other script tags for these files exist elsewhere in the HTML -->
-
     <footer>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
     </footer>
