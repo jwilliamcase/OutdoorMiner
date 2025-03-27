@@ -22,7 +22,6 @@ const SABOTAGE_COLOR = '#8B0000'; // Dark Red
 const EXPLOSION_RECOVERY_TURNS = 3;
 const COMBO_THRESHOLD = 4;
 const POWER_UPS = { SABOTAGE: 'sabotage', WILDCARD: 'wildcard', TELEPORT: 'teleport' };
-});
 
 // Middleware
 // app.use(cors({ origin: "*", methods: ["GET", "POST"] })); // CORS is handled by socket.io config
