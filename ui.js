@@ -462,20 +462,26 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     }
 
     try {
-        // Create new game state instance
+        // Create new game state instance with correct dimensions
         gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
-        Object.assign(gameState, gameStateObject);
-        gameState.players = playersData;
+        
+        // Ensure the board is properly copied
+        gameState.board = gameStateObject.board || {};
+        gameState.players = playersData || {};
         currentPlayerId = ownPlayerId;
 
-        // Always show game screen before rendering
-        showGameScreen();
+        console.log("Game state initialized:", gameState);
         
-        // Center and render after screen transition
+        // Show game screen and set up display
+        showGameScreen();
         centerCamera();
-        resizeGame();
-        renderGameBoard();
-        updatePlayerInfo(gameState.players, currentPlayerId);
+        
+        // Force a redraw after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            resizeGame();
+            renderGameBoard();
+            updatePlayerInfo(gameState.players, currentPlayerId);
+        }, 100);
         
         console.log("Initial game state processed successfully");
         return true;

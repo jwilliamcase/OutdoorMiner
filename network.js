@@ -261,22 +261,73 @@ export function emitCreateChallenge(playerName) {
                 console.log("Create challenge response:", response);
                 if (response.success) {
                     currentRoomId = response.challengeCode;
+                    // Initialize game state with default board
+                    const initialState = {
+                        rows: CONFIG.BOARD_SIZE,
+                        cols: CONFIG.BOARD_SIZE,
+                        board: {},
+                        players: {
+                            [socketInstance.id]: {
+                                name: playerName,
+                                color: '#F76C6C',
+                                score: 0,
+                                playerNumber: 1
+                            }
+                        }
+                    };
+                    
+                    // Initialize board cells
+                    for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
+                        for (let q = 0; q < CONFIG.BOARD_SIZE; q++) {
+                            initialState.board[`${q},${r}`] = {
+                                q, r,
+                                owner: null,
+                                color: '#cccccc'
+                            };
+                        }
+                    }
+                    
+                    // Pass to UI for initialization
+                    handleInitialState(initialState, initialState.players, socketInstance.id);
                     displayMessage(`Challenge created! Code: ${response.challengeCode}`);
-                    // Wait for game-start event instead of immediately showing game screen
-                    // The server should send a game-start event when opponent joins
                 } else {
                     displayMessage(response.message || "Failed to create challenge", true);
                 }
             });
         });
     } else {
-        console.log(`Emitting create-challenge for player: ${playerName}`);
+        // Similar code for when already connected
         socketInstance.emit('create-challenge', playerName, (response) => {
             console.log("Create challenge response:", response);
             if (response.success) {
                 currentRoomId = response.challengeCode;
+                // Initialize game state with default board (same as above)
+                const initialState = {
+                    rows: CONFIG.BOARD_SIZE,
+                    cols: CONFIG.BOARD_SIZE,
+                    board: {},
+                    players: {
+                        [socketInstance.id]: {
+                            name: playerName,
+                            color: '#F76C6C',
+                            score: 0,
+                            playerNumber: 1
+                        }
+                    }
+                };
+                
+                for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
+                    for (let q = 0; q < CONFIG.BOARD_SIZE; q++) {
+                        initialState.board[`${q},${r}`] = {
+                            q, r,
+                            owner: null,
+                            color: '#cccccc'
+                        };
+                    }
+                }
+                
+                handleInitialState(initialState, initialState.players, socketInstance.id);
                 displayMessage(`Challenge created! Code: ${response.challengeCode}`);
-                // Wait for game-start event
             } else {
                 displayMessage(response.message || "Failed to create challenge", true);
             }
