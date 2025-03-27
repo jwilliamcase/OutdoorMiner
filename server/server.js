@@ -264,12 +264,11 @@ io.on('connection', (socket) => {
 
         // Check for Game Over for the *new* current player
         if (checkForGameOverServer(game)) {
-            handleGameOverServer(game);
-            // Send final game over state
-            broadcastGameState(gameId, game, 'game-over');
+            handleGameOverServer(game); // This function now emits 'game-over'
+            // No need to broadcast state separately here
         } else {
             // Send regular game update
-             broadcastGameState(gameId, game, move.type, { powerUpAwarded });
+             broadcastGameStateUpdate(gameId, game); // Use the renamed function
         }
 
     } catch (error) {
@@ -318,8 +317,9 @@ io.on('connection', (socket) => {
             const sender = game.players.find(p => p.number === playerNumber);
             const name = sender?.name || playerName || `Player ${playerNumber}`;
 
-            io.to(gameId).emit('receive-message', {
-                playerNumber,
+            // Use 'chat-message' to match the client listener added in the rewrite
+            io.to(gameId).emit('chat-message', {
+                playerNumber, // Keep playerNumber to determine if 'isMine' client-side
                 playerName: name,
                 message,
                 isTaunt: isTaunt || false,
@@ -371,13 +371,53 @@ function startGame(gameId) {
   game.lastActivity = Date.now();
   console.log(`Game ${gameId} started! Player 1: ${game.players[0]?.name}, Player 2: ${game.players[1]?.name}. P1 starts.`);
 
-  // Broadcast the initial game state to all players in the room
-  broadcastGameState(gameId, game, 'game-started');
+  // Emit 'game-setup' with the necessary initial state for both players
+  const player1 = game.players.find(p => p.number === 1);
+  const player2 = game.players.find(p => p.number === 2);
+
+  // Prepare the initial state payload common to both players
+  const commonInitialState = {
+        board: game.board,
+        currentPlayer: game.currentPlayer,
+        player1Color: game.player1Color,
+        player2Color: game.player2Color,
+        player1Tiles: game.player1Tiles,
+        player2Tiles: game.player2Tiles,
+        player1PowerUps: game.player1PowerUps,
+        player2PowerUps: game.player2PowerUps,
+        landmines: game.landmines,
+        explodedTiles: game.explodedTiles,
+        gameStarted: true,
+        gameOver: false,
+        winner: null
+  };
+
+  // Send to Player 1
+   if (player1) {
+       io.to(player1.id).emit('game-setup', {
+           gameId: game.id,
+           playerNumber: 1,
+           playerNames: { 1: player1.name, 2: player2?.name || 'Player 2' }, // Send both names
+           playerColors: { 1: game.player1Color, 2: game.player2Color }, // Send both starting colors
+           initialGameState: commonInitialState
+       });
+   }
+  // Send to Player 2
+  if (player2) {
+       io.to(player2.id).emit('game-setup', {
+           gameId: game.id,
+           playerNumber: 2,
+           playerNames: { 1: player1?.name || 'Player 1', 2: player2.name }, // Send both names
+           playerColors: { 1: game.player1Color, 2: game.player2Color }, // Send both starting colors
+           initialGameState: commonInitialState
+       });
+   }
 }
 
-// Broadcasts the current game state to all players in the room
-function broadcastGameState(gameId, game, updateType = 'update', details = {}) {
-    if (!game) return;
+// Broadcasts game state updates *during* the game
+function broadcastGameStateUpdate(gameId, game) {
+    if (!game || !game.gameStarted || game.gameOver) return; // Only send updates for active games
+
     const player1 = game.players.find(p => p.number === 1);
     const player2 = game.players.find(p => p.number === 2);
 
@@ -405,8 +445,9 @@ function broadcastGameState(gameId, game, updateType = 'update', details = {}) {
         moveDetails: details // e.g., { powerUpAwarded: true }
     };
 
-     // console.log(`Broadcasting game state for ${gameId}, type: ${updateType}. CurrentPlayer: P${game.currentPlayer}`);
-    io.to(gameId).emit('game-update', stateToSend);
+    // console.log(`Broadcasting game state UPDATE for ${gameId}. CurrentPlayer: P${game.currentPlayer}`);
+    // Emit 'game-state' for regular updates
+    io.to(gameId).emit('game-state', stateToSend);
 }
 
 
@@ -771,7 +812,25 @@ function handleGameOverServer(game) {
     const winnerName = game.winner === 1 ? (game.players.find(p=>p.number===1)?.name || 'P1')
                      : game.winner === 2 ? (game.players.find(p=>p.number===2)?.name || 'P2')
                      : 'Tie';
-    console.log(`Game ${game.id}: Game Over! Winner: ${winnerName} (${p1Score} vs ${p2Score})`);
+    const message = game.winner === 0 ? `Game Over! It's a tie (${p1Score} - ${p2Score})` : `Game Over! ${winnerName} wins! (${p1Score} - ${p2Score})`;
+    console.log(`Game ${game.id}: ${message}`);
+
+    // Emit a specific 'game-over' event
+    io.to(game.id).emit('game-over', {
+        message: message,
+        winner: game.winner, // 0 for tie, 1 or 2
+        scores: { 1: p1Score, 2: p2Score },
+        // Optionally send final gameState if needed for display
+        gameState: {
+             board: game.board, // Send final board state
+             currentPlayer: game.currentPlayer, // Player who couldn't move
+             player1Tiles: game.player1Tiles,
+             player2Tiles: game.player2Tiles,
+             gameOver: true,
+             winner: game.winner
+             // Include other relevant final state fields
+        }
+    });
 }
 
 // Get Neighbors (Server Side)
@@ -894,7 +953,9 @@ function handleDisconnect(socket, reason) {
                           playerName,
                           message: `${playerName} disconnected. Game over.`
                       });
-                     broadcastGameState(gameId, game, 'game-over'); // Send final state
+                     // Send final state update *before* marking game over maybe? Or just rely on client handling the disconnect message.
+                     // Let's send the final update.
+                     broadcastGameStateUpdate(gameId, game);
                  } else {
                      // If game hadn't started, just notify if anyone is left
                       io.to(gameId).emit('player-disconnected', {

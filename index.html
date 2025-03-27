@@ -127,10 +127,18 @@
     <script src="config.js"></script>
     <!-- Main Game Script -->
     <script src="script.js"></script>
-    <!-- Multiplayer Client Script -->
+    <!-- Configuration -->
+    <script src="config.js"></script>
+    <!-- Core Game Logic -->
+    <script src="script.js"></script>
+    <!-- Socket.IO Client - Load before multiplayer.js -->
+    <!-- Make sure the path is correct for your setup or use a CDN -->
+    <!-- Example using server-served path: -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Multiplayer Logic -->
     <script src="multiplayer.js"></script>
-    
-    <footer>
+</body>
+</html>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
     </footer>
 </body>
