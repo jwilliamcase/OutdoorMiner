@@ -231,10 +231,22 @@ export function sendTilePlacement(q, r, color) {
 // Function to emit create challenge event, uses callback for response
 export function emitCreateChallenge(playerName) {
     if (!socketInstance || !socketInstance.connected) {
-        connectToServer(); // Ensure connection exists first
-    }
-    
-    if (socketInstance && socketInstance.connected) {
+        // Connect first, then emit after connection
+        connectToServer('create', playerName);
+        
+        // Set up a one-time listener for the connect event
+        socketInstance.once('connect', () => {
+            console.log(`Emitting create-challenge for player: ${playerName}`);
+            socketInstance.emit('create-challenge', playerName, (response) => {
+                if (response.success) {
+                    displayMessage(`Challenge created! Code: ${response.challengeCode}`);
+                } else {
+                    displayMessage(response.message || "Failed to create challenge", true);
+                }
+            });
+        });
+    } else {
+        // Already connected, just emit
         console.log(`Emitting create-challenge for player: ${playerName}`);
         socketInstance.emit('create-challenge', playerName, (response) => {
             if (response.success) {
@@ -243,8 +255,6 @@ export function emitCreateChallenge(playerName) {
                 displayMessage(response.message || "Failed to create challenge", true);
             }
         });
-    } else {
-        throw new Error("Socket connection not available");
     }
 }
 

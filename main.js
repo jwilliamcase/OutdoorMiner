@@ -2,8 +2,7 @@ import { connectToServer, disconnectFromServer, emitCreateChallenge, emitJoinCha
 import {
     initializeUI,
     showSetupScreen,
-    displayMessage,
-    getBoardDimensions
+    displayMessage
 } from './ui.js';
 import { CONFIG } from './config.js';
 
