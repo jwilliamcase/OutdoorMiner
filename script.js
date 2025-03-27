@@ -421,15 +421,15 @@ function playSound(soundName) {
         const name2 = this.playerNames[1] || "Player 2";
 
         if (score1 > score2) return `${name1} Wins!`;
-        if (score2 > score1) return `${name2} Wins!`;
-        return "It's a Tie!";
-    }
-}
+      }
+      return 0; // Not owned by either player
+  }
+} // End GameState class -- REMOVED EXTRA BRACE from here if present, or adjusted structure above
 
 
 // --- Drawing Functions ---
 
-function drawHexagon(r, c, color, tile) {
+function drawHexagon(ctx, x, y, size, color, lineWidth, lineColor, isHovered = false, hasMine = false) {
     const x = c * HEX_SIZE * 1.5;
     const y = r * HEX_SIZE * Math.sqrt(3) + (c % 2 === 1 ? HEX_SIZE * Math.sqrt(3) / 2 : 0);
     const angle = Math.PI / 3; // 60 degrees
