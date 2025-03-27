@@ -122,11 +122,11 @@ function playSound(soundName) {
         this.gameStarted = data.gameStarted || false;
         this.gameOver = data.gameOver || false;
         this.winner = data.winner !== undefined ? data.winner : null; // Allow winner = 0 (tie)
-    }
-        this.turnNumber = data.turnNumber;
+        this.gameOver = data.gameOver || false;
+        this.winner = data.winner !== undefined ? data.winner : null; // Handle 0 for tie
     }
 
-    getTile(r, c) {
+    getTile(row, col) {
         if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
             return this.board[r][c];
         }
