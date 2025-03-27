@@ -112,11 +112,12 @@
     <!-- 1. Socket.IO Client Library (v4) -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
     <!-- 2. Game Configuration -->
+    <script src="/socket.io/socket.io.js"></script> <!-- Assumes server serves client library -->
     <script src="config.js"></script>
-    <!-- 3. Core Game Logic -->
-    <script src="script.js"></script>
-    <!-- 4. Multiplayer Logic -->
-    <script src="multiplayer.js"></script>
+    <!-- multiplayer.js and script.js are replaced by modules loaded via main.js -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
     <!-- Ensure no other script tags for these files exist elsewhere in the HTML -->
 
     <footer>

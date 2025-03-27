@@ -1,12 +1,21 @@
-// Game configuration
+// Configuration object accessible globally (legacy) and exported
 const CONFIG = {
-  // Server URL - change based on environment
-  SERVER_URL: 'https://outdoor-miner-server.onrender.com',
-  // For local testing use:
-  // SERVER_URL: 'http://localhost:3000',
-  
-  // Game settings
-  MAX_PLAYERS: 2,
+    // Use environment variables or default values
+    // Note: process.env won't work directly in browser-side JS without a build tool.
+    // Defaulting to localhost for typical local development.
+    // Ensure this URL points to your *running* server.
+    SERVER_URL: 'http://localhost:3000',
+    // Add other configuration constants as needed
+};
+
+// Make it available globally for potential legacy access, though imports are preferred
+window.CONFIG = CONFIG;
+
+// Log the configuration to verify
+console.log("Configuration loaded:", CONFIG);
+
+// Export for ES6 modules
+export default CONFIG;
   BOARD_SIZE: 12,
   HEX_SIZE: 30,
   COMBO_THRESHOLD: 4,
