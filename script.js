@@ -115,14 +115,14 @@ function playSound(soundName) {
         this.cols = data.cols;
         this.board = data.board;
         this.playerScores = data.playerScores;
-        this.playerNames = data.playerNames;
-        this.playerColors = data.playerColors;
-        this.currentPlayerIndex = data.currentPlayerIndex;
-        this.isGameOver = data.isGameOver;
-        this.powerUpInventory = data.powerUpInventory;
-        this.landmines = new Set(data.landmines);
-        this.revealedMines = new Set(data.revealedMines);
-        this.protectedTiles = new Map(data.protectedTiles);
+        this.player1PowerUps = data.player1PowerUps || [];
+        this.player2PowerUps = data.player2PowerUps || [];
+        this.landmines = data.landmines || [];
+        this.explodedTiles = data.explodedTiles || []; // Ensure semicolon termination
+        this.gameStarted = data.gameStarted || false;
+        this.gameOver = data.gameOver || false;
+        this.winner = data.winner !== undefined ? data.winner : null; // Allow winner = 0 (tie)
+    }
         this.turnNumber = data.turnNumber;
     }
 
