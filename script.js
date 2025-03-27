@@ -16,33 +16,35 @@ let gameId = null;
 // Sound effects
 const sounds = {
     placeTile: new Audio('sounds/place_tile.mp3'),
-    powerUp: new Audio('sounds/power_up.mp3'),
-    landmine: new Audio('sounds/landmine.mp3'),
-    gameOver: new Audio('sounds/game_over.mp3'),
-function playSound(soundName) {
-    // Basic sound playing function, assuming sounds are in assets/sounds/
-    try {
-        const audio = new Audio(`assets/sounds/${soundName}.mp3`);
-        // Lower volume slightly
-        audio.volume = 0.7;
-        audio.play().catch(e => console.warn(`Playback error for ${soundName}:`, e)); // Use warn for playback issues like user interaction needed
-    } catch (e) {
-        console.error(`Error creating Audio object for ${soundName}:`, e);
+    const MAX_UNDO_STEPS = 5; // Allow up to 5 undo steps
+    
+    // Function to play sound effects
+    function playSound(soundName) {
+        // Check if sound is enabled (optional enhancement)
+        // console.log(`Attempting to play sound: ${soundName}`); // Debug log
+        try {
+            const audio = new Audio(`assets/sounds/${soundName}.mp3`);
+            audio.play().catch(error => {
+                // Autoplay was prevented, log it but don't crash
+                // console.error(`Sound play failed for ${soundName}:`, error);
+            });
+        } catch (error) {
+            console.error(`Error loading sound ${soundName}:`, error);
+        }
     }
-}
-
-class GameState {
-    constructor(rows = 15, cols = 20) {
-        this.rows = rows;
-        this.cols = cols;
-        this.board = this.createInitialBoard(rows, cols);
-        this.playerScores = [0, 0];
-        this.playerNames = ["Player 1", "Player 2"];
-        this.playerColors = ['#FF0000', '#0000FF']; // Default Red, Blue
-        this.currentPlayerIndex = 0;
-        this.isGameOver = false;
-        this.powerUpInventory = [[], []]; // Array for each player [player0_powerups, player1_powerups]
-        this.landmines = new Set(); // Stores coordinates like "row,col"
+    
+    // DOM element references (initialized in DOMContentLoaded)
+    let canvas, ctx, messageElement, setupContainer, gameScreen, playerNameInput, localGameButton,
+        createChallengeButton, joinChallengeButton, setupMessageElement, gameIdDisplay,
+        player1ScoreElement, player2ScoreElement, colorSwatchesContainer, powerUpSlotsContainer,
+        landmineInfoElement, chatInput, chatMessages, sendChatButton, toggleChatButton, chatContainer,
+        leaveGameButton;
+    
+    // --- State Management ---
+    class GameState {
+        constructor() {
+            this.reset();
+        }
         this.revealedMines = new Set(); // Mines triggered
         this.protectedTiles = new Map(); // Stores "row,col" => playerIndex for shielded tiles
         this.turnNumber = 0;
@@ -1205,17 +1207,12 @@ window.leaveGame = function() {
      if (gameMode !== 'local') {
          window.notifyLeaveGame(); // Let server know we're leaving
      }
-     // For now, just reload the page to go back to setup
-     window.location.reload();
-};
-
-
-// --- Initialization on DOM Load ---
-
+ 
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed.");
 
-    // Get canvas context
+    // --- Get DOM Elements ---
     canvas = document.getElementById('gameCanvas');
     if (!canvas) {
         console.error("Canvas element not found!");
