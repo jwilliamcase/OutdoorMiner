@@ -1,11 +1,25 @@
 const express = require('express');
+const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
-const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+const { Server } = require("socket.io");
+const cors = require('cors'); // Make sure cors is required
+const path = require('path'); // Needed for path joining
+require('dotenv').config(); // For environment variables
 
 const app = express();
+
+// --- CORS Configuration ---
+// Allow requests from any origin. For production, restrict this to your frontend URL.
+app.use(cors());
+console.log("CORS middleware enabled for all origins.");
+
+// --- Static File Serving ---
+// Serve files from the parent directory of the 'server' directory
+const staticPath = path.join(__dirname, '..');
+console.log(`Serving static files from: ${staticPath}`);
+app.use(express.static(staticPath));
+
+// --- Server Setup ---
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
@@ -1003,12 +1017,19 @@ setInterval(() => {
 
   if (cleanedCount > 0) {
     console.log(`Cleaned up ${cleanedCount} inactive games.`);
-  }
-}, 15 * 60 * 1000); // Check every 15 minutes
+  console.log(`Socket ${socket.id} disconnected`);
+    // Additional cleanup if needed
+  });
+});
+
+// Optional: Explicitly handle the root path to ensure index.html is served
+// This might be redundant if express.static works correctly, but can help debugging.
+// app.get('/', (req, res) => {
+//   res.sendFile(path.join(__dirname, '..', 'index.html'));
+// });
 
 
-// Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
