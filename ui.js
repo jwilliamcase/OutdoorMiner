@@ -106,18 +106,26 @@ export function showSetupScreen() {
 
 export function showGameScreen() {
     console.log("showGameScreen - START");
-    if (!elements.gameContainer) {
-        console.error("Cannot show game screen: Game container not found");
+    
+    // Make sure we have the required elements
+    if (!elements.gameContainer || !elements.setupContainer) {
+        console.error("Required game screen elements missing");
         return;
     }
 
+    // Hide setup, show game elements
     elements.setupContainer.style.display = 'none';
     elements.gameContainer.style.display = 'block';
     elements.colorPalette.style.display = 'flex';
 
-    console.log("Game screen elements displayed");
-    resizeGame();
-    renderGameBoard();
+    // Force a resize to ensure canvas is properly sized
+    requestAnimationFrame(() => {
+        resizeGame();
+        if (gameState) {
+            renderGameBoard();
+        }
+    });
+
     console.log("showGameScreen - END");
 }
 
@@ -447,46 +455,35 @@ function handleMouseUp() {
 // Expects gameStateObject to be a plain JS object from the server
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     console.log("Handling initial state:", gameStateObject, "Players:", playersData, "My ID:", ownPlayerId);
-    // Assume gameStateObject is already the correct structure (no deserialize needed here)
-    if (gameStateObject) {
-        // We might still want to create a GameState instance for its methods,
-        // but let's first try using the plain object directly if possible.
-        // If GameState class has important methods used elsewhere, we might need:
-        // gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
-        // Object.assign(gameState.board, gameStateObject.board); // etc.
-        // Create a GameState instance from the plain object received
-        // This ensures methods like getCurrentPlayerId are available
-        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
-        // Copy properties from the received object to the instance
-        Object.assign(gameState, gameStateObject);
-        // Ensure players data is attached (might already be copied by Object.assign)
-        gameState.players = playersData;
-
-        currentPlayerId = ownPlayerId; // Store our own ID
-
-         // Center the camera initially (approximate)
-         centerCamera();
-        resizeGame(); // Ensure correct size
-        renderGameBoard();
-        updatePlayerInfo(gameState.players, currentPlayerId); // Update player scores/names
-        console.log("Initial game state processed.");
-
-        // Add a check for the current player ID based on the new state
-        if (!gameState || gameState.gameOver) {
-             console.log("Initial state is game over or invalid.");
-        } else if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
-             console.log("Initial state received, but it's not your turn.");
-             displayMessage("Waiting for opponent's move.", false);
-        } else {
-            console.log("Initial state received, it's your turn.");
-            displayMessage("Game started. Your turn!", false);
-        }
-
-    } else {
-        console.error("Failed to initialize game state from server data (gameStateObject is null/undefined).");
-        displayMessage("Error initializing game. Check console.", true);
+    
+    if (!gameStateObject) {
+        console.error("Failed to initialize: No game state provided");
+        return false;
     }
-    return null; // Or handle error appropriately
+
+    try {
+        // Create new game state instance
+        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
+        Object.assign(gameState, gameStateObject);
+        gameState.players = playersData;
+        currentPlayerId = ownPlayerId;
+
+        // Always show game screen before rendering
+        showGameScreen();
+        
+        // Center and render after screen transition
+        centerCamera();
+        resizeGame();
+        renderGameBoard();
+        updatePlayerInfo(gameState.players, currentPlayerId);
+        
+        console.log("Initial game state processed successfully");
+        return true;
+    } catch (error) {
+        console.error("Error initializing game state:", error);
+        displayMessage("Error initializing game. Check console.", true);
+        return false;
+    }
 }
 
 // Expects gameStateObject to be a plain JS object from the server

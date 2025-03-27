@@ -154,9 +154,9 @@ function setupSocketEventListeners() {
         
         // Initialize game state before showing screen
         if (handleInitialState(data.gameState, data.players, currentPlayerId)) {
-            showGameScreen();
+            console.log("Game state initialized, showing game screen");
+            showGameScreen(); // This should now work properly
             updatePlayerInfo(data.players, currentPlayerId);
-            console.log("Game initialized and screen shown");
         } else {
             console.error("Failed to initialize game state");
             displayMessage("Failed to start game", true);
@@ -253,26 +253,30 @@ export function sendTilePlacement(q, r, color) {
 // Function to emit create challenge event, uses callback for response
 export function emitCreateChallenge(playerName) {
     if (!socketInstance || !socketInstance.connected) {
-        // Connect first, then emit after connection
         connectToServer('create', playerName);
         
-        // Set up a one-time listener for the connect event
         socketInstance.once('connect', () => {
             console.log(`Emitting create-challenge for player: ${playerName}`);
             socketInstance.emit('create-challenge', playerName, (response) => {
+                console.log("Create challenge response:", response);
                 if (response.success) {
+                    currentRoomId = response.challengeCode;
                     displayMessage(`Challenge created! Code: ${response.challengeCode}`);
+                    // Wait for game-start event instead of immediately showing game screen
+                    // The server should send a game-start event when opponent joins
                 } else {
                     displayMessage(response.message || "Failed to create challenge", true);
                 }
             });
         });
     } else {
-        // Already connected, just emit
         console.log(`Emitting create-challenge for player: ${playerName}`);
         socketInstance.emit('create-challenge', playerName, (response) => {
+            console.log("Create challenge response:", response);
             if (response.success) {
+                currentRoomId = response.challengeCode;
                 displayMessage(`Challenge created! Code: ${response.challengeCode}`);
+                // Wait for game-start event
             } else {
                 displayMessage(response.message || "Failed to create challenge", true);
             }
