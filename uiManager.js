@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { eventManager, EventTypes } from './eventManager.js';
 
 class UIManager {
     constructor() {
@@ -86,17 +87,29 @@ class UIManager {
 
     setupEventListeners() {
         try {
-            // Setup core UI element listeners
             const setupElements = this.elements.setup;
+            
+            // Setup create button
             if (setupElements.createButton) {
-                this.addEventListener(setupElements.createButton, 'click', () => {
-                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { action: 'create' });
+                setupElements.createButton.addEventListener('click', () => {
+                    const playerName = setupElements.playerNameInput?.value || 'Player';
+                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { 
+                        action: 'create',
+                        playerName 
+                    });
                 });
             }
 
+            // Setup join button
             if (setupElements.joinButton) {
-                this.addEventListener(setupElements.joinButton, 'click', () => {
-                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { action: 'join' });
+                setupElements.joinButton.addEventListener('click', () => {
+                    const playerName = setupElements.playerNameInput?.value || 'Player';
+                    const roomCode = setupElements.roomCodeInput?.value;
+                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { 
+                        action: 'join',
+                        playerName,
+                        roomCode 
+                    });
                 });
             }
 

@@ -238,13 +238,17 @@ export function renderGameBoard() {
 // Add new function to center view on player's starting position
 export function centerOnPlayerStart() {
     if (!canvas || !gameState) return;
-
-    // Always center on bottom-left corner of the board
-    const startX = 0;
-    const startY = (gameState.rows - 1) * BOARD.VERTICAL_SPACING;
     
-    cameraOffset.x = (canvas.width / 2) - startX;
-    cameraOffset.y = (canvas.height / 2) - startY;
+    // Calculate board dimensions
+    const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
+    const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
+    
+    // Calculate offsets to center the board with player at bottom-left
+    cameraOffset.x = (canvas.width - boardWidth) / 2;
+    cameraOffset.y = (canvas.height - boardHeight) / 2;
+    
+    // Adjust to show bottom-left corner
+    cameraOffset.y += boardHeight / 3; // Move board up to show more of bottom area
     
     renderGameBoard();
 }
@@ -309,40 +313,35 @@ export function displayMessage(message, isError = false) {
 
 // Update player information display (name, score)
 export function updatePlayerInfo(playersData, ownPlayerId) {
-     console.log("Updating player info:", playersData, "My ID:", ownPlayerId);
-     if (!player1Info || !player2Info || !playersData) {
-         console.warn("Cannot update player info: Missing elements or data.");
-         return;
-     }
+    console.log("Updating player info:", playersData, "My ID:", ownPlayerId);
+    
+    // Get DOM elements directly
+    const player1Info = document.getElementById('player1-info');
+    const player2Info = document.getElementById('player2-info');
+    
+    if (!player1Info || !player2Info || !playersData) {
+        console.warn("Cannot update player info: Missing elements or data.");
+        return;
+    }
 
-     const playerIds = Object.keys(playersData);
-     // Simple assignment: first player is P1, second is P2
-     // This might be incorrect if player join order != desired display order.
-     // Server should ideally assign player numbers or colors consistently.
-
-     if (playerIds.length > 0) {
-         const p1Id = playerIds[0];
-         const p1 = playersData[p1Id];
-         let p1Name = p1.name || `Player ${p1Id.substring(0, 4)}`;
-         if (p1Id === ownPlayerId) p1Name += " (You)";
-         player1Info.textContent = `${p1Name}: ${p1.score}`;
-         player1Info.style.color = p1.color || '#000'; // Use player color
-     } else {
-         player1Info.textContent = "Player 1: -";
-         player1Info.style.color = '#000';
-     }
-
-     if (playerIds.length > 1) {
-         const p2Id = playerIds[1];
-         const p2 = playersData[p2Id];
-         let p2Name = p2.name || `Player ${p2Id.substring(0, 4)}`;
-         if (p2Id === ownPlayerId) p2Name += " (You)";
-         player2Info.textContent = `${p2Name}: ${p2.score}`;
-         player2Info.style.color = p2.color || '#000'; // Use player color
-     } else {
-         player2Info.textContent = "Player 2: -";
-         player2Info.style.color = '#000';
-     }
+    // Get players array
+    const players = Object.entries(playersData);
+    
+    // Update player 1 info
+    if (players.length > 0) {
+        const [id, data] = players[0];
+        const name = data.name || `Player ${id.substring(0, 4)}`;
+        player1Info.textContent = `${name}${id === ownPlayerId ? ' (You)' : ''}: ${data.score || 0}`;
+        player1Info.style.color = data.color || '#000';
+    }
+    
+    // Update player 2 info
+    if (players.length > 1) {
+        const [id, data] = players[1];
+        const name = data.name || `Player ${id.substring(0, 4)}`;
+        player2Info.textContent = `${name}${id === ownPlayerId ? ' (You)' : ''}: ${data.score || 0}`;
+        player2Info.style.color = data.color || '#000';
+    }
 }
 
 // Add a chat message to the chat area

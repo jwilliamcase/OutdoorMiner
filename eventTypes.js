@@ -14,3 +14,10 @@ export const NetworkEvents = {
     STATE_RECEIVED: 'network:state_received',
     STATE_SENT: 'network:state_sent'
 };
+
+export const UIEvents = {
+    BUTTON_CLICK: 'ui:button_click',
+    COLOR_SELECT: 'ui:color_select',
+    RESIZE: 'ui:resize',
+    STATE_CHANGE: 'ui:state_change'
+};
