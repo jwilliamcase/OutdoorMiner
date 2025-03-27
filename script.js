@@ -37,7 +37,7 @@ function playSound(soundName) {
             console.error(`Error loading sound ${soundName}:`, error);
         }
     }
-    
+
     // DOM element references (initialized in DOMContentLoaded)
     // Note: canvas, ctx are already declared globally above.
     let messageElement, setupContainer, gameScreen, playerNameInput, localGameButton, gameIdInput, // Added gameIdInput here
@@ -45,13 +45,13 @@ function playSound(soundName) {
         player1ScoreElement, player2ScoreElement, colorSwatchesContainer, powerUpSlotsContainer,
         landmineInfoElement, chatInput, chatMessages, sendChatButton, toggleChatButton, chatContainer,
         leaveGameButton, restartGameButton; // Added restartGameButton here
-    
+
     // --- State Management ---
     class GameState {
-        constructor() {
-        this.reset();
-        this.rows = 12; // Default or get from config?
-        this.cols = 12; // Default or get from config?
+        constructor(rows = 12, cols = 12) { // Accept dimensions
+        this.rows = rows;
+        this.cols = cols;
+        this.reset(); // Initialize board etc.
         this.playerNames = ["Player 1", "Player 2"];
         this.playerColors = ['#FF0000', '#0000FF']; // Defaults
     }
@@ -80,7 +80,7 @@ function playSound(soundName) {
                     color: '#CCCCCC', // Default unowned color
                     isStartingTile: false,
                     hasPowerUp: false,
-                    hasLandmine: false,
+                    hasLandmine: false, // Mark if mine is present (for rendering maybe?)
                     powerUpType: null
                 };
             }
@@ -88,7 +88,6 @@ function playSound(soundName) {
         return board;
     }
 
-    // Removed duplicate reset() method that was here
 
     serialize() {
         // Convert Sets and Maps to arrays for JSON compatibility
@@ -106,29 +105,44 @@ function playSound(soundName) {
             revealedMines: Array.from(this.revealedMines),
             protectedTiles: Array.from(this.protectedTiles.entries()),
             turnNumber: this.turnNumber
+            // Note: winner is not explicitly stored, determined on game over
         });
     }
 
+    // Rewritten deserialize method
     deserialize(jsonData) {
-        const data = JSON.parse(jsonData);
-        this.rows = data.rows;
-        this.cols = data.cols;
-        this.board = data.board;
-        this.playerScores = data.playerScores;
-        this.player1PowerUps = data.player1PowerUps || [];
-        this.player2PowerUps = data.player2PowerUps || [];
-        this.landmines = data.landmines || [];
-        this.explodedTiles = data.explodedTiles || [];
-        this.gameStarted = data.gameStarted || false;
-        this.gameOver = data.gameOver || false,
-        this.winner = data.winner !== undefined ? data.winner : null,
+        try {
+            const data = JSON.parse(jsonData);
+            this.rows = data.rows || 12;
+            this.cols = data.cols || 12;
+            this.board = data.board || this.createInitialBoard(this.rows, this.cols); // Fallback if board missing
+            this.playerScores = data.playerScores || [0, 0];
+            this.playerNames = data.playerNames || ["Player 1", "Player 2"];
+            this.playerColors = data.playerColors || ['#FF0000', '#0000FF'];
+            this.currentPlayerIndex = data.currentPlayerIndex !== undefined ? data.currentPlayerIndex : 0;
+            this.isGameOver = data.isGameOver || false;
+            this.powerUpInventory = data.powerUpInventory || [[], []];
+            // Convert arrays back to Set/Map
+            this.landmines = new Set(data.landmines || []);
+            this.revealedMines = new Set(data.revealedMines || []);
+            this.protectedTiles = new Map(data.protectedTiles || []);
+            this.turnNumber = data.turnNumber !== undefined ? data.turnNumber : 0;
+            // winner is determined dynamically, not stored/deserialized directly
+             console.log("GameState deserialized successfully."); // DEBUG
+        } catch (error) {
+            console.error("Error deserializing game state:", error, jsonData); // DEBUG
+            // Optionally reset state or handle error more gracefully
+            this.reset();
+        }
     }
 
-    getTile(row, col) {
+
+    getTile(r, c) {
+        // Check bounds BEFORE accessing array
         if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
             return this.board[r][c];
         }
-        return null;
+        return null; // Return null if out of bounds
     }
 
     isOwnedBy(r, c, playerIndex) {
@@ -145,24 +159,29 @@ function playSound(soundName) {
 
     placeTile(r, c, playerIndex, color) {
         const tile = this.getTile(r, c);
-        if (!tile || tile.owner !== -1 || this.isGameOver) return false; // Already owned or game over
+        // Validate tile exists and is unowned
+        if (!tile || tile.owner !== -1) {
+             console.log(`Invalid placement: Tile (${r},${c}) does not exist or is already owned.`);
+             return { placed: false, hitMine: false, error: "Tile not empty." };
+        }
+        if (this.isGameOver) {
+            return { placed: false, hitMine: false, error: "Game is over." };
+        }
 
         const coordKey = `${r},${c}`;
         // Check for landmine FIRST
         if (this.landmines.has(coordKey) && !this.revealedMines.has(coordKey)) {
             console.log(`Player ${playerIndex} hit a mine at ${r},${c}!`);
             this.revealedMines.add(coordKey);
-            playSound('landmine');
-            // Optionally, add penalty logic here (e.g., lose turn, score penalty)
-            // For now, just reveal it and deny the placement.
-            // Update the tile visually if needed (handled in render)
-            return { hitMine: true, placed: false }; // Indicate mine hit, tile not placed
+            playSound('landmine'); // Use generic mine sound for now
+            // Update the tile visually (handled in render)
+            return { placed: false, hitMine: true, error: "Hit a landmine!" }; // Indicate mine hit, tile not placed
         }
 
         // Check if placement is valid (adjacent to existing tile of same player)
         const neighbors = getNeighbors(r, c);
         let isAdjacent = false;
-        if (this.turnNumber < 2) { // First two turns can place anywhere
+        if (this.turnNumber < 2) { // First two turns can place anywhere unowned
             isAdjacent = true;
             tile.isStartingTile = true; // Mark as a starting tile
         } else {
@@ -175,27 +194,27 @@ function playSound(soundName) {
         }
 
         if (!isAdjacent) {
-            console.log("Invalid placement: Must be adjacent to your own tile.");
+            console.log("Invalid placement: Must be adjacent to your own tile (after turn 1).");
             playSound('error');
-            return { hitMine: false, placed: false };
+            return { placed: false, hitMine: false, error: "Must be adjacent." };
         }
 
         // Place the tile
         tile.owner = playerIndex;
         tile.color = color;
         playSound('placeTile');
-        this.updateScores();
+        this.updateScores(); // Update score after placing
 
         // Check for power-up or landmine generation
         let awardedPowerUp = null;
         let generatedLandmine = false;
         if (Math.random() < POWER_UP_CHANCE) {
-            tile.hasPowerUp = true;
-            tile.powerUpType = POWER_UPS[Math.floor(Math.random() * POWER_UPS.length)];
-            awardedPowerUp = tile.powerUpType;
-            this.givePowerUp(playerIndex, awardedPowerUp);
+            // Check if tile doesn't already have something? Maybe not necessary if generated on placement
+             tile.hasPowerUp = true; // Mark tile state
+             awardedPowerUp = POWER_UPS[Math.floor(Math.random() * POWER_UPS.length)];
+             this.givePowerUp(playerIndex, awardedPowerUp);
              playSound('powerUp');
-            console.log(`Player ${playerIndex} found a ${awardedPowerUp} power-up at ${r},${c}!`);
+             console.log(`Player ${playerIndex} found a ${awardedPowerUp} power-up at ${r},${c}!`);
         } else if (Math.random() < LANDMINE_CHANCE) {
             // Don't place a landmine on the tile just captured
             // Instead, place it on a *random* unowned, non-starting neighbor tile
@@ -209,7 +228,8 @@ function playSound(soundName) {
                 const mineCoordKey = `${nr},${nc}`;
                 if (!this.landmines.has(mineCoordKey)) { // Avoid placing multiple mines on the same tile
                     this.landmines.add(mineCoordKey);
-                    this.getTile(nr, nc).hasLandmine = true; // Mark for rendering hints?
+                    const mineTile = this.getTile(nr, nc);
+                    if (mineTile) mineTile.hasLandmine = true; // Mark for rendering hints?
                     generatedLandmine = true;
                     console.log(`A landmine was generated nearby at ${nr},${nc}!`);
                 }
@@ -228,7 +248,7 @@ function playSound(soundName) {
                  if (this.protectedTiles.has(neighborKey) && this.protectedTiles.get(neighborKey) === opponentIndex) {
                      console.log(`Tile ${nr},${nc} is protected by a shield! Capture failed.`);
                      this.protectedTiles.delete(neighborKey); // Shield used up
-                     // Add visual effect for shield breaking?
+                     // Add visual effect for shield breaking? (renderGameBoard handles border)
                  } else {
                     neighborTile.owner = playerIndex;
                     neighborTile.color = color; // Change to capturer's color
@@ -239,12 +259,12 @@ function playSound(soundName) {
 
         if (capturedCount > 0) {
             console.log(`Player ${playerIndex} captured ${capturedCount} tiles!`);
-            this.updateScores();
+            this.updateScores(); // Update score again after captures
         }
 
-        this.checkForGameOver();
+        this.checkForGameOver(); // Check if this move ended the game
 
-        return { hitMine: false, placed: true, awardedPowerUp, generatedLandmine };
+        return { placed: true, hitMine: false, awardedPowerUp, generatedLandmine };
     }
 
      givePowerUp(playerIndex, powerUpType) {
@@ -256,12 +276,17 @@ function playSound(soundName) {
     }
 
     usePowerUp(playerIndex, powerUpType, targetR, targetC) {
-        if (this.isGameOver || this.currentPlayerIndex !== playerIndex) return { used: false, error: "Not your turn or game over." };
+        if (this.isGameOver) return { used: false, error: "Game is over." };
+        // Allow using power-up even if not technically current player? Or enforce turn?
+        // Let's enforce turn for now.
+        if (this.currentPlayerIndex !== playerIndex) return { used: false, error: "Not your turn." };
 
         const inventory = this.powerUpInventory[playerIndex];
+        if (!inventory) return { used: false, error: "No power-ups available." }; // Check if inventory exists
+
         const powerUpIndex = inventory.indexOf(powerUpType);
 
-        if (powerUpIndex === -1) return { used: false, error: "Power-up not found." };
+        if (powerUpIndex === -1) return { used: false, error: "Power-up not found in inventory." };
 
         let success = false;
         let message = "";
@@ -269,9 +294,12 @@ function playSound(soundName) {
         const targetTile = this.getTile(targetR, targetC);
         const opponentIndex = 1 - playerIndex;
 
+        // Ensure target tile exists before proceeding
+        if (!targetTile) return { used: false, error: "Invalid target tile." };
+
         switch (powerUpType) {
             case 'shield':
-                if (targetTile && targetTile.owner === playerIndex && !this.protectedTiles.has(targetKey)) {
+                if (targetTile.owner === playerIndex && !this.protectedTiles.has(targetKey)) {
                     this.protectedTiles.set(targetKey, playerIndex);
                     success = true;
                     message = `Shield applied to your tile at ${targetR},${targetC}.`;
@@ -283,7 +311,7 @@ function playSound(soundName) {
                 break;
 
             case 'steal':
-                 if (targetTile && targetTile.owner === opponentIndex && !this.protectedTiles.has(targetKey)) {
+                 if (targetTile.owner === opponentIndex && !this.protectedTiles.has(targetKey)) {
                     targetTile.owner = playerIndex;
                     targetTile.color = this.playerColors[playerIndex]; // Change to stealer's color
                     this.updateScores();
@@ -301,31 +329,27 @@ function playSound(soundName) {
                 break;
 
             case 'bomb':
-                if (targetTile) { // Can bomb any tile (owned, unowned, opponent's)
-                     if (this.protectedTiles.has(targetKey)) {
-                         message = `Tile ${targetR},${targetC} is protected by a shield! Bomb failed.`;
-                         this.protectedTiles.delete(targetKey); // Shield used up
-                         playSound('error'); // Or shield break sound
-                     } else {
-                        targetTile.owner = -1; // Make it unowned
-                        targetTile.color = '#CCCCCC'; // Reset color
-                        targetTile.isStartingTile = false; // No longer a starting tile
-                        // Check if it had a mine (bombing might reveal or destroy it?)
-                        if (this.landmines.has(targetKey)) {
-                            this.landmines.delete(targetKey);
-                            this.revealedMines.delete(targetKey); // Ensure it's not marked as revealed if it wasn't triggered
-                            targetTile.hasLandmine = false;
-                            message = `Bombed tile at ${targetR},${targetC}, destroying a landmine!`;
-                        } else {
-                             message = `Bombed tile at ${targetR},${targetC}!`;
-                        }
-                        this.updateScores();
-                        success = true;
-                        playSound('landmine'); // Bomb sound
-                     }
-                } else {
-                     message = "Invalid target for bomb."; // Should not happen if r,c are valid
-                     playSound('error');
+                // Can bomb any tile (owned, unowned, opponent's)
+                 if (this.protectedTiles.has(targetKey)) {
+                     message = `Tile ${targetR},${targetC} is protected by a shield! Bomb failed.`;
+                     this.protectedTiles.delete(targetKey); // Shield used up
+                     playSound('error'); // Or shield break sound
+                 } else {
+                    targetTile.owner = -1; // Make it unowned
+                    targetTile.color = '#CCCCCC'; // Reset color
+                    targetTile.isStartingTile = false; // No longer a starting tile
+                    // Check if it had a mine (bombing might reveal or destroy it?)
+                    if (this.landmines.has(targetKey)) {
+                        this.landmines.delete(targetKey);
+                        this.revealedMines.delete(targetKey); // Ensure it's not marked as revealed if it wasn't triggered
+                        targetTile.hasLandmine = false;
+                        message = `Bombed tile at ${targetR},${targetC}, destroying a landmine!`;
+                    } else {
+                         message = `Bombed tile at ${targetR},${targetC}!`;
+                    }
+                    this.updateScores();
+                    success = true;
+                    playSound('landmine'); // Bomb sound (reuse mine sound for now)
                  }
                 break;
 
@@ -338,7 +362,7 @@ function playSound(soundName) {
         if (success) {
             inventory.splice(powerUpIndex, 1); // Remove used power-up
             updatePowerUpDisplay(); // Update UI
-            // It's still the player's turn after using a power-up
+            // It's still the player's turn after using a power-up (no turn switch here)
             return { used: true, message: message };
         } else {
             return { used: false, error: message };
@@ -349,6 +373,7 @@ function playSound(soundName) {
         if (this.isGameOver) return;
         this.currentPlayerIndex = 1 - this.currentPlayerIndex;
         this.turnNumber++;
+        // Update local 'isMyTurn' flag
         isMyTurn = (gameMode === 'local' || this.currentPlayerIndex === playerNumber);
         updateTurnIndicator();
         updateScoreDisplay(); // Update score display to show whose turn it is
@@ -360,8 +385,8 @@ function playSound(soundName) {
         this.playerScores = [0, 0];
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
-                const tile = this.board[r][c];
-                if (tile.owner !== -1) {
+                const tile = this.getTile(r, c); // Use getter for safety
+                if (tile && tile.owner !== -1) {
                     this.playerScores[tile.owner]++;
                 }
             }
@@ -370,223 +395,249 @@ function playSound(soundName) {
     }
 
     checkForGameOver() {
-        let unownedCount = 0;
+        let unownedPlaceableCount = 0;
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
-                if (this.board[r][c].owner === -1) {
+                const tile = this.getTile(r, c);
+                if (tile && tile.owner === -1) {
                     // Only count unowned tiles that are placeable (adjacent to someone)
                     // unless it's the very start of the game
                     if (this.turnNumber < 2) {
-                        unownedCount++;
-                        continue;
+                        unownedPlaceableCount++;
+                        continue; // All unowned are placeable initially
                     }
                      let isPlaceable = false;
                      const neighbors = getNeighbors(r, c);
                      for(const {nr, nc} of neighbors) {
                         const neighborTile = this.getTile(nr, nc);
+                        // A tile is placeable if adjacent to *any* owned tile
                         if (neighborTile && neighborTile.owner !== -1) {
                             isPlaceable = true;
                             break;
                         }
                      }
                      if (isPlaceable) {
-                        unownedCount++;
+                        unownedPlaceableCount++;
                      }
                 }
             }
         }
 
-        if (unownedCount === 0) {
+        if (unownedPlaceableCount === 0) {
             this.isGameOver = true;
-            console.log("Game Over!");
+            console.log("Game Over - No more placeable tiles!");
             playSound('gameOver');
-            determineWinner();
+            determineWinner(); // Sets winner message in UI via updateTurnIndicator
             updateTurnIndicator(); // Show game over message
             toggleControls(false); // Disable controls on game over
             // In online mode, the server will also detect and broadcast game over
-            if (gameMode !== 'local' && playerNumber === 0) { // Host notifies server
-                 window.sendGameOver(); // Function to be defined in multiplayer.js
+            if (gameMode !== 'local' && playerNumber === 0) { // Host notifies server (redundant if server checks too?)
+                 // window.multiplayer.sendGameOver(); // Function to be defined in multiplayer.js if needed
+                 console.warn("Local game over check triggered by host - server should handle this.");
             }
         }
          return this.isGameOver;
     }
 
+    // Updated determineWinner to return message string
     determineWinner() {
-        if (!this.isGameOver) return "Game not over";
+        if (!this.isGameOver) return "Game not over"; // Shouldn't be called unless game is over
         const score1 = this.playerScores[0];
         const score2 = this.playerScores[1];
         const name1 = this.playerNames[0] || "Player 1";
         const name2 = this.playerNames[1] || "Player 2";
 
-        if (score1 > score2) return `${name1} Wins!`;
-      }
-      return 0; // Not owned by either player
-  }
-} // End GameState class -- REMOVED EXTRA BRACE from here if present, or adjusted structure above
+        if (score1 > score2) return `${name1} Wins! (${score1}-${score2})`;
+        if (score2 > score1) return `${name2} Wins! (${score2}-${score1})`;
+        return `It's a Tie! (${score1}-${score1})`;
+    }
+
+    // Removed old determineWinner implementation that returned index
+
+} // End GameState class
 
 
 // --- Drawing Functions ---
 
-function drawHexagon(ctx, x, y, size, color, lineWidth, lineColor, isHovered = false, hasMine = false) {
-    const x = c * HEX_SIZE * 1.5;
-    const y = r * HEX_SIZE * Math.sqrt(3) + (c % 2 === 1 ? HEX_SIZE * Math.sqrt(3) / 2 : 0);
+// Updated drawHexagon signature to accept tile object
+function drawHexagon(ctx, r, c, x_center, y_center, size, tile) {
     const angle = Math.PI / 3; // 60 degrees
 
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
         ctx.lineTo(
-            x + HEX_SIZE * Math.cos(angle * i + Math.PI / 6), // Add PI/6 offset for pointy top
-            y + HEX_SIZE * Math.sin(angle * i + Math.PI / 6)
+            x_center + size * Math.cos(angle * i + Math.PI / 6), // Add PI/6 offset for pointy top
+            y_center + size * Math.sin(angle * i + Math.PI / 6)
         );
     }
     ctx.closePath();
 
-    // Fill
-    ctx.fillStyle = color;
+    // Fill with tile color
+    ctx.fillStyle = tile ? tile.color : '#CCCCCC'; // Fallback color if tile missing
     ctx.fill();
 
-    // Border styling based on ownership and state
-    let borderColor = '#555'; // Default dark border
+    // --- Border styling ---
+    let borderColor = '#555'; // Default dark border for unowned
     let borderWidth = 1;
 
     if (tile && tile.owner !== -1) {
-        // Owned tile: Use slightly darker version of player color for border
+        // Owned tile: Use slightly darker version of player color
         borderColor = darkenColor(tile.color, 30); // Darken by 30%
         borderWidth = 2; // Thicker border for owned tiles
-    } else {
-        // Unowned tile: Default border
     }
 
+    const coordKey = `${r},${c}`;
      // Highlight for shield
-    if (tile && gameState.protectedTiles.has(`${r},${c}`)) {
+    if (tile && gameState && gameState.protectedTiles.has(coordKey)) {
         borderColor = '#FFFF00'; // Yellow border for shield
         borderWidth = 3;
     }
 
     // Highlight for revealed mine
-    if (tile && gameState.revealedMines.has(`${r},${c}`)) {
+    if (tile && gameState && gameState.revealedMines.has(coordKey)) {
         borderColor = '#FF0000'; // Red border for revealed mine
         borderWidth = 3;
-        // Optional: Draw an 'X' or symbol
-        ctx.font = `${HEX_SIZE * 0.6}px Arial`;
-        ctx.fillStyle = '#FF0000';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('X', x, y);
     }
-
 
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWidth;
     ctx.stroke();
 
-     // Optional: Draw power-up indicator if present but not collected
-     // Note: This requires the tile object to be passed or accessed
-    /*
-    if (tile && tile.hasPowerUp && tile.owner === -1) { // Example: only show on unowned
-        ctx.fillStyle = 'gold';
-        ctx.font = `${HEX_SIZE * 0.5}px Arial`;
+     // Optional: Draw symbols for mines/powerups/shields after border
+    if (tile && gameState && gameState.revealedMines.has(coordKey)) {
+        // Draw an 'X' or explosion symbol
+        ctx.font = `${size * 0.6}px Arial Black`; // Bold font
+        ctx.fillStyle = '#FF0000'; // Red color for mine symbol
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('?', x, y); // Placeholder '?'
+        ctx.fillText('💥', x_center, y_center); // Explosion emoji or 'X'
     }
-    */
+     else if (tile && gameState && gameState.protectedTiles.has(coordKey)) {
+         // Draw shield symbol
+         ctx.font = `${size * 0.6}px Arial Black`;
+         ctx.fillStyle = '#FFFF00'; // Yellow for shield symbol
+         ctx.textAlign = 'center';
+         ctx.textBaseline = 'middle';
+         ctx.fillText('🛡️', x_center, y_center); // Shield emoji
+     }
+    // Add similar logic for uncollected powerups or hidden mines if needed
 }
 
+
 function renderGameBoard() {
-    if (!ctx || !gameState) return;
-     // Calculate required canvas size
+    if (!ctx || !gameState) {
+        console.error("renderGameBoard: Canvas context or gameState missing."); // DEBUG
+        return;
+    }
+     // Calculate required canvas size based on gameState dimensions
     const requiredWidth = gameState.cols * HEX_SIZE * 1.5 + HEX_SIZE * 0.5;
     const requiredHeight = gameState.rows * HEX_SIZE * Math.sqrt(3) + HEX_SIZE * Math.sqrt(3) / 2;
 
-    // Resize canvas if necessary
-    if (canvas.width < requiredWidth || canvas.height < requiredHeight) {
-        canvas.width = requiredWidth;
-        canvas.height = requiredHeight;
+    // Resize canvas internal buffer if needed
+    if (canvas.width !== Math.ceil(requiredWidth) || canvas.height !== Math.ceil(requiredHeight)) {
+        canvas.width = Math.ceil(requiredWidth);
+        canvas.height = Math.ceil(requiredHeight);
+        console.log(`Resized canvas buffer to ${canvas.width}x${canvas.height}`); // DEBUG
     }
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Center the grid (optional, adjust as needed)
-    const offsetX = (canvas.width - requiredWidth) / 2 + HEX_SIZE; // Initial offset for centering + first hex radius
-    const offsetY = (canvas.height - requiredHeight) / 2 + HEX_SIZE * Math.sqrt(3) / 2; // Initial offset + first hex height/2
-
+    // Center the grid drawing relative to the canvas buffer size
+    // Adjust offsetX/Y if you want padding around the grid
+    const offsetX = HEX_SIZE; // Start drawing first hex center at (HEX_SIZE, HEX_SIZE*sqrt(3)/2)
+    const offsetY = HEX_SIZE * Math.sqrt(3) / 2;
 
     ctx.save();
-    ctx.translate(offsetX, offsetY); // Apply translation for centering
+    ctx.translate(offsetX, offsetY); // Apply translation for the grid origin
 
     for (let r = 0; r < gameState.rows; r++) {
         for (let c = 0; c < gameState.cols; c++) {
             const tile = gameState.board[r][c];
-            // Pass the tile object to drawHexagon
-            drawHexagon(ctx, c * HEX_SIZE * 1.5, r * HEX_SIZE * Math.sqrt(3) + (c % 2 === 1 ? HEX_SIZE * Math.sqrt(3) / 2 : 0), HEX_SIZE, tile.color, 1, '#555', false, tile.hasLandmine, tile);
+            // Calculate center coordinates for drawHexagon
+            const hexX = c * HEX_SIZE * 1.5;
+            const hexY = r * HEX_SIZE * Math.sqrt(3) + (c % 2 === 1 ? HEX_SIZE * Math.sqrt(3) / 2 : 0);
+            // Call drawHexagon with correct arguments
+            drawHexagon(ctx, r, c, hexX, hexY, HEX_SIZE, tile);
         }
     }
 
      ctx.restore(); // Restore context after translation
 
-    // Update other UI elements
+    // Update other UI elements that depend on gameState
     updateScoreDisplay();
     updateTurnIndicator();
     updatePowerUpDisplay();
     updateLandmineInfo();
-
+    console.log("renderGameBoard completed."); // DEBUG
 }
 
 
 function getHexCoords(event) {
+    if (!canvas || !ctx) return { r: -1, c: -1 }; // Guard against missing canvas/context
+
     const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-
-     // Adjust mouse coordinates based on current canvas translation (if any)
-     const matrix = ctx.getTransform();
-     const invMatrix = matrix.invertSelf();
-     const transformedX = mouseX * invMatrix.a + mouseY * invMatrix.c + invMatrix.e;
-     const transformedY = mouseX * invMatrix.b + mouseY * invMatrix.d + invMatrix.f;
+    // Scale mouse coordinates to match canvas internal resolution if CSS scales it
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const canvasX = (event.clientX - rect.left) * scaleX;
+    const canvasY = (event.clientY - rect.top) * scaleY;
 
 
-    // Approximate conversion - might need refinement for accuracy
-    const approxCol = (transformedX / (HEX_SIZE * 1.5));
-    const approxRow = (transformedY / (HEX_SIZE * Math.sqrt(3))) - (approxCol % 2 === 1 ? 0.5 : 0);
+     // Adjust coordinates based on the translation applied in renderGameBoard
+     const offsetX = HEX_SIZE;
+     const offsetY = HEX_SIZE * Math.sqrt(3) / 2;
+     const transformedX = canvasX - offsetX;
+     const transformedY = canvasY - offsetY;
 
-    // Find the closest hex center
-    let minDist = Infinity;
-    let closestR = -1, closestC = -1;
 
-    // Iterate over a small grid around the approximation
-    for (let rOffset = -1; rOffset <= 1; rOffset++) {
-        for (let cOffset = -1; cOffset <= 1; cOffset++) {
-            const r = Math.round(approxRow) + rOffset;
-            const c = Math.round(approxCol) + cOffset;
+    // Approximate conversion - needs careful checking for hex grid math
+    // Using axial coordinates might be more robust, but this is simpler for now
+    const q_frac = (transformedX * (2/3)) / HEX_SIZE;
+    const r_frac = (-transformedX / 3 + Math.sqrt(3)/3 * transformedY) / HEX_SIZE;
 
-            if (r < 0 || r >= gameState.rows || c < 0 || c >= gameState.cols) continue;
+    // Convert fractional axial to cube coordinates
+    const x_cube = q_frac;
+    const z_cube = r_frac;
+    const y_cube = -x_cube - z_cube;
 
-            const hexX = c * HEX_SIZE * 1.5;
-            const hexY = r * HEX_SIZE * Math.sqrt(3) + (c % 2 === 1 ? HEX_SIZE * Math.sqrt(3) / 2 : 0);
+    // Round cube coordinates to nearest integer cube
+    let rx = Math.round(x_cube);
+    let ry = Math.round(y_cube);
+    let rz = Math.round(z_cube);
 
-            const dist = Math.sqrt((transformedX - hexX) ** 2 + (transformedY - hexY) ** 2);
+    const x_diff = Math.abs(rx - x_cube);
+    const y_diff = Math.abs(ry - y_cube);
+    const z_diff = Math.abs(rz - z_cube);
 
-             // Check if the click is actually within the hexagon boundaries (more accurate)
-            if (dist < HEX_SIZE) { // Simple radius check
-                 if (dist < minDist) {
-                    minDist = dist;
-                    closestR = r;
-                    closestC = c;
-                 }
-            }
-        }
+    if (x_diff > y_diff && x_diff > z_diff) {
+        rx = -ry - rz;
+    } else if (y_diff > z_diff) {
+        ry = -rx - rz;
+    } else {
+        rz = -rx - ry;
     }
 
+    // Convert rounded cube coordinates back to offset coordinates (column, row)
+    const col = rx; // q coordinate directly maps to column in "pointy top" offset
+    const row = rz + (rx + (rx&1)) / 2; // Convert r cube coordinate back to row
 
-    return { r: closestR, c: closestC };
+
+    // Bounds check
+    if (row >= 0 && row < gameState.rows && col >= 0 && col < gameState.cols) {
+        // console.log(`Click maps to R: ${row}, C: ${col}`); // DEBUG
+        return { r: row, c: col };
+    }
+
+    console.log("Click outside grid bounds."); // DEBUG
+    return { r: -1, c: -1 };
 };
 
-// Note: The duplicated listeners below were removed as they were redundant with the setupChat function.
-// The setupChat function correctly assigns the listeners now.
 
-// Removed misplaced closing brace.
+function updateScoreDisplay() {
+    // Get elements each time to ensure they are current
+    const score1Elem = document.getElementById('player1-score');
+    const score2Elem = document.getElementById('player2-score');
     const player1NameElem = document.getElementById('player1-name');
     const player2NameElem = document.getElementById('player2-name');
     const player1ColorSwatch = document.getElementById('player1-color-swatch');
@@ -594,21 +645,26 @@ function getHexCoords(event) {
     const player1Container = document.getElementById('player1-score-container');
     const player2Container = document.getElementById('player2-score-container');
 
-    if (score1Elem && gameState) score1Elem.textContent = gameState.playerScores[0];
-    if (score2Elem && gameState) score2Elem.textContent = gameState.playerScores[1];
+    if (!gameState) {
+        console.warn("updateScoreDisplay: gameState not available."); // DEBUG
+        return;
+    }
 
-    const name1 = gameState?.playerNames[0] || "Player 1";
-    const name2 = gameState?.playerNames[1] || "Player 2";
+    if (score1Elem) score1Elem.textContent = gameState.playerScores[0];
+    if (score2Elem) score2Elem.textContent = gameState.playerScores[1];
+
+    const name1 = gameState.playerNames[0] || "Player 1";
+    const name2 = gameState.playerNames[1] || "Player 2";
     if (player1NameElem) player1NameElem.textContent = name1;
     if (player2NameElem) player2NameElem.textContent = name2;
 
-    const color1 = gameState?.playerColors[0] || '#FF0000';
-    const color2 = gameState?.playerColors[1] || '#0000FF';
+    const color1 = gameState.playerColors[0] || '#FF0000';
+    const color2 = gameState.playerColors[1] || '#0000FF';
     if (player1ColorSwatch) player1ColorSwatch.style.backgroundColor = color1;
     if (player2ColorSwatch) player2ColorSwatch.style.backgroundColor = color2;
 
     // Highlight current player
-    if (player1Container && player2Container && gameState && !gameState.isGameOver) {
+    if (player1Container && player2Container && !gameState.isGameOver) {
         if (gameState.currentPlayerIndex === 0) {
             player1Container.classList.add('current-turn');
             player2Container.classList.remove('current-turn');
@@ -629,7 +685,7 @@ function updateTurnIndicator() {
     if (!messageElem || !gameState) return;
 
     if (gameState.isGameOver) {
-        messageElem.textContent = gameState.determineWinner();
+        messageElem.textContent = gameState.determineWinner(); // Get winner message
         messageElem.className = 'message game-over';
     } else {
         const currentPlayerName = gameState.playerNames[gameState.currentPlayerIndex];
@@ -645,7 +701,10 @@ function updatePowerUpDisplay() {
         document.getElementById('player2-powerups')
     ];
 
-    if (!gameState || !playerInventories[0] || !playerInventories[1]) return;
+    if (!gameState || !playerInventories[0] || !playerInventories[1]) {
+         console.warn("updatePowerUpDisplay: Missing gameState or inventory elements."); // DEBUG
+         return;
+    }
 
 
     for (let i = 0; i < 2; i++) {
@@ -663,8 +722,12 @@ function updatePowerUpDisplay() {
             powerUpSlot.classList.add('powerup-slot');
             powerUpSlot.dataset.powerup = powerUpType;
 
-            // Make clickable only if it's the current player's inventory and they have the power-up
-            const isClickable = (gameMode === 'local' || i === playerNumber) && count > 0 && isMyTurn;
+            // Determine if the power-up is clickable
+             const playerIndexToCheck = i; // 0 for player 1, 1 for player 2 inventory
+             const isCurrentPlayerInventory = (gameMode === 'local' && gameState.currentPlayerIndex === playerIndexToCheck) ||
+                                              (gameMode !== 'local' && playerNumber === playerIndexToCheck);
+             const isClickable = isCurrentPlayerInventory && count > 0 && isMyTurn && !gameState.isGameOver;
+
 
             if (isClickable) {
                  powerUpSlot.classList.add('active');
@@ -676,11 +739,12 @@ function updatePowerUpDisplay() {
             // Add visual representation (e.g., icon or text)
             const icon = document.createElement('span');
             icon.classList.add('powerup-icon');
-            // Simple text representation for now
-            icon.textContent = powerUpType.substring(0, 1).toUpperCase();
-            if (powerUpType === 'shield') icon.textContent = 'S';
-            if (powerUpType === 'steal') icon.textContent = 'T';
-            if (powerUpType === 'bomb') icon.textContent = 'B';
+            // Simple text representation
+            let iconText = '?';
+            if (powerUpType === 'shield') iconText = '🛡️';
+            if (powerUpType === 'steal') iconText = '✋';
+            if (powerUpType === 'bomb') iconText = '💣';
+            icon.textContent = iconText;
             powerUpSlot.appendChild(icon);
 
 
@@ -692,8 +756,9 @@ function updatePowerUpDisplay() {
                 powerUpSlot.appendChild(countBubble);
             }
 
-             // Highlight if selected
-            if (selectedPowerUp === powerUpType && i === playerNumber) {
+             // Highlight if selected (only if it's the current player's selection)
+             const isSelected = selectedPowerUp === powerUpType && isCurrentPlayerInventory;
+            if (isSelected) {
                 powerUpSlot.classList.add('selected');
             }
 
@@ -705,152 +770,170 @@ function updatePowerUpDisplay() {
 
 
 function updateLandmineInfo() {
-    const landmineInfo = document.getElementById('landmine-info');
-    if (landmineInfo && gameState) {
+    const landmineInfoElem = document.getElementById('landmine-info'); // Corrected variable name
+    if (landmineInfoElem && gameState) {
         const activeMines = gameState.landmines.size - gameState.revealedMines.size;
-         // Only show if playing online and it's opponent's turn OR if local mode
+         // Only show count if playing locally OR if playing online and it's NOT my turn (info about opponent)
          if (gameMode === 'local' || (gameMode !== 'local' && !isMyTurn)) {
-             landmineInfo.textContent = `Active Mines: ${activeMines}`;
-             landmineInfo.style.display = activeMines > 0 ? 'block' : 'none';
+             landmineInfoElem.textContent = `Active Mines: ${activeMines}`;
+             landmineInfoElem.style.display = activeMines > 0 ? 'block' : 'none';
          } else {
-             landmineInfo.style.display = 'none'; // Hide from current player in online mode
+             landmineInfoElem.style.display = 'none'; // Hide from current player in online mode
          }
     }
 }
 
 
 function updateMessage(msg, isError = false) {
-    const messageElem = document.getElementById('message');
+    const messageElem = document.getElementById('message'); // Use correct variable
     if (messageElem) {
         messageElem.textContent = msg;
         if (isError) {
              messageElem.className = 'message error';
              playSound('error');
         } else {
-             // Reset to default turn indicator styling if needed
-             updateTurnIndicator();
+             // Reset to default turn indicator styling if needed, or just keep it simple
+             messageElem.className = 'message info'; // Use a generic info class
+             // updateTurnIndicator(); // Don't overwrite if it's a specific message
         }
     }
 }
 
+// Enhanced toggleControls
 function toggleControls(enabled) {
      // Disable/enable color palette buttons
     const colorButtons = document.querySelectorAll('#color-palette .color-button');
     colorButtons.forEach(button => {
-        button.disabled = !enabled; // Set disabled attribute
-        // Add/remove a class on the parent swatch if your CSS uses it
         const parentSwatch = button.closest('.color-swatch');
-        if (parentSwatch) {
-            if (enabled) {
-                parentSwatch.classList.remove('disabled');
-                // Re-attach onclick if it was removed, or rely on initial attachment
-                 button.onclick = () => handleColorSelection(button.dataset.color);
-            } else {
-                parentSwatch.classList.add('disabled');
-                 button.onclick = null; // Remove listener when disabled
-            }
+        if (!enabled || gameState.isGameOver) {
+             button.disabled = true; // Set disabled attribute
+             if (parentSwatch) parentSwatch.classList.add('disabled');
+             button.onclick = null; // Remove listener
+        } else {
+             button.disabled = false;
+             if (parentSwatch) parentSwatch.classList.remove('disabled');
+              // Ensure onclick is correctly set or re-set
+              const color = button.dataset.color;
+              if (color) button.onclick = () => handleColorSelection(color);
         }
     });
 
-     // Disable/enable power-up slots (handled within updatePowerUpDisplay)
+     // Disable/enable power-up slots (updatePowerUpDisplay handles internal logic)
      updatePowerUpDisplay();
 
-     // Disable/enable canvas interaction (optional, prevents hover effects etc.)
-     // canvas.style.pointerEvents = enabled ? 'auto' : 'none';
+     // Disable/enable canvas interaction by adding/removing a class
+     if (canvas) {
+         if (!enabled || gameState.isGameOver) {
+             canvas.classList.add('disabled'); // Add class to style cursor etc.
+         } else {
+             canvas.classList.remove('disabled');
+         }
+     }
 }
 
 function showSetupScreen() {
-    document.getElementById('setup-container').style.display = 'flex';
-    document.getElementById('game-area').style.display = 'none';
-    document.getElementById('score-container').style.display = 'none';
-    document.getElementById('color-palette').style.display = 'none';
-    document.getElementById('game-controls').style.display = 'none'; // Includes power-ups, messages etc.
-     document.getElementById('chat-container').style.display = 'none';
-     document.getElementById('toggle-chat').style.display = 'none';
-     document.getElementById('challenge-info').style.display = 'none';
+    console.log("showSetupScreen - START"); // DEBUG
+    if (setupContainer) setupContainer.style.display = 'flex';
+    if (gameScreen) gameScreen.style.display = 'none';
+    if (scoreContainer) scoreContainer.style.display = 'none';
+    if (colorSwatchesContainer) colorSwatchesContainer.style.display = 'none';
+    if (gameControls) gameControls.style.display = 'none'; // Includes power-ups, messages etc.
+    if (chatContainer) chatContainer.style.display = 'none';
+    if (toggleChatButton) toggleChatButton.style.display = 'none';
+    if (challengeInfo) challengeInfo.style.display = 'none'; // Ensure challenge info is hidden too
+    // Reset status message on setup screen
+     if (setupMessageElement) setupMessageElement.textContent = '';
+     console.log("showSetupScreen - END"); // DEBUG
 }
 
 function showGameScreen() {
-    document.getElementById('setup-container').style.display = 'none';
-    document.getElementById('game-area').style.display = 'flex'; // Use flex for canvas centering
-    document.getElementById('score-container').style.display = 'flex'; // Use flex for layout
-    document.getElementById('color-palette').style.display = 'block';
-    document.getElementById('game-controls').style.display = 'block';
-     // Show chat only in online mode
+    console.log("showGameScreen - START"); // DEBUG
+    if (setupContainer) setupContainer.style.display = 'none';
+    if (gameScreen) gameScreen.style.display = 'flex'; // Use flex for canvas centering
+    if (scoreContainer) scoreContainer.style.display = 'flex'; // Use flex for layout
+    if (colorSwatchesContainer) colorSwatchesContainer.style.display = 'block';
+    if (gameControls) gameControls.style.display = 'block'; // Show game controls container
+
+    const challengeInfo = document.getElementById('challenge-info'); // Get element locally
+
+     // Show chat and challenge info only in online mode
     if (gameMode !== 'local') {
-         document.getElementById('chat-container').style.display = 'flex'; // Or 'block' based on your CSS
-         document.getElementById('toggle-chat').style.display = 'block';
-         document.getElementById('challenge-info').style.display = 'block'; // Show Game ID
-         document.getElementById('game-id-display').textContent = gameId || 'N/A';
+         if (chatContainer) chatContainer.style.display = 'flex'; // Or 'block' based on your CSS
+         if (toggleChatButton) toggleChatButton.style.display = 'block';
+         if (challengeInfo) challengeInfo.style.display = 'block'; // Show Game ID area
+         if (gameIdDisplay) gameIdDisplay.textContent = gameId || 'N/A';
     } else {
-        document.getElementById('chat-container').style.display = 'none';
-        document.getElementById('toggle-chat').style.display = 'none';
-         document.getElementById('challenge-info').style.display = 'none';
+        if (chatContainer) chatContainer.style.display = 'none';
+        if (toggleChatButton) toggleChatButton.style.display = 'none';
+         if (challengeInfo) challengeInfo.style.display = 'none';
     }
+     console.log("showGameScreen - END"); // DEBUG
 }
 
 
 // --- Event Handlers ---
 
 function handleCanvasClick(event) {
-    if (!gameState || gameState.isGameOver || !isMyTurn) return;
+     // Add checks for canvas disabled class
+    if (!gameState || gameState.isGameOver || !isMyTurn || canvas.classList.contains('disabled')) {
+        console.log("handleCanvasClick: Click ignored (game over, not my turn, or disabled)."); // DEBUG
+        return;
+    }
 
     const { r, c } = getHexCoords(event);
-    if (r === -1 || c === -1) return; // Click outside valid hex area
+    if (r === -1 || c === -1) {
+        console.log("handleCanvasClick: Click outside valid hex area."); // DEBUG
+        return; // Click outside valid hex area
+    }
 
-    const tile = gameState.getTile(r,c);
+    const tile = gameState.getTile(r,c); // Get tile state *before* action
 
     // If a power-up is selected, try to use it
     if (selectedPowerUp) {
-        console.log(`Attempting to use ${selectedPowerUp} on tile ${r},${c}`);
+        console.log(`handleCanvasClick: Attempting to use ${selectedPowerUp} on tile ${r},${c}`); // DEBUG
          const playerIndexToUse = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
 
         // Send power-up move to server or handle locally
         if (gameMode !== 'local') {
-             window.sendMove({ type: 'powerup', powerUpType: selectedPowerUp, r, c, playerIndex: playerIndexToUse });
-             // Optimistic UI update (optional, server state is source of truth)
-             // gameState.usePowerUp(playerIndexToUse, selectedPowerUp, r, c); // Simulate locally
-             // renderGameBoard(); // Re-render after simulation
+             window.multiplayer.sendMove({ type: 'powerup', powerUpType: selectedPowerUp, r, c, playerIndex: playerIndexToUse });
+             // No optimistic update here, wait for server 'game-state'
         } else {
              const result = gameState.usePowerUp(playerIndexToUse, selectedPowerUp, r, c);
              if (result.used) {
                  updateMessage(result.message);
                  // Power-up use doesn't switch turn in this logic
-                 // renderGameBoard(); // Already rendered in usePowerUp? Check logic
              } else {
-                 updateMessage(result.error, true);
+                 updateMessage(result.error || "Failed to use power-up.", true);
              }
+             renderGameBoard(); // Re-render after local action
         }
 
         // Deselect power-up after attempting use
         selectedPowerUp = null;
         updatePowerUpDisplay(); // Update UI to remove selection highlight
-        renderGameBoard(); // Re-render to show results/clear highlights
 
     }
     // If a color is selected, try to place a tile
     else if (selectedColor) {
-         console.log(`Attempting to place tile at ${r},${c} with color ${selectedColor}`);
+         console.log(`handleCanvasClick: Attempting to place tile at ${r},${c}`); // DEBUG
          const playerIndexToPlace = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
-         const colorToPlace = gameState.playerColors[playerIndexToPlace]; // Use the player's assigned color
+         // Use the player's assigned color, not the selected swatch color directly
+         const colorToPlace = gameState.playerColors[playerIndexToPlace];
 
          // Send color move to server or handle locally
          if (gameMode !== 'local') {
-             window.sendMove({ type: 'color', r, c, playerIndex: playerIndexToPlace, color: colorToPlace });
-             // Optimistic UI update (optional, server is source of truth)
-             // gameState.placeTile(r, c, playerIndexToPlace, colorToPlace); // Simulate locally
-             // gameState.switchTurn(); // Simulate turn switch
-             // renderGameBoard(); // Re-render
+             window.multiplayer.sendMove({ type: 'color', r, c, playerIndex: playerIndexToPlace, color: colorToPlace });
+              // No optimistic update here, wait for server 'game-state'
          } else {
              const result = gameState.placeTile(r, c, playerIndexToPlace, colorToPlace);
              if (result.placed) {
                  if (result.awardedPowerUp) {
                     updateMessage(`Placed tile and found a ${result.awardedPowerUp}!`);
                  } else {
-                    updateMessage(`Placed tile at ${r},${c}.`);
+                    // updateMessage(`Placed tile at ${r},${c}.`); // Keep message minimal
                  }
                  if (!gameState.isGameOver) {
-                    gameState.switchTurn();
+                    gameState.switchTurn(); // Only switch turn locally if placement successful
                  }
              } else if (result.hitMine) {
                  updateMessage(`You hit a mine at ${r},${c}! Turn lost.`, true);
@@ -858,51 +941,53 @@ function handleCanvasClick(event) {
                     gameState.switchTurn(); // Turn lost due to mine
                   }
              } else {
-                 // Invalid placement message handled within placeTile or here
-                 updateMessage("Invalid placement.", true);
+                 // Invalid placement message
+                 updateMessage(result.error || "Invalid placement.", true);
              }
+              renderGameBoard(); // Re-render after local action
          }
-         renderGameBoard(); // Re-render after local action or server update expectation
     }
     else {
-        console.log("No color or power-up selected.");
-        // Provide feedback?
+        console.log("handleCanvasClick: No color or power-up selected."); // DEBUG
         updateMessage("Select a color or power-up first.", true);
     }
 }
 
 function handleCanvasMouseMove(event) {
-    // Optional: Implement hover effects
-    // Example: Highlight hex under cursor
-    // const { r, c } = getHexCoords(event);
-    // renderGameBoard(); // Re-render base board
-    // if (r !== -1 && c !== -1) {
-    //    drawHexagon(r, c, 'rgba(255, 255, 255, 0.3)'); // Draw highlight overlay
-    // }
+    // Implement hover effects if desired (consider performance)
 }
 
 
 function handleColorSelection(color) {
-    if (!isMyTurn || gameState.isGameOver) return;
-    console.log("Color selected:", color);
-    selectedColor = color;
+     if (!isMyTurn || gameState.isGameOver || canvas.classList.contains('disabled')) {
+          console.log("handleColorSelection: Ignored (not my turn, game over, or disabled)."); // DEBUG
+          return;
+     }
+    console.log("Color selected:", color); // DEBUG
+    // We don't actually need to store selectedColor if we always use the player's turn color
+    // selectedColor = color; // Keep for UI feedback?
     selectedPowerUp = null; // Deselect any active power-up
 
      // Update UI to show selected color
      const swatches = document.querySelectorAll('.color-swatch');
      swatches.forEach(swatch => {
-         if (swatch.dataset.color === color) {
+         // Highlight the swatch matching the current player's color
+         const playerIndex = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
+         if (gameState.playerColors[playerIndex] === swatch.dataset.color) { // Check against player's actual color
              swatch.classList.add('selected');
          } else {
              swatch.classList.remove('selected');
          }
      });
      updatePowerUpDisplay(); // Deselect power-up UI
-     updateMessage("Color selected. Click on the board to place a tile.");
+     updateMessage("Click on the board to place a tile.");
 }
 
 function handlePowerUpSelection(powerUpType) {
-     if (!isMyTurn || gameState.isGameOver) return;
+      if (!isMyTurn || gameState.isGameOver || canvas.classList.contains('disabled')) {
+           console.log("handlePowerUpSelection: Ignored (not my turn, game over, or disabled)."); // DEBUG
+           return;
+      }
 
      // Check if player actually has this power-up
      const playerIndex = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
@@ -912,22 +997,29 @@ function handlePowerUpSelection(powerUpType) {
      }
 
 
-    console.log("Power-up selected:", powerUpType);
-    selectedPowerUp = powerUpType;
-    selectedColor = null; // Deselect color
+    console.log("Power-up selected:", powerUpType); // DEBUG
+    // Toggle selection: If clicking the same power-up again, deselect it.
+    if (selectedPowerUp === powerUpType) {
+         selectedPowerUp = null;
+         updateMessage("Power-up deselected.");
+    } else {
+         selectedPowerUp = powerUpType;
+         updateMessage(`Power-up ${powerUpType} selected. Click on a target tile.`);
+    }
+    // selectedColor = null; // Deselect color logic is implicitly handled
 
      // Update UI
      updatePowerUpDisplay(); // Handles highlighting selected power-up
       const swatches = document.querySelectorAll('.color-swatch');
       swatches.forEach(swatch => swatch.classList.remove('selected')); // Deselect colors
-      updateMessage(`Power-up ${powerUpType} selected. Click on a target tile.`);
+
 }
 
 
 // --- Game Initialization and State Sync ---
 
 function initializeGame(localPlayerName = "Player 1", opponentName = "Player 2", p1Color = '#FF0000', p2Color = '#0000FF') {
-    console.log(`Initializing ${gameMode} game - START initializeGame.`);
+    console.log(`DEBUG: initializeGame - START. Mode: ${gameMode}`);
     gameState = new GameState(); // Create a fresh state
     gameState.playerNames = [localPlayerName, opponentName];
     gameState.playerColors = [p1Color, p2Color];
@@ -935,23 +1027,26 @@ function initializeGame(localPlayerName = "Player 1", opponentName = "Player 2",
     selectedPowerUp = null;
 
     if (gameMode === 'local') {
-        playerName = localPlayerName; // For local games, player 1 perspective
+        playerName = localPlayerName; // Set global name for local P1
         playerNumber = 0; // Treat local player as player 0
         isMyTurn = true; // Local game starts with player 1
-        // Set initial starting squares randomly for local game
-        setupInitialTilesLocal();
+        setupInitialTilesLocal(); // Set initial starting squares randomly for local game
     } else {
-        // For online games, names and colors are set by server/syncGameState
-        // playerNumber and isMyTurn are also set by server data
+        // For online games, names/colors are set by server/syncGameState or initializeOnlineGame
+        // playerNumber is set by server
+        // isMyTurn is determined by server state
         // Do not set starting squares here, wait for server state
+         isMyTurn = false; // Assume not my turn initially online until confirmed by server
+         console.log("DEBUG: initializeGame - Online mode, waiting for server state.");
     }
 
-    renderGameBoard();
     showGameScreen(); // Ensure game screen is visible
-    toggleControls(isMyTurn); // Enable/disable controls based on turn
+    renderGameBoard(); // Render initial board state
+    toggleControls(isMyTurn); // Enable/disable controls based on initial turn
 
      // Add initial resize call after first render
      resizeGame();
+     console.log(`DEBUG: initializeGame - END.`);
 }
 
 // Called specifically for local games to place starting tiles
@@ -960,25 +1055,44 @@ function setupInitialTilesLocal() {
 
     const placeRandomStart = (playerIndex) => {
         let placed = false;
-        while (!placed) {
+        let attempts = 0; // Prevent infinite loop
+        while (!placed && attempts < 100) {
             const r = Math.floor(Math.random() * gameState.rows);
             const c = Math.floor(Math.random() * gameState.cols);
             const tile = gameState.getTile(r, c);
-            // Ensure it's not too close to the other player's start? (Simple check: different quadrant)
-            let farEnough = true;
-            if (playerIndex === 1 && gameState.board.some(row => row.some(t => t.isStartingTile))) {
-                 // Basic check: Avoid same column/row for simplicity, needs improvement for hex grid distance
-                 farEnough = !gameState.board[r].some(t => t.isStartingTile) && !gameState.board.some(row => row[c]?.isStartingTile);
-            }
 
-            if (tile && tile.owner === -1 && farEnough) {
-                tile.owner = playerIndex;
-                tile.color = gameState.playerColors[playerIndex];
-                tile.isStartingTile = true;
-                placed = true;
-                console.log(`Player ${playerIndex + 1} starting tile placed at ${r},${c}`);
+            // Ensure tile exists and is unowned
+            if (tile && tile.owner === -1) {
+                 // Basic check: Avoid placing directly on top of other start tile (if P1 already placed)
+                 let farEnough = true;
+                 if (playerIndex === 1 && gameState.board.some(row => row.some(t => t.isStartingTile && t.owner === 0))) {
+                     // Add a more robust distance check if needed
+                     const startTileP0 = gameState.board.flat().find(t => t.isStartingTile && t.owner === 0);
+                     // Basic Manhattan distance check on offset coords (not perfect for hex)
+                     if (startTileP0) {
+                        // Find coords of P0 start tile
+                        let p0_r, p0_c;
+                        outer: for(p0_r = 0; p0_r < gameState.rows; p0_r++){
+                           for(p0_c = 0; p0_c < gameState.cols; p0_c++){
+                              if(gameState.board[p0_r][p0_c] === startTileP0) break outer;
+                           }
+                        }
+                        const dist = Math.abs(r - p0_r) + Math.abs(c - p0_c);
+                        if (dist < 4) farEnough = false; // Ensure minimum distance
+                     }
+                 }
+
+                if (farEnough) {
+                    tile.owner = playerIndex;
+                    tile.color = gameState.playerColors[playerIndex];
+                    tile.isStartingTile = true;
+                    placed = true;
+                    console.log(`DEBUG: Player ${playerIndex + 1} starting tile placed at ${r},${c}`);
+                }
             }
+            attempts++;
         }
+         if (!placed) console.error(`Could not place starting tile for player ${playerIndex + 1} after ${attempts} attempts.`);
     };
 
     placeRandomStart(0);
@@ -992,182 +1106,183 @@ function setupInitialTilesLocal() {
 
 // Called by multiplayer.js when receiving game state from server
 window.syncGameState = function(serverState) {
-    console.log("Syncing game state from server... - START syncGameState");
+    console.log("DEBUG: syncGameState - START");
      if (!gameState) {
-         console.log("No local gameState found, creating new one for sync.");
-         // This case should ideally be handled by initializeOnlineGame first
-         // If we reach here, it might mean joining mid-game or reconnecting
+         console.error("DEBUG: syncGameState called but no local gameState exists! Attempting recovery.");
+         // Attempt to initialize a basic state if needed, dimensions might be wrong
          gameState = new GameState(serverState.rows, serverState.cols);
      }
 
-     // Update local state with server data
-     gameState.rows = serverState.rows;
-     gameState.cols = serverState.cols;
-     gameState.board = serverState.board;
-     gameState.playerScores = serverState.playerScores;
-     gameState.playerNames = serverState.playerNames; // Crucial for display
-     gameState.playerColors = serverState.playerColors; // Crucial for display
-     gameState.currentPlayerIndex = serverState.currentPlayerIndex;
-     gameState.isGameOver = serverState.isGameOver;
-     gameState.powerUpInventory = serverState.powerUpInventory;
-     gameState.landmines = new Set(serverState.landmines);
-     gameState.revealedMines = new Set(serverState.revealedMines);
-     gameState.protectedTiles = new Map(serverState.protectedTiles);
-     gameState.turnNumber = serverState.turnNumber;
+     // Update local state with server data using deserialize
+     // We trust the server sends a complete, valid serialized state
+     gameState.deserialize(JSON.stringify(serverState)); // Use deserialize to handle structure and types
 
      // Determine if it's my turn based on server state and local playerNumber
      isMyTurn = !gameState.isGameOver && (gameState.currentPlayerIndex === playerNumber);
-     console.log(`Synced. Player Number: ${playerNumber}, Current Player Index: ${gameState.currentPlayerIndex}, Is My Turn: ${isMyTurn}`);
+     console.log(`DEBUG: Synced. Player Number: ${playerNumber}, Server Current Player: ${gameState.currentPlayerIndex}, Is My Turn: ${isMyTurn}`);
 
      // Ensure game screen is visible and render
      showGameScreen();
      renderGameBoard();
      toggleControls(isMyTurn); // Enable/disable controls based on turn
-     updateMessage("Game state updated."); // Or use turn indicator
+     // updateMessage("Game state updated."); // Use turn indicator update instead
+     updateTurnIndicator(); // Ensure turn indicator is correct
+     console.log("DEBUG: syncGameState - END");
 }
 
-// Called by multiplayer.js when the server confirms game setup
-window.initializeOnlineGame = function(setupData) {
-     console.log("Initializing online game with data: - START initializeOnlineGame", setupData);
-     gameId = setupData.gameId;
-     playerNumber = setupData.playerNumber; // Server tells us if we are 0 or 1
-     playerName = setupData.playerName; // Our name
-     const opponentName = setupData.opponentName || (playerNumber === 0 ? "Player 2" : "Player 1"); // Opponent's name
-
+// Called by multiplayer.js when the server confirms game setup (AFTER both players joined and host sent initial state)
+window.initializeOnlineGame = function(initGameId, assignedPlayerNumber, playerNamesList, playerColorsList, initialGameStateData) {
+     console.log("DEBUG: initializeOnlineGame - START", { initGameId, assignedPlayerNumber, playerNamesList, playerColorsList });
+     gameId = initGameId;
+     playerNumber = assignedPlayerNumber; // Server tells us if we are 0 or 1
+     playerName = playerNamesList[playerNumber]; // Our name from the server list
      gameMode = playerNumber === 0 ? 'online-host' : 'online-client';
 
-     console.log(`Received Game ID: ${gameId}, Player Number: ${playerNumber}`);
+     console.log(`DEBUG: Online game start. Game ID: ${gameId}, Player Number: ${playerNumber}, Name: ${playerName}`);
 
-     // Create the initial game state shell - board data will come via syncGameState
-     gameState = new GameState(setupData.rows, setupData.cols); // Use dimensions from server
-     gameState.playerNames = (playerNumber === 0) ? [playerName, opponentName] : [opponentName, playerName];
-     gameState.playerColors = setupData.playerColors || ['#FF0000', '#0000FF']; // Use colors from server
+     // Create the initial game state using the dimensions from the server state
+     gameState = new GameState(initialGameStateData.rows, initialGameStateData.cols);
+     // Immediately deserialize the initial state provided by the server
+     gameState.deserialize(JSON.stringify(initialGameStateData));
 
-     // The rest of the state (board, scores, turn) will be set by the first syncGameState call
-     isMyTurn = setupData.currentPlayerIndex === playerNumber && !setupData.isGameOver; // Initial turn check
+     // Override names/colors from server lists if they differ (shouldn't normally)
+     gameState.playerNames = playerNamesList;
+     gameState.playerColors = playerColorsList;
+
+     isMyTurn = !gameState.isGameOver && (gameState.currentPlayerIndex === playerNumber); // Initial turn check based on server state
 
      showGameScreen(); // Ensure game UI is visible
-     renderGameBoard(); // Render the initial empty board (or whatever state was sent)
+     renderGameBoard(); // Render the initial board state from server
      toggleControls(isMyTurn);
-     updateMessage(`Game started! You are ${gameState.playerNames[playerNumber]}. Waiting for first state sync...`);
+     updateMessage(`Game started! You are ${playerName}.`);
+     updateTurnIndicator(); // Show whose turn it is
 
-     // If player 1 (host), they might need to send the initial board state
-     // This logic might be better handled server-side (server sends initial state to both)
-     // Let's assume server sends the initial state via syncGameState after setup.
+     console.log("DEBUG: initializeOnlineGame - END");
 }
 
-window.handleGameOver = function(data) {
-    console.log("Received game over from server:", data);
+window.handleGameOver = function(gameOverMessage) {
+    console.log("DEBUG: handleGameOver - START", gameOverMessage);
     if (gameState) {
         gameState.isGameOver = true;
-        // Update scores one last time from server data if available
-        if (data.scores) gameState.playerScores = data.scores;
-        renderGameBoard(); // Re-render to show final state
-        updateMessage(data.winnerMessage || gameState.determineWinner()); // Use server message or local calculation
+        // Scores should be final from last sync or included in message data?
+        renderGameBoard(); // Re-render to show final state if needed
+        updateMessage(gameOverMessage || gameState.determineWinner()); // Use server message or local calculation
         toggleControls(false); // Disable all controls
     }
+     console.log("DEBUG: handleGameOver - END");
 }
 
-window.handlePlayerDisconnected = function(disconnectData) {
-     console.log("Opponent disconnected:", disconnectData);
-     updateMessage(`${disconnectData.playerName} disconnected. Game cannot continue.`, true);
-     if (gameState) {
-         gameState.isGameOver = true; // Mark game as over
-     }
-     toggleControls(false); // Disable controls
-     // Optionally implement a "rematch" or "return to lobby" button
-};
-
-// --- Multiplayer Communication Helpers (Called by multiplayer.js) ---
-
-// Called when server confirms game creation or joining
-window.setGameInfo = function(receivedGameId, assignedPlayerNumber, opponentPlayerName = null) {
-    console.log(`Setting Game Info - ID: ${receivedGameId}, PlayerNum: ${assignedPlayerNumber}, Opponent: ${opponentPlayerName}`);
-    gameId = receivedGameId;
-    playerNumber = assignedPlayerNumber;
-    gameMode = (playerNumber === 0) ? 'online-host' : 'online-client';
-
-    // Update UI immediately
-    const gameIdDisplay = document.getElementById('game-id-display');
-    if (gameIdDisplay) gameIdDisplay.textContent = gameId;
-    const challengeInfo = document.getElementById('challenge-info');
-    if (challengeInfo) challengeInfo.style.display = 'block'; // Show game ID area
-
-    // If Player 1 (host), now needs to initialize board and send state
-    if (playerNumber === 0) {
-        // Setup local state *first*
-        initializeGame(playerName, "Waiting...", '#FF0000', '#0000FF'); // Initialize with placeholder opponent
-        setupInitialTilesLocal(); // Place starting tiles *locally*
-        renderGameBoard(); // Render the board with starting tiles
-        console.log('Player 1 local setup complete. Sending initial state to server...');
-        // Now send the initial state to the server
-        window.multiplayer.sendInitialGameState(gameId, gameState.serialize()); // Send serialized state
-    } else {
-        // Player 2 just updates names if opponent name is known
-        if (gameState && opponentPlayerName) {
-            gameState.playerNames[0] = opponentPlayerName; // Player 0 is opponent
-             gameState.playerNames[1] = playerName; // Player 1 is us
-             updateScoreDisplay();
-        }
-    }
-};
-
-// Called when opponent info is updated (e.g., P2 joins, P1 receives name)
-window.setOpponentInfo = function(opponentNum, opponentPlayerName) {
-     console.log(`Setting Opponent Info - Num: ${opponentNum}, Name: ${opponentPlayerName}`);
-    if (gameState && gameState.playerNames[opponentNum]) {
-        gameState.playerNames[opponentNum] = opponentPlayerName;
-        updateScoreDisplay(); // Update names on screen
-    }
-};
-
-// Called by multiplayer.js on connection errors
-window.handleConnectionError = function(errorMessage) {
-    console.error("Connection Error Handler:", errorMessage);
-    updateMessage(errorMessage, true);
-    // Optionally reset UI to setup screen if connection totally fails
-    // showSetupScreen();
-     const setupMsg = document.getElementById('setup-message');
-     if (setupMsg) setupMsg.textContent = errorMessage;
-     // Reset state?
-     gameMode = 'local'; // Revert potential online mode selection
-};
-
-// Called by multiplayer.js on unexpected disconnects
-window.handleUnexpectedDisconnect = function(message) {
-     console.error("Unexpected Disconnect Handler:", message);
-     if (gameState && !gameState.isGameOver) {
-         updateMessage(message, true);
-         gameState.isGameOver = true; // End the game
-         toggleControls(false);
-     }
-};
-
-// Called by multiplayer.js on non-critical server errors
-window.handleGenericServerError = function(message, errorType) {
-     console.error(`Server Error Handler (${errorType}):`, message);
-     updateMessage(message, true); // Show error to user
-};
-
-// Called by multiplayer.js when opponent disconnects mid-game
+// Kept separate from generic disconnect handler
 window.handleOpponentDisconnect = function(message) {
-     console.error("Opponent Disconnect Handler:", message);
+     console.log("DEBUG: handleOpponentDisconnect - START", message);
       if (gameState && !gameState.isGameOver) {
          updateMessage(message, true);
          gameState.isGameOver = true; // End the game
          toggleControls(false);
      }
+      console.log("DEBUG: handleOpponentDisconnect - END");
 };
 
-// Called by multiplayer.js for critical setup errors
+// --- Multiplayer Communication Helpers (Called by multiplayer.js) ---
+
+// Called when server confirms game creation (P1) or joining (P2)
+window.setGameInfo = function(receivedGameId, assignedPlayerNumber, opponentPlayerName = null) {
+    console.log(`DEBUG: setGameInfo - START - ID: ${receivedGameId}, PlayerNum: ${assignedPlayerNumber}, Opponent: ${opponentPlayerName}`);
+    gameId = receivedGameId;
+    playerNumber = assignedPlayerNumber;
+    gameMode = (playerNumber === 0) ? 'online-host' : 'online-client';
+
+    // Update UI immediately
+    if (gameIdDisplay) gameIdDisplay.textContent = gameId;
+    const challengeInfo = document.getElementById('challenge-info'); // Get element locally
+    if (challengeInfo) challengeInfo.style.display = 'block'; // Show game ID area
+
+    if (playerNumber === 0) { // Player 1 (Host)
+        updateMessage(`Game created! Code: ${gameId}. Setting up board...`);
+        // Setup local state *first*
+        initializeGame(playerName, "Waiting...", '#FF0000', '#0000FF'); // Initialize with placeholder opponent
+        setupInitialTilesLocal(); // Place starting tiles *locally*
+        renderGameBoard(); // Render the board with starting tiles
+        console.log('DEBUG: Player 1 local setup complete. Sending initial state to server...');
+        // Now send the initial state to the server via multiplayer module
+        window.multiplayer.sendInitialGameState(gameId, gameState.serialize()); // Send serialized state
+    } else { // Player 2 (Client)
+        updateMessage(`Joined game ${gameId}. Waiting for host to start...`);
+        // Player 2 just updates names if opponent name is known, then waits for 'game-setup'
+        if (!gameState) {
+            // If P2 joins, gameState might not exist yet. Create a basic shell.
+            // Dimensions might be default until first sync.
+             gameState = new GameState();
+             console.log("DEBUG: P2 joined, created placeholder gameState.");
+        }
+        if (opponentPlayerName) {
+            gameState.playerNames[0] = opponentPlayerName; // Player 0 is opponent
+             gameState.playerNames[1] = playerName; // Player 1 is us (since playerNumber=1)
+             updateScoreDisplay();
+        } else {
+            // Set placeholder names if opponent unknown
+            gameState.playerNames[0] = "Player 1";
+            gameState.playerNames[1] = playerName;
+             updateScoreDisplay();
+        }
+        // Ensure game screen is shown while waiting
+        showGameScreen();
+        // Maybe render a placeholder board or message?
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+    }
+    console.log(`DEBUG: setGameInfo - END`);
+};
+
+// Called when opponent info is updated (e.g., P2 joins, P1 receives name)
+window.setOpponentInfo = function(opponentNum, opponentPlayerName) {
+     console.log(`DEBUG: setOpponentInfo - START - Num: ${opponentNum}, Name: ${opponentPlayerName}`);
+    if (gameState && gameState.playerNames[opponentNum] !== undefined) {
+        gameState.playerNames[opponentNum] = opponentPlayerName;
+        updateScoreDisplay(); // Update names on screen
+        // If P1, maybe update message
+        if (playerNumber === 0) {
+            updateMessage(`${opponentPlayerName} joined! Starting game...`);
+        }
+    }
+     console.log(`DEBUG: setOpponentInfo - END`);
+};
+
+// --- Multiplayer Error Handlers (Called by multiplayer.js) ---
+
+window.handleConnectionError = function(errorMessage) {
+    console.error("DEBUG: handleConnectionError:", errorMessage);
+    // Display error on the setup screen message area
+     if (setupMessageElement) setupMessageElement.textContent = `Connection Failed: ${errorMessage}`;
+     showSetupScreen(); // Force back to setup screen on connection failure
+     gameMode = 'local'; // Reset game mode
+};
+
+window.handleUnexpectedDisconnect = function(message) {
+     console.error("DEBUG: handleUnexpectedDisconnect:", message);
+     if (gameState && !gameState.isGameOver) {
+         updateMessage(`Disconnected: ${message}`, true);
+         gameState.isGameOver = true; // End the game
+         toggleControls(false);
+     } else if (!gameState) {
+          // If disconnect happens before game starts
+          if (setupMessageElement) setupMessageElement.textContent = `Disconnected: ${message}`;
+          showSetupScreen();
+     }
+};
+
+window.handleGenericServerError = function(message, errorType) {
+     console.error(`DEBUG: handleGenericServerError (${errorType}):`, message);
+     // Show error, but don't necessarily change UI state unless critical
+     updateMessage(`Server Error: ${message}`, true);
+};
+
 window.handleGameSetupError = function(message) {
-     console.error("Game Setup Error Handler:", message);
-      updateMessage(message, true);
-      toggleControls(false);
-      // Maybe force back to setup screen
-      showSetupScreen();
-       const setupMsg = document.getElementById('setup-message');
-       if (setupMsg) setupMsg.textContent = `Game Setup Failed: ${message}`;
+     console.error("DEBUG: handleGameSetupError:", message);
+      // Display error on setup screen
+       if (setupMessageElement) setupMessageElement.textContent = `Game Setup Failed: ${message}`;
+       showSetupScreen(); // Force back to setup screen
+       toggleControls(false);
+       gameMode = 'local'; // Reset game mode
 };
 
 
@@ -1175,24 +1290,51 @@ window.handleGameSetupError = function(message) {
 
 function getNeighbors(r, c) {
     const neighbors = [];
-    const isOddCol = c % 2 === 1;
+    // Offset coordinates for pointy-top hex grid
+    const neighborOffsets = [
+        [+1, 0], [+1, -1], [ 0, -1], // Even cols: S, SW, NW
+        [-1, 0], [-1, +1], [ 0, +1], // Even cols: N, NE, SE
 
-    // Potential neighbor relative coordinates
-    const neighborCoords = [
-        { dr: -1, dc: 0 }, // Top
-        { dr: 1, dc: 0 },  // Bottom
-        { dr: 0, dc: -1 }, // Left
-        { dr: 0, dc: 1 },  // Right
-        // Diagonal neighbors depend on column parity
-        isOddCol ? { dr: 1, dc: -1 } : { dr: -1, dc: -1 }, // Bottom-Left / Top-Left
-        isOddCol ? { dr: 1, dc: 1 } : { dr: -1, dc: 1 }  // Bottom-Right / Top-Right
+        [+1, 0], [+1, +1], [ 0, +1], // Odd cols: S, SE, NE
+        [-1, 0], [-1, -1], [ 0, -1]  // Odd cols: N, NW, SW
     ];
+    const parity = c & 1; // 0 for even, 1 for odd
+    const offsets = parity === 0 ? neighborOffsets.slice(0, 6) : neighborOffsets.slice(6, 12);
 
-    for (const { dr, dc } of neighborCoords) {
+     // Simplified unified offsets for pointy top, works for both parities:
+     const unifiedOffsets = [
+       [+1, 0], // S
+       [0, -1], // NW
+       [-1,-1 + parity], // N/NW diag (corrects based on parity)
+       [-1, 0], // N
+       [-1,+1 - parity], // N/NE diag (corrects based on parity)
+       [0, +1], // NE
+       // Hmm, the standard 6 neighbors are simpler:
+       // N, S, NE, NW, SE, SW
+       // Adjust NE/NW/SE/SW based on parity
+     ];
+
+     const standardOffsets = [
+       [-1, 0], // N
+       [+1, 0], // S
+       [0, +1], // E-side (+1 col)
+       [0, -1], // W-side (-1 col)
+       // Diagonals depend on parity
+       // If even col (parity 0): NW(-1,-1), NE(-1, +1)
+       // If odd col (parity 1): SW(+1, -1), SE(+1, +1)
+       [parity === 0 ? -1 : +1, -1], // NW / SW
+       [parity === 0 ? -1 : +1, +1]  // NE / SE
+     ];
+
+
+    for (const [dr, dc] of standardOffsets) { // Use standardOffsets
         const nr = r + dr;
         const nc = c + dc;
-        // Check bounds (using gameState dimensions)
+        // Check bounds using gameState dimensions if available
         if (gameState && nr >= 0 && nr < gameState.rows && nc >= 0 && nc < gameState.cols) {
+            neighbors.push({ nr, nc });
+        } else if (!gameState && nr >= 0 && nc >= 0) {
+            // If gameState not ready, perform basic check (used rarely)
             neighbors.push({ nr, nc });
         }
     }
@@ -1224,98 +1366,27 @@ function darkenColor(hexColor, percent) {
 
 
 function resizeGame() {
-     // Simple resize - match canvas to window dimensions or a container
-     // This is basic, might need refinement for aspect ratio etc.
+     // Adjust canvas CSS size to fit container, redraw internal buffer
     const gameArea = document.getElementById('game-area');
     if (canvas && gameArea) {
-         // Let CSS handle the sizing via width/height 100% on canvas/container
-         // We might still need to adjust internal resolution or redraw if needed
-         // canvas.width = gameArea.clientWidth;
-         // canvas.height = gameArea.clientHeight;
-
-        // Re-render after resize
+        // Let CSS handle the display size
+        // Re-rendering handles internal scaling if needed
         renderGameBoard();
-        console.log("Game potentially resized, re-rendering.");
+        console.log("DEBUG: resizeGame triggered, re-rendering.");
     }
 }
 
 
 // --- Chat Functions ---
-function displayChatMessage(sender, message) {
-    const chatMessages = document.getElementById('chat-messages');
-    if (!chatMessages) return;
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('chat-message');
-     // Simple distinction - could be enhanced with CSS classes
-    messageElement.innerHTML = `<span class="chat-sender">${sender === playerName ? 'Me' : sender}:</span> ${message}`;
-    chatMessages.appendChild(messageElement);
-    // Scroll to bottom
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-function setupChat() {
-     // Use globally declared variables, assuming they are assigned in DOMContentLoaded
-     // const chatInput = document.getElementById('chat-input'); // Now global
-     // const sendChatButton = document.getElementById('send-chat'); // Now global
-     // const toggleChatButton = document.getElementById('toggle-chat'); // Now global
-     // const chatContainer = document.getElementById('chat-container'); // Now global
-     const sendChatMessageButton = document.getElementById('send-message'); // Correct ID based on HTML? Check multiplayer.js
-
-     // Use sendChatButton which is now correctly assigned the ID 'send-message'
-      const chatSendHandler = () => {
-          const message = chatInput.value.trim();
-          if (message && gameMode !== 'local') {
-              // Call the exposed multiplayer function
-              window.multiplayer.sendChatMessage(message);
-              // displayChatMessage(playerName, message); // Let server echo back for consistency? Or display immediately?
-              chatInput.value = '';
-          }
-      };
-
-
-      if (sendChatButton && chatInput) { // Check if elements exist (sendChatButton now references 'send-message' ID)
-         sendChatButton.addEventListener('click', chatSendHandler);
-
-         chatInput.addEventListener('keypress', (e) => {
-             if (e.key === 'Enter' && !e.shiftKey) { // Prevent newline on Enter
-                 e.preventDefault(); // Stop default behavior (like newline)
-                 chatSendHandler(); // Call the handler
-             }
-         });
-     } else {
-         console.warn("Chat input or send button not found.");
-     }
-
-
-     if (toggleChatButton && chatContainer) {
-         toggleChatButton.addEventListener('click', () => {
-             // Check visibility using class or style
-              const isVisible = chatContainer.style.display !== 'none'; // Or check classList.contains('hidden')
-              chatContainer.style.display = isVisible ? 'none' : 'flex'; // Or add/remove 'hidden' class
-              toggleChatButton.textContent = isVisible ? 'Show Chat' : 'Hide Chat';
-         });
-          // Initially hide chat? Or based on gameMode?
-          if (gameMode === 'local' || !chatContainer) { // Check if chatContainer exists
-              if (chatContainer) chatContainer.style.display = 'none';
-              if (toggleChatButton) toggleChatButton.style.display = 'none';
-          } else {
-             chatContainer.style.display = 'flex'; // Show by default for online
-             toggleChatButton.style.display = 'block';
-          }
-     } else {
-          console.warn("Chat container or toggle button not found.");
-     }
-}
-
-// Update displayChatMessage to accept data object from server/local echo
+// Simplified displayChatMessage - relies on addChatMessage for logic
 function displayChatMessage(senderName, messageText, options = {}) {
     const chatMessages = document.getElementById('chat-messages');
     if (!chatMessages) return;
     const messageElement = document.createElement('div');
     messageElement.classList.add('chat-message');
 
-    const isMine = options.isMine || (senderName === playerName); // Determine if it's the local player's message
-    const isSystem = options.isSystem || (senderName === 'System');
+    const isMine = options.isMine;
+    const isSystem = options.isSystem;
 
     messageElement.classList.add(isSystem ? 'system-message' : (isMine ? 'my-message' : 'other-message'));
     if (options.isTaunt) messageElement.classList.add('taunt-message');
@@ -1323,7 +1394,7 @@ function displayChatMessage(senderName, messageText, options = {}) {
 
     if (!isSystem) {
         const nameSpan = document.createElement('div'); nameSpan.className = 'sender-name';
-        nameSpan.textContent = senderName; // Display the sender's name
+        nameSpan.textContent = senderName + (isMine ? " (You)" : ""); // Add "(You)" if mine
         messageElement.appendChild(nameSpan);
     }
 
@@ -1333,7 +1404,9 @@ function displayChatMessage(senderName, messageText, options = {}) {
 
     const timestampSpan = document.createElement('div'); timestampSpan.className = 'message-timestamp';
     const time = options.timestamp ? new Date(options.timestamp) : new Date();
-    timestampSpan.textContent = `${time.getHours()}:${time.getMinutes().toString().padStart(2, '0')}`;
+    // Ensure getMinutes returns two digits
+    const minutes = time.getMinutes().toString().padStart(2, '0');
+    timestampSpan.textContent = `${time.getHours()}:${minutes}`;
     messageElement.appendChild(timestampSpan);
 
 
@@ -1347,104 +1420,138 @@ function displayChatMessage(senderName, messageText, options = {}) {
 
 // Global hook for multiplayer module to call
 window.addChatMessage = function(data) {
-    // data expected: { playerName: string, playerNumber: int, message: string, isTaunt: bool, isFromServer: bool, timestamp: date }
-     const sender = data.isFromServer ? 'System' : (data.playerName || `Player ${data.playerNumber}`);
-     // Compare server data playerNumber against global playerNumber set on game start
+     // data expected: { playerName?: string, playerNumber: int, message: string, isTaunt: bool, isFromServer: bool, timestamp: date/string }
+     console.log("DEBUG: window.addChatMessage received:", data); // DEBUG
+     const sender = data.isFromServer ? 'System' : (data.playerName || `Player ${data.playerNumber + 1}`); // Use P1/P2 for display
+     // Determine if it's the local player's message
      const isMine = typeof playerNumber !== 'undefined' && data.playerNumber === playerNumber;
      displayChatMessage(sender, data.message, { isMine: isMine, isSystem: data.isFromServer, isTaunt: data.isTaunt, timestamp: data.timestamp });
 };
 
-// Note: The duplicated listeners below were removed as they were redundant with the setupChat function.
-// The setupChat function correctly assigns the listeners now.
 
-} // This closing brace seems out of place, assuming it closes a block earlier - if it causes issues, review the code above it.
-// If this brace closes the setupChat function, it's misplaced. Let's remove it.
-// If it's meant to close something else, that's a larger structural issue. Let's assume it's errant for now.
+function setupChat() {
+     // Use globally declared variables, assuming they are assigned in DOMContentLoaded
+     const chatSendHandler = () => {
+          const message = chatInput.value.trim();
+          if (message && gameMode !== 'local') {
+              // Call the exposed multiplayer function
+              window.multiplayer.sendChatMessage(message);
+              // Don't display locally, wait for server echo via addChatMessage
+              chatInput.value = '';
+          }
+      };
+
+      if (sendChatButton && chatInput) {
+         sendChatButton.addEventListener('click', chatSendHandler);
+         chatInput.addEventListener('keypress', (e) => {
+             if (e.key === 'Enter' && !e.shiftKey) {
+                 e.preventDefault();
+                 chatSendHandler();
+             }
+         });
+     } else {
+         console.warn("Chat input or send button not found during setup."); // DEBUG
+     }
+
+     if (toggleChatButton && chatContainer) {
+         toggleChatButton.addEventListener('click', () => {
+             // Using style.display for toggling
+              const isVisible = chatContainer.style.display !== 'none';
+              chatContainer.style.display = isVisible ? 'none' : 'flex';
+              // toggleChatButton.textContent = isVisible ? 'Show Chat' : 'Hide Chat'; // Icon used instead
+         });
+          // Set initial state based on gameMode
+          if (gameMode === 'local') {
+              chatContainer.style.display = 'none';
+              toggleChatButton.style.display = 'none';
+          } else {
+             // Online: default depends on CSS? Let's ensure it's hidden initially by style attribute in HTML
+             // toggleChatButton should be visible
+             toggleChatButton.style.display = 'block';
+          }
+     } else {
+          console.warn("Chat container or toggle button not found during setup."); // DEBUG
+     }
+}
+
 
 // --- Global Action Functions ---
 window.restartGame = function() {
     if (gameMode !== 'local') {
-        // Ask server to restart
-        console.log("Requesting game restart from server...");
-        window.requestRestartGame(); // Defined in multiplayer.js
+        console.log("DEBUG: Requesting online game restart...");
+        window.multiplayer.requestRestartGame(); // Exists in multiplayer.js
     } else {
-        // Restart local game
-        console.log("Restarting local game...");
-        initializeGame(gameState.playerNames[0], gameState.playerNames[1], gameState.playerColors[0], gameState.playerColors[1]);
+        console.log("DEBUG: Restarting local game...");
+        // Re-initialize with current names/colors if available
+        const p1Name = gameState?.playerNames[0] || "Player 1";
+        const p2Name = gameState?.playerNames[1] || "Player 2";
+        const p1Color = gameState?.playerColors[0] || '#FF0000';
+        const p2Color = gameState?.playerColors[1] || '#0000FF';
+        initializeGame(p1Name, p2Name, p1Color, p2Color);
     }
 };
 
 window.leaveGame = function() {
+     console.log("DEBUG: leaveGame called.");
      if (gameMode !== 'local') {
         // Attempt to notify server if possible, but always reload.
         if (window.multiplayer && typeof window.multiplayer.notifyLeaveGame === 'function') {
+            console.log("DEBUG: Notifying server of leave.");
             window.multiplayer.notifyLeaveGame();
         }
      }
-     // For both local and online, leaving means going back to the start.
+     // For both local and online, leaving means reloading the page to start fresh.
+     console.log("DEBUG: Reloading page.");
      window.location.reload();
 };
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM fully loaded and parsed - STARTING DOMContentLoaded HANDLER.");
+    console.log("DEBUG: DOMContentLoaded - START");
 
     // --- Get DOM Elements ---
+    // Assign values to globally declared variables
     canvas = document.getElementById('gameCanvas');
     if (canvas) {
         ctx = canvas.getContext('2d');
-        if (!ctx) {
-            console.error("Failed to get 2D context!");
-            return; // Exit if context cannot be obtained
-        }
+        if (!ctx) console.error("Failed to get 2D context!");
     } else {
         console.error("Canvas element not found!");
-        return; // Exit if canvas element is not found
+        // If canvas is critical, might want to return or display an error message
     }
 
-    // --- Get UI Element References ---
-     // Use correct IDs from index.html
-    // Assign values to globally declared variables
     setupContainer = document.getElementById('setup-container');
-    playerNameInput = document.getElementById('player-name-input');
+    playerNameInput = document.getElementById('player-name-input'); // Correct ID
     setupMessageElement = document.getElementById('setup-message');
-    localGameButton = document.getElementById('local-game-button');
-    createChallengeButton = document.getElementById('create-challenge-button');
-    joinChallengeButton = document.getElementById('join-challenge-button');
-    gameIdInput = document.getElementById('game-id-input'); // For joining
+    localGameButton = document.getElementById('local-game-button'); // Correct ID
+    createChallengeButton = document.getElementById('create-challenge-button'); // Correct ID
+    joinChallengeButton = document.getElementById('join-challenge-button'); // Correct ID
+    gameIdInput = document.getElementById('game-id-input'); // Correct ID
     leaveGameButton = document.getElementById('leaveGameButton');
     restartGameButton = document.getElementById('restartGameButton');
+    messageElement = document.getElementById('message');
+    gameScreen = document.getElementById('game-area');
+    scoreContainer = document.getElementById('score-container'); // Get score container
+    gameControls = document.getElementById('game-controls'); // Get game controls container
+    challengeInfo = document.getElementById('challenge-info'); // Get challenge info container
+    gameIdDisplay = document.getElementById('game-id-display');
+    player1ScoreElement = document.getElementById('player1-score');
+    player2ScoreElement = document.getElementById('player2-score');
+    colorSwatchesContainer = document.getElementById('color-palette');
+    powerUpSlotsContainer = document.getElementById('powerup-slots'); // If exists
+    landmineInfoElement = document.getElementById('landmine-info');
+    chatInput = document.getElementById('chat-input');
+    chatMessages = document.getElementById('chat-messages');
+    sendChatButton = document.getElementById('send-message'); // Use correct ID
+    toggleChatButton = document.getElementById('toggle-chat');
+    chatContainer = document.getElementById('chat-container');
 
-     // Other elements referenced elsewhere
-     messageElement = document.getElementById('message');
-     gameScreen = document.getElementById('game-area');
-     gameIdDisplay = document.getElementById('game-id-display');
-     player1ScoreElement = document.getElementById('player1-score');
-     player2ScoreElement = document.getElementById('player2-score');
-     colorSwatchesContainer = document.getElementById('color-palette');
-     powerUpSlotsContainer = document.getElementById('powerup-slots'); // Assuming a container for both players exists
-     landmineInfoElement = document.getElementById('landmine-info');
-     chatInput = document.getElementById('chat-input');
-     chatMessages = document.getElementById('chat-messages');
-     sendChatButton = document.getElementById('send-message'); // Corrected ID based on HTML
-     toggleChatButton = document.getElementById('toggle-chat');
-     chatContainer = document.getElementById('chat-container');
-
-     // Score container elements (ensure they exist and are handled correctly later)
-     // These const declarations are fine as they are local to this scope if needed,
-     // but score display logic uses getElementById directly anyway. Let's remove these
-     // const declarations for clarity as the updateScoreDisplay function uses getElementById directly.
-     // const player1Container = document.getElementById('player1-score-container');
-     // const player2Container = document.getElementById('player2-score-container');
-     // const player1NameElem = document.getElementById('player1-name');
-     // const player2NameElem = document.getElementById('player2-name');
-     // const player1ColorSwatch = document.getElementById('player1-color-swatch');
-     // const player2ColorSwatch = document.getElementById('player2-color-swatch');
-
-     // Powerup inventories (ensure they exist and are handled correctly later)
-     // These are not used elsewhere in this scope, updatePowerUpDisplay uses getElementById.
-     // const player1Powerups = document.getElementById('player1-powerups');
-     // const player2Powerups = document.getElementById('player2-powerups');
+    // Check if all essential elements were found
+    if (!setupContainer || !gameScreen || !canvas || !ctx) {
+         console.error("CRITICAL ERROR: Missing essential UI elements (setup, gameScreen, canvas, ctx). Stopping initialization.");
+         document.body.innerHTML = "<h1>Error: Failed to load game UI. Please refresh.</h1>";
+         return; // Stop further execution
+    }
 
     // --- Initial UI State ---
     showSetupScreen(); // Start by showing the setup screen
@@ -1452,79 +1559,76 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Setup Screen Button Listeners ---
     if (localGameButton) {
         localGameButton.addEventListener('click', () => {
-            console.log("localGameButton - click START"); // Debug log
+            console.log("DEBUG: localGameButton clicked.");
             const name = playerNameInput.value.trim() || 'Player 1';
-            if (!name) {
-                setupMessageElement.textContent = "Please enter your name.";
-                console.log("localGameButton - click: No name entered."); // Debug log
-                return;
-            }
-             playerName = name;
+             playerName = name; // Set global name
              gameMode = 'local';
-             setupMessageElement.textContent = "Starting local game...";
-             console.log("localGameButton - click: Initializing local game with name:", playerName); // Debug log
-            initializeGame(playerName); // Start local game
-            console.log("localGameButton - click END"); // Debug log
+             if (setupMessageElement) setupMessageElement.textContent = "Starting local game...";
+             initializeGame(playerName); // Start local game
         });
-    }
+    } else console.warn("DEBUG: localGameButton not found.");
 
     if (createChallengeButton) {
         createChallengeButton.addEventListener('click', () => {
-            console.log("createChallengeButton - click START"); // Debug log
+            console.log("DEBUG: createChallengeButton clicked.");
             const name = playerNameInput.value.trim();
             if (!name) {
-                setupMessageElement.textContent = "Please enter your name.";
-                console.log("createChallengeButton - click: No name entered."); // Debug log
+                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
              playerName = name; // Set global playerName
              gameMode = 'online-host';
-            setupMessageElement.textContent = "Connecting to server...";
-            console.log("createChallengeButton - click: Connecting to server for createChallenge with name:", playerName); // Debug log
+            if (setupMessageElement) setupMessageElement.textContent = "Connecting to server...";
             // Use multiplayer module's connect function
-            window.multiplayer.connectToServer(playerName, 'create', { playerName: playerName });
-            console.log("createChallengeButton - click END"); // Debug log
+             if (window.multiplayer) {
+                window.multiplayer.connectToServer(playerName, 'create', { playerName: playerName });
+             } else {
+                console.error("Multiplayer module not found!");
+                if (setupMessageElement) setupMessageElement.textContent = "Error: Multiplayer features unavailable.";
+             }
         });
-    }
+    } else console.warn("DEBUG: createChallengeButton not found.");
 
-     if (joinChallengeButton && gameIdInput) { // Added check for gameIdInput
+     if (joinChallengeButton && gameIdInput) {
         joinChallengeButton.addEventListener('click', () => {
-            console.log("joinChallengeButton - click START"); // Debug log
+            console.log("DEBUG: joinChallengeButton clicked.");
              const name = playerNameInput.value.trim();
-             const idToJoin = gameIdInput.value.trim().toUpperCase(); // Join uses separate input
+             const idToJoin = gameIdInput.value.trim().toUpperCase();
             if (!name) {
-                setupMessageElement.textContent = "Please enter your name.";
-                console.log("joinChallengeButton - click: No name entered."); // Debug log
+                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
             if (!idToJoin) {
-                 setupMessageElement.textContent = "Please enter a Game ID to join.";
-                 console.log("joinChallengeButton - click: No Game ID entered."); // Debug log
+                 if (setupMessageElement) setupMessageElement.textContent = "Please enter a Game ID to join.";
                  return;
              }
              playerName = name; // Set global playerName
              gameMode = 'online-client';
-             setupMessageElement.textContent = "Connecting to server...";
-             console.log("joinChallengeButton - click: Connecting to server for joinChallenge with name:", playerName, "and gameId:", idToJoin); // Debug log
+             if (setupMessageElement) setupMessageElement.textContent = "Connecting to server...";
             // Use multiplayer module's connect function
-             window.multiplayer.connectToServer(playerName, 'join', { playerName: playerName, gameId: idToJoin });
-             console.log("joinChallengeButton - click END"); // Debug log
+             if (window.multiplayer) {
+                window.multiplayer.connectToServer(playerName, 'join', { playerName: playerName, gameId: idToJoin });
+             } else {
+                console.error("Multiplayer module not found!");
+                if (setupMessageElement) setupMessageElement.textContent = "Error: Multiplayer features unavailable.";
+             }
         });
-    }
+    } else console.warn("DEBUG: joinChallengeButton or gameIdInput not found.");
 
      // --- Other Button Listeners ---
      if (leaveGameButton) {
          leaveGameButton.addEventListener('click', window.leaveGame);
-     }
+     } else console.warn("DEBUG: leaveGameButton not found.");
       if (restartGameButton) {
          restartGameButton.addEventListener('click', window.restartGame);
-     }
+     } else console.warn("DEBUG: restartGameButton not found.");
 
     // --- Canvas Event Listeners ---
     canvas.addEventListener('click', handleCanvasClick);
-    canvas.addEventListener('mousemove', handleCanvasMouseMove);
+    // canvas.addEventListener('mousemove', handleCanvasMouseMove); // Keep disabled unless needed
 
      // --- Color Palette Setup ---
+    // Attaching listeners to existing buttons
     const palette = document.getElementById('color-palette');
     if (palette) {
         const colorButtons = palette.querySelectorAll('.color-button');
@@ -1533,15 +1637,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (color) {
                 // Assign the click handler directly to existing buttons
                 button.onclick = () => handleColorSelection(color);
-                // Initially disable them, will be enabled by toggleControls when needed
-                button.disabled = true; // Add disabled attribute
-                button.parentElement.classList.add('disabled'); // Add disabled class to parent div if needed by CSS
             }
         });
-         // Initialize toggleControls to set initial state based on isMyTurn (which is false initially)
-         // This ensures palette is disabled correctly from the start.
-         toggleControls(isMyTurn);
-    }
+         // Initialize palette state (disabled)
+         toggleControls(false); // Start with controls disabled
+    } else console.warn("DEBUG: color-palette element not found.");
+
 
      // --- Chat Setup ---
      setupChat();
@@ -1549,6 +1650,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Window Resize Listener ---
     window.addEventListener('resize', resizeGame);
 
-    console.log("Initial setup complete. Waiting for user action. - END DOMContentLoaded HANDLER");
+    console.log("DEBUG: DOMContentLoaded - END");
 
-}); // End of DOMContentLoaded listener - THIS WAS LIKELY THE MISSING BRACE
+}); // End of DOMContentLoaded listener
