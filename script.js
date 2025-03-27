@@ -269,11 +269,9 @@ function playSound(soundName) {
         if (this.currentPlayerIndex !== playerIndex) return { used: false, error: "Not your turn." };
 @@ -387,6 +378,7 @@
             return { used: false, error: message };
-        }
-    }
-+*/ // End Removed usePowerUp function
-
-    switchTurn() {
+        ctx.stroke();
+    } // End if !isBase
+}
         if (this.isGameOver) return;
         if (!this.powerUpInventory[playerIndex]) {
             this.powerUpInventory[playerIndex] = [];
