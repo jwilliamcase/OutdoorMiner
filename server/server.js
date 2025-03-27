@@ -226,12 +226,12 @@ io.on('connection', (socket) => {
                 console.log(`Challenge creation rejected for ${socket.id}: Missing player name.`);
                 return callback({ success: false, message: "Please enter a player name." });
             }
+        try {
+            // Check if player is already hosting or in a game
+            const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
+            const existingGame = Object.values(games).find(game => game.players.includes(socket.id));
 
-            // Prevent player from creating multiple challenges or creating while in game
-            // Check if the player is already hosting a different challenge
-           if (socket.id && challenges) {
-                const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
-                if (existingChallenge) {
+            if (existingChallenge || existingGame) {
                     console.log(`Player ${socket.id} (${playerName}) attempted to create a challenge but is already hosting room ${existingChallenge[0]}`);
                      return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}.` });
                 } else if (playerSockets[socket.id].gameId) {
