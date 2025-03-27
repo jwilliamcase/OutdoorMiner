@@ -123,8 +123,6 @@ function playSound(soundName) {
         this.gameOver = data.gameOver || false;
         this.winner = data.winner !== undefined ? data.winner : null;
     }
-        this.winner = data.winner !== undefined ? data.winner : null
-    }
 
     getTile(row, col) {
         if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
