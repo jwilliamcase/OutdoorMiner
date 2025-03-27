@@ -1,12 +1,12 @@
-const express = require('express');
-const express = require('express');
+require('dotenv').config();
+const express = require('express'); // Keep only one
 const http = require('http');
 const { Server } = require("socket.io");
-const cors = require('cors'); // Make sure cors is required
-const path = require('path'); // Needed for path joining
-require('dotenv').config(); // For environment variables
-
+const cors = require('cors');
+const path = require('path');
+// Removed duplicate express require
 const app = express();
+const server = http.createServer(app);
 
 // --- CORS Configuration ---
 // Allow requests from any origin. For production, restrict this to your frontend URL.
