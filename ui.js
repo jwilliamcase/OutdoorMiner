@@ -181,46 +181,50 @@ export function resizeGame() {
 
 // Draw the entire game board
 export function renderGameBoard() {
-     if (!ctx || !gameState) {
-         console.warn("renderGameBoard: Canvas context or gameState missing.");
-         // Optionally draw a placeholder or message
-         if (ctx) {
-             ctx.clearRect(0, 0, canvas.width, canvas.height);
-             ctx.fillStyle = '#eee';
-             ctx.fillRect(0, 0, canvas.width, canvas.height);
-             ctx.fillStyle = '#555';
-             ctx.font = '16px Arial';
-             ctx.textAlign = 'center';
-             ctx.fillText("Waiting for game state...", canvas.width / 2, canvas.height / 2);
-         }
-         return;
-     }
+    if (!ctx || !gameState) return;
 
-    console.log("Rendering game board...");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
 
-     // Apply camera offset for panning
-     ctx.save();
-     ctx.translate(cameraOffset.x, cameraOffset.y);
+    // Calculate board dimensions
+    const boardWidth = gameState.cols * HORIZONTAL_SPACING;
+    const boardHeight = gameState.rows * VERTICAL_SPACING;
 
+    // Center the board
+    const centerX = (canvas.width - boardWidth) / 2;
+    const centerY = (canvas.height - boardHeight) / 2;
 
-    // Iterate through the game board state and draw each hex
-    for (const key in gameState.board) {
-        const tile = gameState.board[key];
-        if (tile) {
-            drawHexagon(
-                tile.q, 
-                tile.r, 
-                tile.color || '#cccccc',
-                tile.owner !== null
-            );
-        }
+    // Apply camera offset
+    ctx.translate(centerX + cameraOffset.x, centerY + cameraOffset.y);
+
+    // If player 2, flip the board 180 degrees around its center
+    if (currentPlayerId === gameState.players[1]?.id) {
+        ctx.translate(boardWidth / 2, boardHeight / 2);
+        ctx.rotate(Math.PI);
+        ctx.translate(-boardWidth / 2, -boardHeight / 2);
     }
-     ctx.restore(); // Restore context after applying camera offset
 
-    console.log("Board rendering complete.");
+    // Render the board
+    Object.entries(gameState.board).forEach(([key, tile]) => {
+        drawHexagon(tile.q, tile.r, tile.color, tile.owner !== null);
+    });
+
+    ctx.restore();
 }
 
+// Add new function to center view on player's starting position
+export function centerOnPlayerStart() {
+    if (!canvas || !gameState) return;
+
+    // Always center on bottom-left corner of the board
+    const startX = 0;
+    const startY = (gameState.rows - 1) * VERTICAL_SPACING;
+    
+    cameraOffset.x = (canvas.width / 2) - startX;
+    cameraOffset.y = (canvas.height / 2) - startY;
+    
+    renderGameBoard();
+}
 
 // Draw a single hexagon
 function drawHexagon(q, r, color, isOwned = false) {
@@ -366,30 +370,32 @@ function handleCanvasClick(event) {
 
      // Convert click coordinates to world coordinates (relative to canvas, considering pan)
      const rect = canvas.getBoundingClientRect();
-     const clickX = event.clientX - rect.left;
-     const clickY = event.clientY - rect.top;
+     let x = event.clientX - rect.left - cameraOffset.x;
+     let y = event.clientY - rect.top - cameraOffset.y;
 
-     // Adjust for camera offset
-     const worldX = clickX - cameraOffset.x;
-     const worldY = clickY - cameraOffset.y;
+     // If player 2, transform the coordinates
+     if (currentPlayerId === gameState.players[1]?.id) {
+         const boardWidth = gameState.cols * HORIZONTAL_SPACING;
+         const boardHeight = gameState.rows * VERTICAL_SPACING;
+         x = boardWidth - x;
+         y = boardHeight - y;
+     }
 
-
-    // Convert world coordinates to hex coordinates
-    const { q, r } = worldToHex(worldX, worldY); // Use logic from gameLogic.js
-    console.log(`Canvas click at (${clickX}, ${clickY}), World (${worldX}, ${worldY}), Hex (${q}, ${r})`);
+     const hexCoords = worldToHex(x, y);
+     console.log(`Canvas click at (${event.clientX}, ${event.clientY}), World (${x}, ${y}), Hex (${hexCoords.q}, ${hexCoords.r})`);
 
 
     // Check if the click corresponds to a valid hex on the board
-    const key = `${q},${r}`;
+    const key = `${hexCoords.q},${hexCoords.r}`;
     if (gameState.board[key]) {
-        console.log(`Attempting to place tile at (${q}, ${r})`);
+        console.log(`Attempting to place tile at (${hexCoords.q}, ${hexCoords.r})`);
         // Send placement to server via network module
-        sendTilePlacement(q, r);
+        sendTilePlacement(hexCoords.q, hexCoords.r);
         // The UI should be updated based on server response ('game-update')
         // Optionally provide immediate feedback (e.g., temporary placement color)
         // but the authoritative state comes from the server.
     } else {
-        console.log(`Click at (${q}, ${r}) is outside the defined board area.`);
+        console.log(`Click at (${hexCoords.q}, ${hexCoords.r}) is outside the defined board area.`);
         displayMessage("Clicked outside the board.", true);
     }
 }

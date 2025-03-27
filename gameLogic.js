@@ -35,8 +35,9 @@ export class GameState {
     }
 
     createInitialBoard(rows, cols) {
-        // Initialize board with random colors from CONFIG.GAME_COLORS
         const board = {};
+        
+        // Fill board with random colors from game colors
         for (let r = 0; r < rows; r++) {
             for (let q = 0; q < cols; q++) {
                 const randomColor = CONFIG.GAME_COLORS[
@@ -46,16 +47,36 @@ export class GameState {
                     q, r,
                     owner: null,
                     color: randomColor,
-                    baseColor: randomColor // Original color before capture
+                    baseColor: randomColor
                 };
             }
         }
-
-        // Set initial positions
-        board[`0,${rows-1}`].owner = 'player1'; // Bottom left
-        board[`${cols-1},0`].owner = 'player2'; // Top right
-
         return board;
+    }
+
+    initializePlayerPositions(player1Id, player2Id) {
+        // Player 1 (current player) always starts bottom-left
+        const player1Pos = `0,${this.rows - 1}`;
+        const player2Pos = `${this.cols - 1},0`; // Top-right
+
+        // Assign random colors from available colors for starting positions
+        const startColor1 = CONFIG.GAME_COLORS[Math.floor(Math.random() * CONFIG.GAME_COLORS.length)];
+        let startColor2;
+        do {
+            startColor2 = CONFIG.GAME_COLORS[Math.floor(Math.random() * CONFIG.GAME_COLORS.length)];
+        } while (startColor2 === startColor1);
+
+        // Set initial positions and colors
+        this.board[player1Pos].owner = player1Id;
+        this.board[player1Pos].color = startColor1;
+        this.board[player1Pos].baseColor = startColor1;
+
+        this.board[player2Pos].owner = player2Id;
+        this.board[player2Pos].color = startColor2;
+        this.board[player2Pos].baseColor = startColor2;
+
+        // Update last used color
+        this.lastUsedColor = null; // Reset on game start
     }
 
     // New method: Get available colors for current turn
