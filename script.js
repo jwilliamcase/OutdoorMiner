@@ -1,12 +1,12 @@
 // Global constants & game state
 const HEX_SIZE = 30;
-const POWER_UP_CHANCE = 0.05; // 5% chance for a power-up
+// const POWER_UP_CHANCE = 0.05; // Removed
 const LANDMINE_CHANCE = 0.03; // 3% chance for a landmine
-const POWER_UPS = ['shield', 'steal', 'bomb']; // Available power-ups
+// const POWER_UPS = ['shield', 'steal', 'bomb']; // Removed
 let gameState; // Will be instance of GameState
 let canvas, ctx;
 let selectedColor = null;
-let selectedPowerUp = null;
+// let selectedPowerUp = null; // Removed
 let isMyTurn = false;
 let playerName = '';
 let playerNumber = -1; // 0 or 1 for online games
@@ -39,7 +39,7 @@ function playSound(soundName) {
     // Note: canvas, ctx are already declared globally above.
     let messageElement, setupContainer, gameScreen, playerNameInput, localGameButton, gameIdInput, // Added gameIdInput here
         createChallengeButton, joinChallengeButton, setupMessageElement, gameIdDisplay,
-        player1ScoreElement, player2ScoreElement, colorSwatchesContainer, powerUpSlotsContainer,
+        player1ScoreElement, player2ScoreElement, colorSwatchesContainer, // Removed powerUpSlotsContainer
         landmineInfoElement, chatInput, chatMessages, sendChatButton, toggleChatButton, chatContainer,
         leaveGameButton, restartGameButton; // Added restartGameButton here
 
@@ -59,10 +59,10 @@ function playSound(soundName) {
         this.playerScores = [0, 0];
         this.currentPlayerIndex = 0;
         this.isGameOver = false;
-        this.powerUpInventory = [[], []]; // [player1_powerups, player2_powerups]
+        // this.powerUpInventory = [[], []]; // Removed
         this.landmines = new Set(); // Stores "row,col" strings of mine locations
         this.revealedMines = new Set(); // Stores "row,col" strings of triggered mines
-        this.protectedTiles = new Map(); // Stores "row,col" => playerIndex for shielded tiles
+        // this.protectedTiles = new Map(); // Removed
         this.turnNumber = 0;
         // Keep player names and colors unless specifically reset elsewhere
     }
@@ -76,9 +76,9 @@ function playSound(soundName) {
                     owner: -1, // -1 for unowned, 0 for player 1, 1 for player 2
                     color: '#CCCCCC', // Default unowned color
                     isStartingTile: false,
-                    hasPowerUp: false,
+                    // hasPowerUp: false, // Removed
                     hasLandmine: false, // Mark if mine is present (for rendering maybe?)
-                    powerUpType: null
+                    // powerUpType: null // Removed
                 };
             }
         }
@@ -97,10 +97,10 @@ function playSound(soundName) {
             playerColors: this.playerColors,
             currentPlayerIndex: this.currentPlayerIndex,
             isGameOver: this.isGameOver,
-            powerUpInventory: this.powerUpInventory,
+            // powerUpInventory: this.powerUpInventory, // Removed
             landmines: Array.from(this.landmines),
             revealedMines: Array.from(this.revealedMines),
-            protectedTiles: Array.from(this.protectedTiles.entries()),
+            // protectedTiles: Array.from(this.protectedTiles.entries()), // Removed
             turnNumber: this.turnNumber
             // Note: winner is not explicitly stored, determined on game over
         });
@@ -118,11 +118,11 @@ function playSound(soundName) {
             this.playerColors = data.playerColors || ['#FF0000', '#0000FF'];
             this.currentPlayerIndex = data.currentPlayerIndex !== undefined ? data.currentPlayerIndex : 0;
             this.isGameOver = data.isGameOver || false;
-            this.powerUpInventory = data.powerUpInventory || [[], []];
+            // this.powerUpInventory = data.powerUpInventory || [[], []]; // Removed
             // Convert arrays back to Set/Map
             this.landmines = new Set(data.landmines || []);
             this.revealedMines = new Set(data.revealedMines || []);
-            this.protectedTiles = new Map(data.protectedTiles || []);
+            // this.protectedTiles = new Map(data.protectedTiles || []); // Removed
             this.turnNumber = data.turnNumber !== undefined ? data.turnNumber : 0;
             // winner is determined dynamically, not stored/deserialized directly
              console.log("GameState deserialized successfully."); // DEBUG
@@ -202,17 +202,11 @@ function playSound(soundName) {
         playSound('placeTile');
         this.updateScores(); // Update score after placing
 
-        // Check for power-up or landmine generation
-        let awardedPowerUp = null;
+        // Check for landmine generation (Power-up generation removed)
+        // let awardedPowerUp = null; // Removed
         let generatedLandmine = false;
-        if (Math.random() < POWER_UP_CHANCE) {
-            // Check if tile doesn't already have something? Maybe not necessary if generated on placement
-             tile.hasPowerUp = true; // Mark tile state
-             awardedPowerUp = POWER_UPS[Math.floor(Math.random() * POWER_UPS.length)];
-             this.givePowerUp(playerIndex, awardedPowerUp);
-             playSound('powerUp');
-             console.log(`Player ${playerIndex} found a ${awardedPowerUp} power-up at ${r},${c}!`);
-        } else if (Math.random() < LANDMINE_CHANCE) {
+        // Removed power-up chance check
+        if (Math.random() < LANDMINE_CHANCE) {
             // Don't place a landmine on the tile just captured
             // Instead, place it on a *random* unowned, non-starting neighbor tile
             const validMineNeighbors = neighbors.filter(({ nr, nc }) => {
@@ -240,31 +234,46 @@ function playSound(soundName) {
         for (const { nr, nc } of neighbors) {
             const neighborTile = this.getTile(nr, nc);
             if (neighborTile && neighborTile.owner === opponentIndex) {
-                // Check if the captured tile is protected
-                 const neighborKey = `${nr},${nc}`;
-                 if (this.protectedTiles.has(neighborKey) && this.protectedTiles.get(neighborKey) === opponentIndex) {
-                     console.log(`Tile ${nr},${nc} is protected by a shield! Capture failed.`);
-                     this.protectedTiles.delete(neighborKey); // Shield used up
-                     // Add visual effect for shield breaking? (renderGameBoard handles border)
-                 } else {
-                    neighborTile.owner = playerIndex;
-                    neighborTile.color = color; // Change to capturer's color
-                    capturedCount++;
-                 }
+                // Removed shield check
+                 neighborTile.owner = playerIndex;
+                 neighborTile.color = color; // Change to capturer's color
+                 capturedCount++;
             }
         }
 
         if (capturedCount > 0) {
             console.log(`Player ${playerIndex} captured ${capturedCount} tiles!`);
             this.updateScores(); // Update score again after captures
-        }
 
         this.checkForGameOver(); // Check if this move ended the game
 
-        return { placed: true, hitMine: false, awardedPowerUp, generatedLandmine };
+        return { placed: true, hitMine: false, generatedLandmine }; // awardedPowerUp removed
     }
 
+/* // Removed givePowerUp function
      givePowerUp(playerIndex, powerUpType) {
+        if (!this.powerUpInventory[playerIndex]) {
+            this.powerUpInventory[playerIndex] = [];
+@@ -298,9 +289,9 @@
+            console.log("handlePowerUpSelection: Ignored (not my turn, game over, or disabled)."); // DEBUG
+            return;
+        }
+-
++/* // Removed usePowerUp function
+    usePowerUp(playerIndex, powerUpType, targetR, targetC) {
+-        if (this.isGameOver) return { used: false, error: "Game is over." };
++        if (this.isGameOver) return { used: false, error: "Game is over."};
+        // Allow using power-up even if not technically current player? Or enforce turn?
+        // Let's enforce turn for now.
+        if (this.currentPlayerIndex !== playerIndex) return { used: false, error: "Not your turn." };
+@@ -387,6 +378,7 @@
+            return { used: false, error: message };
+        }
+    }
++*/ // End Removed usePowerUp function
+
+    switchTurn() {
+        if (this.isGameOver) return;
         if (!this.powerUpInventory[playerIndex]) {
             this.powerUpInventory[playerIndex] = [];
         }
@@ -490,35 +499,48 @@ function drawHexagon(ctx, r, c, x_center, y_center, size, tile) {
         borderWidth = 3;
     }
 
-    // Highlight for revealed mine
-    if (tile && gameState && gameState.revealedMines.has(coordKey)) {
-        borderColor = '#FF0000'; // Red border for revealed mine
-        borderWidth = 3;
-    }
-
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = borderWidth;
-    ctx.stroke();
-
-     // Optional: Draw symbols for mines/powerups/shields after border
-    if (tile && gameState && gameState.revealedMines.has(coordKey)) {
-        // Draw an 'X' or explosion symbol
-        ctx.font = `${size * 0.6}px Arial Black`; // Bold font
-        ctx.fillStyle = '#FF0000'; // Red color for mine symbol
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('💥', x_center, y_center); // Explosion emoji or 'X'
-    }
-     else if (tile && gameState && gameState.protectedTiles.has(coordKey)) {
-         // Draw shield symbol
-         ctx.font = `${size * 0.6}px Arial Black`;
-         ctx.fillStyle = '#FFFF00'; // Yellow for shield symbol
+     }
+ 
+     const coordKey = `${r},${c}`;
+     // Highlight for shield - REMOVED
+     /*
+     if (tile && gameState && gameState.protectedTiles.has(coordKey)) {
+         borderColor = '#FFFF00'; // Yellow border for shield
+         borderWidth = 3;
+     }
+     */
+ 
+     // Highlight for revealed mine
+     if (tile && gameState && gameState.revealedMines.has(coordKey)) {
+         borderColor = '#FF0000'; // Red border for revealed mine
+         borderWidth = 3;
+     }
+ 
+     ctx.strokeStyle = borderColor;
+     ctx.lineWidth = borderWidth;
+     ctx.stroke();
+ 
+      // Optional: Draw symbols for mines/powerups/shields after border
+     if (tile && gameState && gameState.revealedMines.has(coordKey)) {
+         // Draw an 'X' or explosion symbol
+         ctx.font = `${size * 0.6}px Arial Black`; // Bold font
+         ctx.fillStyle = '#FF0000'; // Red color for mine symbol
          ctx.textAlign = 'center';
          ctx.textBaseline = 'middle';
-         ctx.fillText('🛡️', x_center, y_center); // Shield emoji
+         ctx.fillText('💥', x_center, y_center); // Explosion emoji or 'X'
      }
-    // Add similar logic for uncollected powerups or hidden mines if needed
-}
+     /* // Removed shield symbol drawing
+      else if (tile && gameState && gameState.protectedTiles.has(coordKey)) {
+          // Draw shield symbol
+          ctx.font = `${size * 0.6}px Arial Black`;
+          ctx.fillStyle = '#FFFF00'; // Yellow for shield symbol
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🛡️', x_center, y_center); // Shield emoji
+      }
+      */
+     // Add similar logic for hidden mines if needed (powerups removed)
+ }
 
 
 function renderGameBoard() {
@@ -561,13 +583,13 @@ function renderGameBoard() {
 
      ctx.restore(); // Restore context after translation
 
-    // Update other UI elements that depend on gameState
-    updateScoreDisplay();
-    updateTurnIndicator();
-    updatePowerUpDisplay();
-    updateLandmineInfo();
-    console.log("renderGameBoard completed."); // DEBUG
-}
+     // Update other UI elements that depend on gameState
+     updateScoreDisplay();
+     updateTurnIndicator();
+     // updatePowerUpDisplay(); // Removed
+     updateLandmineInfo();
+     console.log("renderGameBoard completed."); // DEBUG
+ }
 
 
 function getHexCoords(event) {
@@ -676,97 +698,27 @@ function updateScoreDisplay() {
     }
 }
 
-
-function updateTurnIndicator() {
-    const messageElem = document.getElementById('message');
-    if (!messageElem || !gameState) return;
-
-    if (gameState.isGameOver) {
-        messageElem.textContent = gameState.determineWinner(); // Get winner message
-        messageElem.className = 'message game-over';
-    } else {
-        const currentPlayerName = gameState.playerNames[gameState.currentPlayerIndex];
-        messageElem.textContent = `${currentPlayerName}'s Turn`;
-        // Add class for current player for styling
-         messageElem.className = `message turn-p${gameState.currentPlayerIndex + 1}`;
-    }
-}
-
-function updatePowerUpDisplay() {
-    const playerInventories = [
-        document.getElementById('player1-powerups'),
-        document.getElementById('player2-powerups')
-    ];
-
-    if (!gameState || !playerInventories[0] || !playerInventories[1]) {
-         console.warn("updatePowerUpDisplay: Missing gameState or inventory elements."); // DEBUG
-         return;
-    }
-
-
-    for (let i = 0; i < 2; i++) {
-        const inventoryElem = playerInventories[i];
-        inventoryElem.innerHTML = ''; // Clear existing power-ups
-
-         const counts = {};
-        if (gameState.powerUpInventory[i]) {
-             gameState.powerUpInventory[i].forEach(p => counts[p] = (counts[p] || 0) + 1);
-        }
-
-        POWER_UPS.forEach(powerUpType => {
-            const count = counts[powerUpType] || 0;
-            const powerUpSlot = document.createElement('div');
-            powerUpSlot.classList.add('powerup-slot');
-            powerUpSlot.dataset.powerup = powerUpType;
-
-            // Determine if the power-up is clickable
-             const playerIndexToCheck = i; // 0 for player 1, 1 for player 2 inventory
-             const isCurrentPlayerInventory = (gameMode === 'local' && gameState.currentPlayerIndex === playerIndexToCheck) ||
-                                              (gameMode !== 'local' && playerNumber === playerIndexToCheck);
-             const isClickable = isCurrentPlayerInventory && count > 0 && isMyTurn && !gameState.isGameOver;
-
-
-            if (isClickable) {
-                 powerUpSlot.classList.add('active');
-                 powerUpSlot.onclick = () => handlePowerUpSelection(powerUpType);
-            } else {
-                 powerUpSlot.classList.add('disabled');
-            }
-
-            // Add visual representation (e.g., icon or text)
-            const icon = document.createElement('span');
-            icon.classList.add('powerup-icon');
-            // Simple text representation
-            let iconText = '?';
-            if (powerUpType === 'shield') iconText = '🛡️';
-            if (powerUpType === 'steal') iconText = '✋';
-            if (powerUpType === 'bomb') iconText = '💣';
-            icon.textContent = iconText;
-            powerUpSlot.appendChild(icon);
-
-
-             // Add count bubble
-            if (count > 0) {
-                const countBubble = document.createElement('span');
-                countBubble.classList.add('powerup-count');
-                countBubble.textContent = count;
-                powerUpSlot.appendChild(countBubble);
-            }
-
-             // Highlight if selected (only if it's the current player's selection)
-             const isSelected = selectedPowerUp === powerUpType && isCurrentPlayerInventory;
-            if (isSelected) {
-                powerUpSlot.classList.add('selected');
-            }
-
-
-            inventoryElem.appendChild(powerUpSlot);
-        });
-    }
- * @param {string|null} [playSoundName=null] - Optional name of the sound to play ('place_tile', 'power_up', etc.)
-     */
-    function displayMessage(msg, isError = false, duration = 3000, playSoundName = null) {
-        const messageElement = document.getElementById('message');
+     }
+ }
+ 
+-/** // Removed updatePowerUpDisplay function
+- * Updates the display of power-ups for both players based on gameState.powerUpInventory.
+- */
++/* // Removed updatePowerUpDisplay function
+ function updatePowerUpDisplay() { ... }
+ */
+ 
++let messageTimeout = null; // Keep track of the message timeout
++
+     /**
+      * Displays a message temporarily in the message area.
+      * @param {string} msg - The message text to display.
+      * @param {boolean} [isError=false] - If true, displays the message as an error.
+      * @param {number} [duration=3000] - How long to display the message in milliseconds (0 for permanent).
+      * @param {string|null} [playSoundName=null] - Optional name of the sound to play ('place_tile', etc.)
+      */
+     function displayMessage(msg, isError = false, duration = 3000, playSoundName = null) {
+         const messageElement = document.getElementById('message');
         if (!messageElement) return;
     
         console.log(`Displaying message: "${msg}" (Error: ${isError})`); // Log message display
@@ -814,12 +766,11 @@ function toggleControls(enabled) {
              if (parentSwatch) parentSwatch.classList.remove('disabled');
               // Ensure onclick is correctly set or re-set
               const color = button.dataset.color;
-              if (color) button.onclick = () => handleColorSelection(color);
+              button.onclick = () => handleColorSelection(color);
         }
     });
 
-     // Disable/enable power-up slots (updatePowerUpDisplay handles internal logic)
-     updatePowerUpDisplay();
+    // Power-up controls removed
 
      // Disable/enable canvas interaction by adding/removing a class
      if (canvas) {
@@ -883,39 +834,16 @@ function handleCanvasClick(event) {
     const { r, c } = getHexCoords(event);
     if (r === -1 || c === -1) {
         console.log("handleCanvasClick: Click outside valid hex area."); // DEBUG
-        return; // Click outside valid hex area
-    }
-
-    const tile = gameState.getTile(r,c); // Get tile state *before* action
-
-    // If a power-up is selected, try to use it
-    if (selectedPowerUp) {
-        console.log(`handleCanvasClick: Attempting to use ${selectedPowerUp} on tile ${r},${c}`); // DEBUG
-         const playerIndexToUse = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
-
-        // Send power-up move to server or handle locally
-        if (gameMode !== 'local') {
-             window.multiplayer.sendMove({ type: 'powerup', powerUpType: selectedPowerUp, r, c, playerIndex: playerIndexToUse });
-             // No optimistic update here, wait for server 'game-state'
-        } else {
-             const result = gameState.usePowerUp(playerIndexToUse, selectedPowerUp, r, c);
-             if (result.used) {
-                 updateMessage(result.message);
-                 // Power-up use doesn't switch turn in this logic
-             } else {
-                 updateMessage(result.error || "Failed to use power-up.", true);
-             }
-             renderGameBoard(); // Re-render after local action
-        }
-
-        // Deselect power-up after attempting use
-        selectedPowerUp = null;
-        updatePowerUpDisplay(); // Update UI to remove selection highlight
-
-    }
-    // If a color is selected, try to place a tile
-    else if (selectedColor) {
-         console.log(`handleCanvasClick: Attempting to place tile at ${r},${c}`); // DEBUG
+         return; // Click outside valid hex area
+     }
+ 
+     // const tile = gameState.getTile(r,c); // Get tile state *before* action - Not needed currently
+ 
+     // Power-up logic removed
+ 
+     // If a color is selected, try to place a tile
+     if (selectedColor) { // Changed from else if
+          console.log(`handleCanvasClick: Attempting to place tile at ${r},${c}`); // DEBUG
          const playerIndexToPlace = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
          // Use the player's assigned color, not the selected swatch color directly
          const colorToPlace = gameState.playerColors[playerIndexToPlace];
@@ -946,13 +874,12 @@ function handleCanvasClick(event) {
              }
               renderGameBoard(); // Re-render after local action
          }
-    }
-    else {
-        console.log("handleCanvasClick: No color or power-up selected."); // DEBUG
-        updateMessage("Select a color or power-up first.", true);
-    }
-}
-
+     }
+     else {
+         console.log("handleCanvasClick: No color selected."); // DEBUG
+         updateMessage("Select your color first.", true);
+     }
+ }
 function handleCanvasMouseMove(event) {
     // Implement hover effects if desired (consider performance)
 }
@@ -961,58 +888,33 @@ function handleCanvasMouseMove(event) {
 function handleColorSelection(color) {
      if (!isMyTurn || gameState.isGameOver || canvas.classList.contains('disabled')) {
           console.log("handleColorSelection: Ignored (not my turn, game over, or disabled)."); // DEBUG
-          return;
      }
-    console.log("Color selected:", color); // DEBUG
-    // We don't actually need to store selectedColor if we always use the player's turn color
-    // selectedColor = color; // Keep for UI feedback?
-    selectedPowerUp = null; // Deselect any active power-up
-
-     // Update UI to show selected color
-     const swatches = document.querySelectorAll('.color-swatch');
-     swatches.forEach(swatch => {
-         // Highlight the swatch matching the current player's color
-         const playerIndex = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
-         if (gameState.playerColors[playerIndex] === swatch.dataset.color) { // Check against player's actual color
-             swatch.classList.add('selected');
-         } else {
-             swatch.classList.remove('selected');
-         }
-     });
-     updatePowerUpDisplay(); // Deselect power-up UI
-     updateMessage("Click on the board to place a tile.");
-}
-
-function handlePowerUpSelection(powerUpType) {
-      if (!isMyTurn || gameState.isGameOver || canvas.classList.contains('disabled')) {
-           console.log("handlePowerUpSelection: Ignored (not my turn, game over, or disabled)."); // DEBUG
-           return;
-      }
-
-     // Check if player actually has this power-up
-     const playerIndex = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
-     if (!gameState.powerUpInventory[playerIndex] || gameState.powerUpInventory[playerIndex].indexOf(powerUpType) === -1) {
-         updateMessage("You don't have this power-up.", true);
-         return;
-     }
-
-
-    console.log("Power-up selected:", powerUpType); // DEBUG
-    // Toggle selection: If clicking the same power-up again, deselect it.
-    if (selectedPowerUp === powerUpType) {
-         selectedPowerUp = null;
-         updateMessage("Power-up deselected.");
-    } else {
-         selectedPowerUp = powerUpType;
-         updateMessage(`Power-up ${powerUpType} selected. Click on a target tile.`);
-    }
-    // selectedColor = null; // Deselect color logic is implicitly handled
-
-     // Update UI
-     updatePowerUpDisplay(); // Handles highlighting selected power-up
+     console.log("Color selected:", color); // DEBUG
+     // We don't actually need to store selectedColor if we always use the player's turn color
+     selectedColor = color; // Keep for UI feedback and click handling check
+     // selectedPowerUp = null; // Removed
+ 
+      // Update UI to show selected color
       const swatches = document.querySelectorAll('.color-swatch');
-      swatches.forEach(swatch => swatch.classList.remove('selected')); // Deselect colors
-
+      swatches.forEach(swatch => {
+          // Highlight the swatch matching the current player's color
+          const playerIndex = (gameMode === 'local') ? gameState.currentPlayerIndex : playerNumber;
+          if (gameState.playerColors[playerIndex] === swatch.dataset.color) { // Check against player's actual color
+              swatch.classList.add('selected');
+          } else {
+              swatch.classList.remove('selected');
+          }
+      });
+     // updatePowerUpDisplay(); // Removed - Power-up UI deselection not needed
+      updateMessage("Click on the board to place a tile.");
+ }
+ 
++/* // Removed handlePowerUpSelection function
+ function handlePowerUpSelection(powerUpType) { ... }
++*/
+ 
+ 
+ // --- Game Initialization and State Sync ---
 }
 
 
@@ -1020,16 +922,16 @@ function handlePowerUpSelection(powerUpType) {
 
 function initializeGame(localPlayerName = "Player 1", opponentName = "Player 2", p1Color = '#FF0000', p2Color = '#0000FF') {
     console.log(`DEBUG: initializeGame - START. Mode: ${gameMode}`);
-    gameState = new GameState(); // Create a fresh state
-    gameState.playerNames = [localPlayerName, opponentName];
-    gameState.playerColors = [p1Color, p2Color];
-    selectedColor = null;
-    selectedPowerUp = null;
-
-    if (gameMode === 'local') {
-        playerName = localPlayerName; // Set global name for local P1
-        playerNumber = 0; // Treat local player as player 0
-        isMyTurn = true; // Local game starts with player 1
+     gameState = new GameState(); // Create a fresh state
+     gameState.playerNames = [localPlayerName, opponentName];
+     gameState.playerColors = [p1Color, p2Color];
+     selectedColor = null; // Reset selected color
+     // selectedPowerUp = null; // Removed
+ 
+     if (gameMode === 'local') {
+         // Local mode is disabled, this block shouldn't be reached via UI
+         console.warn("DEBUG: initializeGame called for local mode, which should be disabled.");
+         playerName = localPlayerName; // Set global name for local P1
         setupInitialTilesLocal(); // Set initial starting squares randomly for local game
     } else {
         // For online games, names/colors are set by server/syncGameState or initializeOnlineGame
@@ -1538,13 +1440,13 @@ document.addEventListener('DOMContentLoaded', () => {
     gameControls = document.getElementById('game-controls'); // Get game controls container
     challengeInfo = document.getElementById('challenge-info'); // Get challenge info container
     gameIdDisplay = document.getElementById('game-id-display');
-    player1ScoreElement = document.getElementById('player1-score');
-    player2ScoreElement = document.getElementById('player2-score');
-    colorSwatchesContainer = document.getElementById('color-palette');
-    powerUpSlotsContainer = document.getElementById('powerup-slots'); // If exists
-    landmineInfoElement = document.getElementById('landmine-info');
-    chatInput = document.getElementById('chat-input');
-    chatMessages = document.getElementById('chat-messages');
+     player1ScoreElement = document.getElementById('player1-score');
+     player2ScoreElement = document.getElementById('player2-score');
+     colorSwatchesContainer = document.getElementById('color-palette');
+     // powerUpSlotsContainer = document.getElementById('powerup-slots'); // Removed
+     landmineInfoElement = document.getElementById('landmine-info');
+     chatInput = document.getElementById('chat-input');
+     chatMessages = document.getElementById('chat-messages');
     sendChatButton = document.getElementById('send-message'); // Use correct ID
     toggleChatButton = document.getElementById('toggle-chat');
     chatContainer = document.getElementById('chat-container');
@@ -1558,20 +1460,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial UI State ---
     showSetupScreen(); // Start by showing the setup screen
-
-    // --- Setup Screen Button Listeners ---
-    if (localGameButton) {
-        localGameButton.addEventListener('click', () => {
-            console.log("DEBUG: localGameButton clicked.");
-            const name = playerNameInput.value.trim() || 'Player 1';
-             playerName = name; // Set global name
-             gameMode = 'local';
-             if (setupMessageElement) setupMessageElement.textContent = "Starting local game...";
-             initializeGame(playerName); // Start local game
-        });
-    } else console.warn("DEBUG: localGameButton not found.");
-
-    if (createChallengeButton) {
+     // --- Setup Screen Button Listeners ---
+     if (localGameButton) {
+         localGameButton.style.display = 'none'; // Hide local game button
++        // Remove the event listener as the button is hidden
++        /*
+         localGameButton.addEventListener('click', () => {
+             console.log("DEBUG: localGameButton clicked.");
+             const name = playerNameInput.value.trim() || 'Player 1';
+@@ -1467,6 +1432,7 @@
+              if (setupMessageElement) setupMessageElement.textContent = "Starting local game...";
+              initializeGame(playerName); // Start local game
+         });
++        */
+     } else console.warn("DEBUG: localGameButton not found.");
         createChallengeButton.addEventListener('click', () => {
             console.log("DEBUG: createChallengeButton clicked.");
             const name = playerNameInput.value.trim();
@@ -1644,15 +1546,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
          // Initialize palette state (disabled)
          toggleControls(false); // Start with controls disabled
-    } else console.warn("DEBUG: color-palette element not found.");
-
-
-     // --- Chat Setup ---
-     setupChat();
-
-    // --- Window Resize Listener ---
-    window.addEventListener('resize', resizeGame);
-
-    console.log("DEBUG: DOMContentLoaded - END");
-
-}); // End of DOMContentLoaded listener
+      // --- Window Resize Listener ---
+      window.addEventListener('resize', resizeGame);
+ 
++     // Hide Power-up UI elements
++     const p1Powerups = document.getElementById('player1-powerups');
++     const p2Powerups = document.getElementById('player2-powerups');
++     if (p1Powerups) p1Powerups.style.display = 'none';
++     if (p2Powerups) p2Powerups.style.display = 'none';
++     // Optionally hide the container if they share one
++     // const powerupContainer = document.getElementById('powerup-slots'); // Or whatever its ID is
++     // if(powerupContainer) powerupContainer.style.display = 'none';
++
+      console.log("DEBUG: DOMContentLoaded - END");
+ 
+ }); // End of DOMContentLoaded listener
