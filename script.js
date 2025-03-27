@@ -511,14 +511,14 @@ function drawHexagon(ctx, r, c, x_center, y_center, size, tile) {
  
      // Highlight for revealed mine
      if (tile && gameState && gameState.revealedMines.has(coordKey)) {
-         borderColor = '#FF0000'; // Red border for revealed mine
-         borderWidth = 3;
-     }
+         ctx.fillStyle = color || '#cccccc'; // Default to gray if no color
+     ctx.fill();
  
-     ctx.strokeStyle = borderColor;
-     ctx.lineWidth = borderWidth;
+     // Removed dangling '&&' token
+ 
+     ctx.strokeStyle = '#333'; // Border color
      ctx.stroke();
- 
+ }
       // Optional: Draw symbols for mines/powerups/shields after border
      if (tile && gameState && gameState.revealedMines.has(coordKey)) {
          // Draw an 'X' or explosion symbol

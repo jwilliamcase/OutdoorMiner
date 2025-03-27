@@ -246,14 +246,9 @@
              } else if (data.errorType === 'INVALID_ACTION' || data.errorType === 'NOT_YOUR_TURN') {
                  updateStatusIndicator(connected, 'Error'); // Show error, but don't disconnect for recoverable errors
              }
-        });
-
-        // --- Chat/Taunt Events ---
-        socketInstance.on('chat-message', (data) => { // Match server 'chat-message' emit
-            console.log("socket.on('chat-message') - START chat-message handler", data);
-            console.log("Chat message received:", data);
-            // Call the globally exposed function in script.js to handle displaying the message
-            window.addChatMessage(data);
+    socketInstance.on('chat-message', (data) => {
+           window.addChatMessage(data); // Correctly pass data to the UI function
+       });
 
             // Update unread indicator if chat is hidden
             if (chatContainer && (chatContainer.style.display === 'none' || chatContainer.classList.contains('hidden'))) {
