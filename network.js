@@ -47,10 +47,12 @@ export function connectToServer(action, playerName, roomCode = '') {
     // Establish connection - Use the global `io` from the CDN script
      try {
         socketInstance = io(CONFIG.SERVER_URL, {
-             // Optional: Add transports, reconnection options etc.
-             // transports: ['websocket'],
-             reconnectionAttempts: 5,
-             query: { playerName } // Send player name on connection
+            transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5,
+            timeout: 20000, // Increase timeout
+            query: { playerName } // Send player name on connection
         });
         console.log("Socket.IO client initialized, attempting connection...");
         updateConnectionStatus(false, 'Connecting...'); // Update UI - Connecting
@@ -59,7 +61,7 @@ export function connectToServer(action, playerName, roomCode = '') {
 
      } catch (error) {
          console.error("Socket.IO connection failed:", error);
-         displayMessage("Connection failed. See console for details.", true);
+         displayMessage("Connection failed. Is the server running?", true);
          updateConnectionStatus(false, 'Connection Failed');
          playSound('error');
      }
