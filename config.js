@@ -33,8 +33,8 @@ window.CONFIG = CONFIG;
 // Log the configuration to verify
 console.log("Configuration loaded:", CONFIG);
 
-// Export for ES6 modules
-export default CONFIG;
+// Export CONFIG as a named export
+export { CONFIG };
 
 // Export for use in other files (Node.js)
 if (typeof module !== 'undefined' && module.exports) {
