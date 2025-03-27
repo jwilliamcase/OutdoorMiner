@@ -16,11 +16,8 @@ let gameId = null;
 const MAX_UNDO_STEPS = 5; // Allow up to 5 undo steps
 
 // Sound effects
-const sounds = {
-    placeTile: new Audio('sounds/place_tile.mp3'), // Assuming other sounds will be added here with commas
-    // explosion: new Audio('sounds/explosion.mp3'), // Example
-    // powerUp: new Audio('sounds/power_up.mp3'), // Example
-}; // Removed nested function and const
+// Pre-loading removed, rely on playSound for dynamic loading
+const sounds = {};
 
 // Function to play sound effects (moved to top level)
 function playSound(soundName) {
@@ -1368,11 +1365,14 @@ function darkenColor(hexColor, percent) {
 function resizeGame() {
      // Adjust canvas CSS size to fit container, redraw internal buffer
     const gameArea = document.getElementById('game-area');
-    if (canvas && gameArea) {
+    // Only attempt to render if canvas, gameArea, AND gameState exist
+    if (canvas && gameArea && gameState) {
         // Let CSS handle the display size
         // Re-rendering handles internal scaling if needed
         renderGameBoard();
         console.log("DEBUG: resizeGame triggered, re-rendering.");
+    } else {
+        console.log("DEBUG: resizeGame triggered, but gameState not ready for rendering.");
     }
 }
 
