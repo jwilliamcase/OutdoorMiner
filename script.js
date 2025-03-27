@@ -88,18 +88,7 @@ function playSound(soundName) {
         return board;
     }
 
-    reset() {
-        this.board = this.createInitialBoard(this.rows, this.cols);
-        this.playerScores = [0, 0];
-        this.currentPlayerIndex = 0;
-        this.isGameOver = false;
-        this.powerUpInventory = [[], []];
-        this.landmines = new Set();
-        this.revealedMines = new Set();
-        this.protectedTiles = new Map();
-        this.turnNumber = 0;
-        // Keep player names and colors unless specifically reset elsewhere
-    }
+    // Removed duplicate reset() method that was here
 
     serialize() {
         // Convert Sets and Maps to arrays for JSON compatibility
@@ -747,15 +736,21 @@ function updateMessage(msg, isError = false) {
 }
 
 function toggleControls(enabled) {
-     // Disable/enable color palette
-    const colorSwatches = document.querySelectorAll('.color-swatch');
-    colorSwatches.forEach(swatch => {
-        if (enabled) {
-            swatch.classList.remove('disabled');
-            swatch.onclick = () => handleColorSelection(swatch.dataset.color);
-        } else {
-            swatch.classList.add('disabled');
-            swatch.onclick = null;
+     // Disable/enable color palette buttons
+    const colorButtons = document.querySelectorAll('#color-palette .color-button');
+    colorButtons.forEach(button => {
+        button.disabled = !enabled; // Set disabled attribute
+        // Add/remove a class on the parent swatch if your CSS uses it
+        const parentSwatch = button.closest('.color-swatch');
+        if (parentSwatch) {
+            if (enabled) {
+                parentSwatch.classList.remove('disabled');
+                // Re-attach onclick if it was removed, or rely on initial attachment
+                 button.onclick = () => handleColorSelection(button.dataset.color);
+            } else {
+                parentSwatch.classList.add('disabled');
+                 button.onclick = null; // Remove listener when disabled
+            }
         }
     });
 
@@ -1518,33 +1513,23 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('mousemove', handleCanvasMouseMove);
 
      // --- Color Palette Setup ---
-     const palette = document.getElementById('color-palette');
-     if (palette && gameState && gameState.playerColors) { // Ensure gameState exists before accessing colors
-         // Clear existing swatches if any
-         palette.innerHTML = '';
-         // Create swatches based on assigned colors - this needs adjustment
-         // For now, let's assume fixed palette, selection maps to player's color later
-          const availableColors = ['#E6194B', '#3CB44B', '#FFE119', '#4363D8', '#F58231', '#911EB4', '#46F0F0', '#F032E6', '#BCF60C', '#FABEBE', '#008080', '#E6BEFF'];
-          availableColors.forEach(color => {
-               const swatch = document.createElement('div');
-               swatch.classList.add('color-swatch');
-               swatch.style.backgroundColor = color;
-               swatch.dataset.color = color; // Store color value
-               swatch.onclick = () => handleColorSelection(color);
-               palette.appendChild(swatch);
-          });
-     } else if (palette) {
-         // Fallback or default palette if gameState not ready (shouldn't happen if UI hidden)
-          const availableColors = ['#E6194B', '#3CB44B', '#FFE119', '#4363D8', '#F58231', '#911EB4', '#46F0F0', '#F032E6', '#BCF60C', '#FABEBE', '#008080', '#E6BEFF'];
-           availableColors.forEach(color => {
-               const swatch = document.createElement('div');
-               swatch.classList.add('color-swatch');
-               swatch.style.backgroundColor = color;
-               swatch.dataset.color = color; // Store color value
-               // Don't assign onclick here, do it when game starts/turn enables
-               palette.appendChild(swatch);
-           });
-     }
+    const palette = document.getElementById('color-palette');
+    if (palette) {
+        const colorButtons = palette.querySelectorAll('.color-button');
+        colorButtons.forEach(button => {
+            const color = button.dataset.color;
+            if (color) {
+                // Assign the click handler directly to existing buttons
+                button.onclick = () => handleColorSelection(color);
+                // Initially disable them, will be enabled by toggleControls when needed
+                button.disabled = true; // Add disabled attribute
+                button.parentElement.classList.add('disabled'); // Add disabled class to parent div if needed by CSS
+            }
+        });
+         // Initialize toggleControls to set initial state based on isMyTurn (which is false initially)
+         // This ensures palette is disabled correctly from the start.
+         toggleControls(isMyTurn);
+    }
 
      // --- Chat Setup ---
      setupChat();

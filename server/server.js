@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Allow all origins for development
+    origin: process.env.CLIENT_URL || "*", // Use client URL from env if available
     methods: ["GET", "POST"],
   }
 });
@@ -22,10 +22,10 @@ const SABOTAGE_COLOR = '#8B0000'; // Dark Red
 const EXPLOSION_RECOVERY_TURNS = 3;
 const COMBO_THRESHOLD = 4;
 const POWER_UPS = { SABOTAGE: 'sabotage', WILDCARD: 'wildcard', TELEPORT: 'teleport' };
-
+});
 
 // Middleware
-app.use(cors({ origin: "*", methods: ["GET", "POST"] })); // Simple CORS for dev
+// app.use(cors({ origin: "*", methods: ["GET", "POST"] })); // CORS is handled by socket.io config
 app.use(express.json());
 
 // Store active games (gameId -> gameState)
@@ -268,7 +268,7 @@ io.on('connection', (socket) => {
             // No need to broadcast state separately here
         } else {
             // Send regular game update
-             broadcastGameStateUpdate(gameId, game); // Use the renamed function
+             broadcastGameState(gameId, game); // Broadcast the latest state
         }
 
     } catch (error) {
@@ -414,8 +414,8 @@ function startGame(gameId) {
    }
 }
 
-// Broadcasts game state updates *during* the game
-function broadcastGameStateUpdate(gameId, game) {
+// Broadcasts the current game state to all players in the room
+function broadcastGameState(gameId, game) {
     if (!game || !game.gameStarted || game.gameOver) return; // Only send updates for active games
 
     const player1 = game.players.find(p => p.number === 1);
@@ -439,13 +439,11 @@ function broadcastGameStateUpdate(gameId, game) {
         winner: game.winner,
         // Player info
         player1Name: player1?.name || 'Player 1',
-        player2Name: player2?.name || 'Player 2',
-        // Context
-        updateType: updateType, // e.g., 'color-selection', 'power-up', 'game-started', 'game-over'
-        moveDetails: details // e.g., { powerUpAwarded: true }
+        player2Name: player2?.name || 'Player 2'
+        // Removed context fields updateType, moveDetails as they weren't used
     };
 
-    // console.log(`Broadcasting game state UPDATE for ${gameId}. CurrentPlayer: P${game.currentPlayer}`);
+    // console.log(`Broadcasting game state for ${gameId}. CurrentPlayer: P${game.currentPlayer}`);
     // Emit 'game-state' for regular updates
     io.to(gameId).emit('game-state', stateToSend);
 }
@@ -955,7 +953,7 @@ function handleDisconnect(socket, reason) {
                       });
                      // Send final state update *before* marking game over maybe? Or just rely on client handling the disconnect message.
                      // Let's send the final update.
-                     broadcastGameStateUpdate(gameId, game);
+                     broadcastGameState(gameId, game); // Send the final state
                  } else {
                      // If game hadn't started, just notify if anyone is left
                       io.to(gameId).emit('player-disconnected', {

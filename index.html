@@ -108,7 +108,7 @@
     <!-- Chat toggle button -->
     <button id="toggle-chat" style="display: none;">💬</button>
 
-    <!-- Load scripts at the end -->
+    <!-- Load scripts at the very end, ensuring order and single inclusion -->
     <!-- 1. Socket.IO Client Library (v4) -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
     <!-- 2. Game Configuration -->
@@ -117,6 +117,7 @@
     <script src="script.js"></script>
     <!-- 4. Multiplayer Logic -->
     <script src="multiplayer.js"></script>
+    <!-- Ensure no other script tags for these files exist elsewhere in the HTML -->
 
     <footer>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
