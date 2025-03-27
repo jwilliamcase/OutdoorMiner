@@ -120,8 +120,8 @@ function playSound(soundName) {
         this.landmines = data.landmines || [];
         this.explodedTiles = data.explodedTiles || [];
         this.gameStarted = data.gameStarted || false;
-        this.gameOver = data.gameOver || false;
-        this.winner = data.winner !== undefined ? data.winner : null // Removed comma and extra brace
+        this.gameOver = data.gameOver || false,
+        this.winner = data.winner !== undefined ? data.winner : null
     }
 
     getTile(row, col) {
@@ -1452,50 +1452,63 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Setup Screen Button Listeners ---
     if (localGameButton) {
         localGameButton.addEventListener('click', () => {
+            console.log("localGameButton - click START"); // Debug log
             const name = playerNameInput.value.trim() || 'Player 1';
             if (!name) {
                 setupMessageElement.textContent = "Please enter your name.";
+                console.log("localGameButton - click: No name entered."); // Debug log
                 return;
             }
              playerName = name;
              gameMode = 'local';
              setupMessageElement.textContent = "Starting local game...";
+             console.log("localGameButton - click: Initializing local game with name:", playerName); // Debug log
             initializeGame(playerName); // Start local game
+            console.log("localGameButton - click END"); // Debug log
         });
     }
 
     if (createChallengeButton) {
         createChallengeButton.addEventListener('click', () => {
+            console.log("createChallengeButton - click START"); // Debug log
             const name = playerNameInput.value.trim();
             if (!name) {
                 setupMessageElement.textContent = "Please enter your name.";
+                console.log("createChallengeButton - click: No name entered."); // Debug log
                 return;
             }
              playerName = name; // Set global playerName
              gameMode = 'online-host';
             setupMessageElement.textContent = "Connecting to server...";
+            console.log("createChallengeButton - click: Connecting to server for createChallenge with name:", playerName); // Debug log
             // Use multiplayer module's connect function
             window.multiplayer.connectToServer(playerName, 'create', { playerName: playerName });
+            console.log("createChallengeButton - click END"); // Debug log
         });
     }
 
      if (joinChallengeButton && gameIdInput) { // Added check for gameIdInput
         joinChallengeButton.addEventListener('click', () => {
+            console.log("joinChallengeButton - click START"); // Debug log
              const name = playerNameInput.value.trim();
              const idToJoin = gameIdInput.value.trim().toUpperCase(); // Join uses separate input
             if (!name) {
                 setupMessageElement.textContent = "Please enter your name.";
+                console.log("joinChallengeButton - click: No name entered."); // Debug log
                 return;
             }
             if (!idToJoin) {
                  setupMessageElement.textContent = "Please enter a Game ID to join.";
+                 console.log("joinChallengeButton - click: No Game ID entered."); // Debug log
                  return;
              }
              playerName = name; // Set global playerName
              gameMode = 'online-client';
              setupMessageElement.textContent = "Connecting to server...";
+             console.log("joinChallengeButton - click: Connecting to server for joinChallenge with name:", playerName, "and gameId:", idToJoin); // Debug log
             // Use multiplayer module's connect function
              window.multiplayer.connectToServer(playerName, 'join', { playerName: playerName, gameId: idToJoin });
+             console.log("joinChallengeButton - click END"); // Debug log
         });
     }
 
