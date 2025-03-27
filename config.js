@@ -31,7 +31,12 @@ const CONFIG = {
   ]
 };
 
-// Export for use in other files
+// Export for use in other files (Node.js)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CONFIG;
+}
+
+// Ensure it's globally available in browsers
+if (typeof window !== 'undefined') {
+  window.CONFIG = CONFIG;
 }

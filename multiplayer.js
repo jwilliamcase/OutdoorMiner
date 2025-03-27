@@ -253,12 +253,12 @@
             console.log("socket.on('chat-message') - START chat-message handler", data);
             console.log("Chat message received:", data);
             // Call the globally exposed function in script.js
-             if (window.addChatMessage) {
-                 window.addChatMessage(data);
-             } else {
-                 console.error("window.addChatMessage function not found in script.js");
-             }
-            window.playSound(data.isTaunt ? 'taunt' : 'message');
+             console.error("Game Error:", data.message);
+                displayMessage(`Error: ${data.message}`, true); // Use displayMessage from script.js
+                playSound('message'); // Play message sound for errors instead of missing 'error.mp3'
+            }
+        
+            // --- Public Methods ---
              if (chatContainer && chatContainer.classList.contains('hidden')) {
                  unreadMessages++;
                  updateUnreadIndicator();

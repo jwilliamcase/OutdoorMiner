@@ -763,36 +763,39 @@ function updatePowerUpDisplay() {
             inventoryElem.appendChild(powerUpSlot);
         });
     }
-}
-
-
-function updateLandmineInfo() {
-    const landmineInfoElem = document.getElementById('landmine-info'); // Corrected variable name
-    if (landmineInfoElem && gameState) {
-        const activeMines = gameState.landmines.size - gameState.revealedMines.size;
-         // Only show count if playing locally OR if playing online and it's NOT my turn (info about opponent)
-         if (gameMode === 'local' || (gameMode !== 'local' && !isMyTurn)) {
-             landmineInfoElem.textContent = `Active Mines: ${activeMines}`;
-             landmineInfoElem.style.display = activeMines > 0 ? 'block' : 'none';
-         } else {
-             landmineInfoElem.style.display = 'none'; // Hide from current player in online mode
-         }
-    }
-}
-
-
-function updateMessage(msg, isError = false) {
-    const messageElem = document.getElementById('message'); // Use correct variable
-    if (messageElem) {
-        messageElem.textContent = msg;
-        if (isError) {
-             messageElem.className = 'message error';
-             playSound('error');
-        } else {
-             // Reset to default turn indicator styling if needed, or just keep it simple
-             messageElem.className = 'message info'; // Use a generic info class
-             // updateTurnIndicator(); // Don't overwrite if it's a specific message
+ * @param {string|null} [playSoundName=null] - Optional name of the sound to play ('place_tile', 'power_up', etc.)
+     */
+    function displayMessage(msg, isError = false, duration = 3000, playSoundName = null) {
+        const messageElement = document.getElementById('message');
+        if (!messageElement) return;
+    
+        console.log(`Displaying message: "${msg}" (Error: ${isError})`); // Log message display
+    
+        messageElement.textContent = msg;
+        messageElement.style.display = 'block';
+        messageElement.style.color = isError ? '#F76C6C' : '#24305E'; // Error color or default
+        messageElement.style.backgroundColor = isError ? 'rgba(255, 232, 232, 0.9)' : 'rgba(248, 233, 161, 0.9)'; // Light red or default yellow
+        messageElement.style.border = isError ? '1px solid #F76C6C' : '1px solid #e0ca8a';
+    
+        // Determine sound to play
+        let soundToPlay = playSoundName;
+        if (isError && (!playSoundName || playSoundName === 'error')) {
+            soundToPlay = 'message'; // Default to 'message' sound for errors if 'error' or nothing is specified
         }
+    
+        // Play sound if determined
+        if (soundToPlay) {
+            playSound(soundToPlay);
+        }
+    
+        // Clear message after duration
+        if (messageTimeout) clearTimeout(messageTimeout); // Clear existing timer
+        if (duration > 0) {
+            messageTimeout = setTimeout(() => {
+                messageElement.style.display = 'none';
+            }, duration);
+        }
+    }
     }
 }
 
