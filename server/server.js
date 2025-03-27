@@ -140,14 +140,13 @@ class ServerGameState {
         let p1Score = 0;
         let p2Score = 0;
         for (const owner of Object.values(this.boardState)) {
-            // Prevent player from joining if already in a game or hosting
-            if (playerSockets[socket.id]) {
-                console.warn(`Player ${socket.id} (${playerSockets[socket.id].playerName}) attempted to join challenge while already tracked.`);
-                 const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id); // Removed extra ']' here
-                 if(existingChallenge){
-                     return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}. Leave it first.` });
-                 } else if (playerSockets[socket.id].gameId) {
-            else if (owner === 'P2') p2Score++;
+            // Correctly count scores based on tile owner
+                 // Corrected: Removed extra ']' in the find() predicate
+                 const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
+                p1Score++;
+            } else if (owner === 'P2') {
+                p2Score++;
+            }
         }
         // Update scores in the players object
         if (this.players.P1) this.players.P1.score = p1Score;
