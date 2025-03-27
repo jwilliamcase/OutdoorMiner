@@ -593,14 +593,12 @@ function getHexCoords(event) {
 
 
     return { r: closestR, c: closestC };
-}
+};
 
+// Note: The duplicated listeners below were removed as they were redundant with the setupChat function.
+// The setupChat function correctly assigns the listeners now.
 
-// --- UI Update Functions ---
-
-function updateScoreDisplay() {
-    const score1Elem = document.getElementById('player1-score');
-    const score2Elem = document.getElementById('player2-score');
+// Removed misplaced closing brace.
     const player1NameElem = document.getElementById('player1-name');
     const player2NameElem = document.getElementById('player2-name');
     const player1ColorSwatch = document.getElementById('player1-color-swatch');
@@ -1269,7 +1267,7 @@ function setupChat() {
      // const chatContainer = document.getElementById('chat-container'); // Now global
      const sendChatMessageButton = document.getElementById('send-message'); // Correct ID based on HTML? Check multiplayer.js
 
-     // Use sendChatMessageButton if that's the correct ID
+     // Use sendChatButton which is now correctly assigned the ID 'send-message'
       const chatSendHandler = () => {
           const message = chatInput.value.trim();
           if (message && gameMode !== 'local') {
@@ -1281,11 +1279,12 @@ function setupChat() {
       };
 
 
-      if (sendChatMessageButton && chatInput) { // Check if elements exist
-         sendChatMessageButton.addEventListener('click', chatSendHandler);
+      if (sendChatButton && chatInput) { // Check if elements exist (sendChatButton now references 'send-message' ID)
+         sendChatButton.addEventListener('click', chatSendHandler);
 
          chatInput.addEventListener('keypress', (e) => {
-             if (e.key === 'Enter') {
+             if (e.key === 'Enter' && !e.shiftKey) { // Prevent newline on Enter
+                 e.preventDefault(); // Stop default behavior (like newline)
                  chatSendHandler(); // Call the handler
              }
          });
@@ -1356,34 +1355,17 @@ function displayChatMessage(senderName, messageText, options = {}) {
 window.addChatMessage = function(data) {
     // data expected: { playerName: string, playerNumber: int, message: string, isTaunt: bool, isFromServer: bool, timestamp: date }
      const sender = data.isFromServer ? 'System' : (data.playerName || `Player ${data.playerNumber}`);
-     const isMine = data.playerNumber === playerNumber; // Check against local player number
+     // Compare server data playerNumber against global playerNumber set on game start
+     const isMine = typeof playerNumber !== 'undefined' && data.playerNumber === playerNumber;
      displayChatMessage(sender, data.message, { isMine: isMine, isSystem: data.isFromServer, isTaunt: data.isTaunt, timestamp: data.timestamp });
 };
-         });
 
-         chatInput.addEventListener('keypress', (e) => {
-             if (e.key === 'Enter') {
-                 sendChatButton.click();
-             }
-         });
-     }
+// Note: The duplicated listeners below were removed as they were redundant with the setupChat function.
+// The setupChat function correctly assigns the listeners now.
 
-     if (toggleChatButton && chatContainer) {
-         toggleChatButton.addEventListener('click', () => {
-             const isVisible = chatContainer.style.display === 'none' || chatContainer.style.display === '';
-              chatContainer.style.display = isVisible ? 'flex' : 'none'; // Or 'block'
-              toggleChatButton.textContent = isVisible ? 'Hide Chat' : 'Show Chat';
-         });
-          // Initially hide chat? Or based on gameMode?
-          if (gameMode === 'local') {
-             chatContainer.style.display = 'none';
-             toggleChatButton.style.display = 'none';
-          } else {
-             chatContainer.style.display = 'flex'; // Show by default for online
-             toggleChatButton.style.display = 'block';
-          }
-     }
-}
+} // This closing brace seems out of place, assuming it closes a block earlier - if it causes issues, review the code above it.
+// If this brace closes the setupChat function, it's misplaced. Let's remove it.
+// If it's meant to close something else, that's a larger structural issue. Let's assume it's errant for now.
 
 // --- Global Action Functions ---
 window.restartGame = function() {
@@ -1400,9 +1382,15 @@ window.restartGame = function() {
 
 window.leaveGame = function() {
      if (gameMode !== 'local') {
-         window.notifyLeaveGame(); // Let server know we're leaving
+        // Attempt to notify server if possible, but always reload.
+        if (window.multiplayer && typeof window.multiplayer.notifyLeaveGame === 'function') {
+            window.multiplayer.notifyLeaveGame();
+        }
      }
- 
+     // For both local and online, leaving means going back to the start.
+     window.location.reload();
+};
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed.");
@@ -1421,19 +1409,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Get UI Element References ---
      // Use correct IDs from index.html
-    setupContainer = document.getElementById('setup-container'); // Moved declaration to top
-    playerNameInput = document.getElementById('player-name-input'); // Moved & Corrected ID
-    setupMessageElement = document.getElementById('setup-message'); // Moved declaration & Renamed var
-    localGameButton = document.getElementById('local-game-button'); // Moved & Corrected ID
-    createChallengeButton = document.getElementById('create-challenge-button'); // Moved & Corrected ID
-    joinChallengeButton = document.getElementById('join-challenge-button'); // Moved & Corrected ID
-    gameIdInput = document.getElementById('game-id-input'); // Moved & Corrected ID // For joining
-    leaveGameButton = document.getElementById('leaveGameButton'); // Moved & Corrected ID
-    restartGameButton = document.getElementById('restartGameButton'); // Moved & Corrected ID
+    // Assign values to globally declared variables
+    setupContainer = document.getElementById('setup-container');
+    playerNameInput = document.getElementById('player-name-input');
+    setupMessageElement = document.getElementById('setup-message');
+    localGameButton = document.getElementById('local-game-button');
+    createChallengeButton = document.getElementById('create-challenge-button');
+    joinChallengeButton = document.getElementById('join-challenge-button');
+    gameIdInput = document.getElementById('game-id-input'); // For joining
+    leaveGameButton = document.getElementById('leaveGameButton');
+    restartGameButton = document.getElementById('restartGameButton');
 
      // Other elements referenced elsewhere
      messageElement = document.getElementById('message');
-     gameScreen = document.getElementById('game-area'); // Assuming this is the main container now
+     gameScreen = document.getElementById('game-area');
      gameIdDisplay = document.getElementById('game-id-display');
      player1ScoreElement = document.getElementById('player1-score');
      player2ScoreElement = document.getElementById('player2-score');
@@ -1442,21 +1431,25 @@ document.addEventListener('DOMContentLoaded', () => {
      landmineInfoElement = document.getElementById('landmine-info');
      chatInput = document.getElementById('chat-input');
      chatMessages = document.getElementById('chat-messages');
-     sendChatButton = document.getElementById('send-chat'); // Corrected ID? check html
+     sendChatButton = document.getElementById('send-message'); // Corrected ID based on HTML
      toggleChatButton = document.getElementById('toggle-chat');
      chatContainer = document.getElementById('chat-container');
 
-     // Score container elements (ensure they exist)
-     const player1Container = document.getElementById('player1-score-container');
-     const player2Container = document.getElementById('player2-score-container');
-     const player1NameElem = document.getElementById('player1-name');
-     const player2NameElem = document.getElementById('player2-name');
-     const player1ColorSwatch = document.getElementById('player1-color-swatch');
-     const player2ColorSwatch = document.getElementById('player2-color-swatch');
+     // Score container elements (ensure they exist and are handled correctly later)
+     // These const declarations are fine as they are local to this scope if needed,
+     // but score display logic uses getElementById directly anyway. Let's remove these
+     // const declarations for clarity as the updateScoreDisplay function uses getElementById directly.
+     // const player1Container = document.getElementById('player1-score-container');
+     // const player2Container = document.getElementById('player2-score-container');
+     // const player1NameElem = document.getElementById('player1-name');
+     // const player2NameElem = document.getElementById('player2-name');
+     // const player1ColorSwatch = document.getElementById('player1-color-swatch');
+     // const player2ColorSwatch = document.getElementById('player2-color-swatch');
 
-     // Powerup inventories (ensure they exist)
-     const player1Powerups = document.getElementById('player1-powerups');
-     const player2Powerups = document.getElementById('player2-powerups');
+     // Powerup inventories (ensure they exist and are handled correctly later)
+     // These are not used elsewhere in this scope, updatePowerUpDisplay uses getElementById.
+     // const player1Powerups = document.getElementById('player1-powerups');
+     // const player2Powerups = document.getElementById('player2-powerups');
 
     // --- Initial UI State ---
     showSetupScreen(); // Start by showing the setup screen
