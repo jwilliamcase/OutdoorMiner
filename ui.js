@@ -523,4 +523,3 @@ export function playSound(soundName) {
          console.error(`General error playing sound ${soundName}:`, error);
      }
 }
-}
