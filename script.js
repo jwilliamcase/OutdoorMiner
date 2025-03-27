@@ -256,13 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // General Game Control Listeners
     leaveGameButton.addEventListener('click', leaveGame);
-    toggleChatButton.addEventListener('click', toggleChat);
+    }); // End setupEventListeners
 
-    // --- Initialize ---
-    // Game initialization (initializeGame/initializeOnlineGame) is called by setup buttons or server events
-    // No automatic initialization here anymore.
+    // Initial setup
+    showSetupScreen();
+    setupEventListeners(); // Attach listeners after defining them
 
 }); // End DOMContentLoaded
+// Ensure no stray code or missing braces below this line
 
 // ============================================================================
 // UI State Management Functions
