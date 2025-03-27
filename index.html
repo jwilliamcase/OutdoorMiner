@@ -15,56 +15,42 @@
     <div id="setup-container">
         <h2>Welcome!</h2>
         <div class="input-group">
-            <label for="player-name-setup">Enter Your Name:</label>
-            <input type="text" id="player-name-setup" placeholder="Player Name" maxlength="20">
+            <label for="player-name-input">Enter Your Name:</label> <!-- Changed ID -->
+            <input type="text" id="player-name-input" placeholder="Player Name" maxlength="20"> <!-- Changed ID -->
         </div>
         <div class="button-group">
-            <button id="start-local-game">Play Local Game</button>
-            <button id="setup-create-challenge">Create Online Challenge</button>
+            <button id="local-game-button">Play Local Game</button> <!-- Changed ID -->
+            <button id="create-challenge-button">Create Online Challenge</button> <!-- Changed ID -->
         </div>
         <div class="join-group">
-            <input type="text" id="challenge-code-setup" placeholder="Enter Code to Join">
-            <button id="setup-join-challenge">Join Online Challenge</button>
+            <input type="text" id="game-id-input" placeholder="Enter Code to Join"> <!-- Changed ID -->
+            <button id="join-challenge-button">Join Online Challenge</button> <!-- Changed ID -->
         </div>
         <div id="setup-message" class="message-area"></div>
     </div>
 
     <!-- Main Game Elements - Hidden Initially -->
     <div id="score-container" style="display: none;">
-        <div id="player-score">You: <span id="your-score">0</span></div>
-    <div id="game-area">
-        <canvas id="gameCanvas" width="800" height="600">Your browser does not support the canvas element.</canvas>
+         <!-- Score display structure needs review/fixing -->
+         <div id="player1-score-container">
+             <span id="player1-color-swatch" class="color-swatch-display"></span>
+             <span id="player1-name">Player 1</span>: <span id="player1-score">0</span>
+             <div id="player1-powerups" class="powerup-inventory"></div>
+         </div>
+         <div id="player2-score-container">
+              <span id="player2-color-swatch" class="color-swatch-display"></span>
+             <span id="player2-name">Player 2</span>: <span id="player2-score">0</span>
+             <div id="player2-powerups" class="powerup-inventory"></div>
+         </div>
+         <!-- Game ID display Area -->
+          <div id="challenge-info" style="display: none;">
+              Game ID: <span id="game-id-display">N/A</span>
+          </div>
     </div>
-
-    <div id="game-area" style="display: none;">
-        <div id="left-powers" class="power-side">
-            <div class="power-up-slot" data-type="sabotage">
-                <div class="power-up-icon">🧨</div>
-                <div class="power-up-name">Sabotage</div>
-                <div class="power-up-count" id="sabotage-count">0</div>
-                <div class="power-up-tooltip">Click to select, then click on opponent territory to convert it back to neutral</div>
-            </div>
-        </div>
-        
-        <div id="game-container">
-            <canvas id="game-board" width="800" height="680"></canvas>
-        </div>
-        
-        <div id="right-powers" class="power-side">
-            <div class="power-up-slot" data-type="wildcard">
-                <div class="power-up-icon">🃏</div>
-                <div class="power-up-name">Wildcard</div>
-                <div class="power-up-count" id="wildcard-count">0</div>
-                <div class="power-up-tooltip">Click to select, then click on unclaimed tile adjacent to yours to claim it</div>
-            </div>
-            
-            <div class="power-up-slot" data-type="teleport">
-                <div class="power-up-icon">⚡</div>
-                <div class="power-up-name">Teleport</div>
-                <div class="power-up-count" id="teleport-count">0</div>
-                <div class="power-up-tooltip">Click to select, then click on any unclaimed tile to claim it</div>
-            </div>
-        </div>
+    <div id="game-area" style="display: none;"> <!-- Combine game-area divs -->
+        <canvas id="gameCanvas" width="800" height="600">Your browser does not support the canvas element.</canvas>
+         <!-- Removed duplicated game-area div and simplified power-up structure; power-ups are now part of score-container -->
+         <!-- Removed second canvas id="game-board" -->
     </div>
 
     <div id="color-palette">
@@ -121,29 +107,17 @@
     <!-- Chat toggle button -->
     <button id="toggle-chat" style="display: none;">💬</button>
 
-    <!-- Socket.io Client -->
-    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <!-- Config -->
-    <script src="config.js"></script>
-    <!-- Main Game Script -->
-    <script src="script.js"></script>
-    <!-- Configuration -->
-    <script src="config.js"></script>
-    <!-- Core Game Logic -->
-    <script src="script.js"></script>
-    <!-- Socket.IO Client - Load before multiplayer.js -->
-    <!-- Make sure the path is correct for your setup or use a CDN -->
-    <!-- Example using server-served path: -->
-    <!-- Socket.IO Client Library (v4) - Load FIRST -->
+    <!-- Load scripts at the end -->
+    <!-- 1. Socket.IO Client Library (v4) -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
-    <!-- Load Socket.IO Client Library first -->
-    <!-- Scripts loaded at the end of body -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- 2. Game Configuration -->
     <script src="config.js"></script>
+    <!-- 3. Core Game Logic -->
     <script src="script.js"></script>
+    <!-- 4. Multiplayer Logic -->
     <script src="multiplayer.js"></script>
-</body>
-</html>
+
+    <footer>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
     </footer>
 </body>

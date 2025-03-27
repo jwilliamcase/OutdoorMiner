@@ -13,17 +13,22 @@ let playerNumber = -1; // 0 or 1 for online games
 let gameMode = 'local'; // 'local', 'online-host', 'online-client'
 let gameId = null;
 
+const MAX_UNDO_STEPS = 5; // Allow up to 5 undo steps
+
 // Sound effects
 const sounds = {
-    placeTile: new Audio('sounds/place_tile.mp3'),
-    const MAX_UNDO_STEPS = 5; // Allow up to 5 undo steps
-    
-    // Function to play sound effects
-    function playSound(soundName) {
+    placeTile: new Audio('sounds/place_tile.mp3'), // Assuming other sounds will be added here with commas
+    // explosion: new Audio('sounds/explosion.mp3'), // Example
+    // powerUp: new Audio('sounds/power_up.mp3'), // Example
+}; // Removed nested function and const
+
+// Function to play sound effects (moved to top level)
+function playSound(soundName) {
         // Check if sound is enabled (optional enhancement)
         // console.log(`Attempting to play sound: ${soundName}`); // Debug log
         try {
-            const audio = new Audio(`assets/sounds/${soundName}.mp3`);
+            // Correct path based on file tree
+            const audio = new Audio(`sounds/${soundName}.mp3`);
             audio.play().catch(error => {
                 // Autoplay was prevented, log it but don't crash
                 // console.error(`Sound play failed for ${soundName}:`, error);
@@ -43,11 +48,25 @@ const sounds = {
     // --- State Management ---
     class GameState {
         constructor() {
-            this.reset();
-        }
-        this.revealedMines = new Set(); // Mines triggered
+        this.reset();
+        this.rows = 12; // Default or get from config?
+        this.cols = 12; // Default or get from config?
+        this.playerNames = ["Player 1", "Player 2"];
+        this.playerColors = ['#FF0000', '#0000FF']; // Defaults
+    }
+
+    // --- GameState Methods ---
+    reset() {
+        this.board = this.createInitialBoard(this.rows, this.cols);
+        this.playerScores = [0, 0];
+        this.currentPlayerIndex = 0;
+        this.isGameOver = false;
+        this.powerUpInventory = [[], []]; // [player1_powerups, player2_powerups]
+        this.landmines = new Set(); // Stores "row,col" strings of mine locations
+        this.revealedMines = new Set(); // Stores "row,col" strings of triggered mines
         this.protectedTiles = new Map(); // Stores "row,col" => playerIndex for shielded tiles
         this.turnNumber = 0;
+        // Keep player names and colors unless specifically reset elsewhere
     }
 
     createInitialBoard(rows, cols) {
@@ -1067,6 +1086,98 @@ window.handlePlayerDisconnected = function(disconnectData) {
      // Optionally implement a "rematch" or "return to lobby" button
 };
 
+// --- Multiplayer Communication Helpers (Called by multiplayer.js) ---
+
+// Called when server confirms game creation or joining
+window.setGameInfo = function(receivedGameId, assignedPlayerNumber, opponentPlayerName = null) {
+    console.log(`Setting Game Info - ID: ${receivedGameId}, PlayerNum: ${assignedPlayerNumber}, Opponent: ${opponentPlayerName}`);
+    gameId = receivedGameId;
+    playerNumber = assignedPlayerNumber;
+    gameMode = (playerNumber === 0) ? 'online-host' : 'online-client';
+
+    // Update UI immediately
+    const gameIdDisplay = document.getElementById('game-id-display');
+    if (gameIdDisplay) gameIdDisplay.textContent = gameId;
+    const challengeInfo = document.getElementById('challenge-info');
+    if (challengeInfo) challengeInfo.style.display = 'block'; // Show game ID area
+
+    // If Player 1 (host), now needs to initialize board and send state
+    if (playerNumber === 0) {
+        // Setup local state *first*
+        initializeGame(playerName, "Waiting...", '#FF0000', '#0000FF'); // Initialize with placeholder opponent
+        setupInitialTilesLocal(); // Place starting tiles *locally*
+        renderGameBoard(); // Render the board with starting tiles
+        console.log('Player 1 local setup complete. Sending initial state to server...');
+        // Now send the initial state to the server
+        window.multiplayer.sendInitialGameState(gameId, gameState.serialize()); // Send serialized state
+    } else {
+        // Player 2 just updates names if opponent name is known
+        if (gameState && opponentPlayerName) {
+            gameState.playerNames[0] = opponentPlayerName; // Player 0 is opponent
+             gameState.playerNames[1] = playerName; // Player 1 is us
+             updateScoreDisplay();
+        }
+    }
+};
+
+// Called when opponent info is updated (e.g., P2 joins, P1 receives name)
+window.setOpponentInfo = function(opponentNum, opponentPlayerName) {
+     console.log(`Setting Opponent Info - Num: ${opponentNum}, Name: ${opponentPlayerName}`);
+    if (gameState && gameState.playerNames[opponentNum]) {
+        gameState.playerNames[opponentNum] = opponentPlayerName;
+        updateScoreDisplay(); // Update names on screen
+    }
+};
+
+// Called by multiplayer.js on connection errors
+window.handleConnectionError = function(errorMessage) {
+    console.error("Connection Error Handler:", errorMessage);
+    updateMessage(errorMessage, true);
+    // Optionally reset UI to setup screen if connection totally fails
+    // showSetupScreen();
+     const setupMsg = document.getElementById('setup-message');
+     if (setupMsg) setupMsg.textContent = errorMessage;
+     // Reset state?
+     gameMode = 'local'; // Revert potential online mode selection
+};
+
+// Called by multiplayer.js on unexpected disconnects
+window.handleUnexpectedDisconnect = function(message) {
+     console.error("Unexpected Disconnect Handler:", message);
+     if (gameState && !gameState.isGameOver) {
+         updateMessage(message, true);
+         gameState.isGameOver = true; // End the game
+         toggleControls(false);
+     }
+};
+
+// Called by multiplayer.js on non-critical server errors
+window.handleGenericServerError = function(message, errorType) {
+     console.error(`Server Error Handler (${errorType}):`, message);
+     updateMessage(message, true); // Show error to user
+};
+
+// Called by multiplayer.js when opponent disconnects mid-game
+window.handleOpponentDisconnect = function(message) {
+     console.error("Opponent Disconnect Handler:", message);
+      if (gameState && !gameState.isGameOver) {
+         updateMessage(message, true);
+         gameState.isGameOver = true; // End the game
+         toggleControls(false);
+     }
+};
+
+// Called by multiplayer.js for critical setup errors
+window.handleGameSetupError = function(message) {
+     console.error("Game Setup Error Handler:", message);
+      updateMessage(message, true);
+      toggleControls(false);
+      // Maybe force back to setup screen
+      showSetupScreen();
+       const setupMsg = document.getElementById('setup-message');
+       if (setupMsg) setupMsg.textContent = `Game Setup Failed: ${message}`;
+};
+
 
 // --- Utility Functions ---
 
@@ -1151,19 +1262,103 @@ function displayChatMessage(sender, message) {
 }
 
 function setupChat() {
-     const chatInput = document.getElementById('chat-input');
-     const sendChatButton = document.getElementById('send-chat');
-     const toggleChatButton = document.getElementById('toggle-chat');
-     const chatContainer = document.getElementById('chat-container');
+     // Use globally declared variables, assuming they are assigned in DOMContentLoaded
+     // const chatInput = document.getElementById('chat-input'); // Now global
+     // const sendChatButton = document.getElementById('send-chat'); // Now global
+     // const toggleChatButton = document.getElementById('toggle-chat'); // Now global
+     // const chatContainer = document.getElementById('chat-container'); // Now global
+     const sendChatMessageButton = document.getElementById('send-message'); // Correct ID based on HTML? Check multiplayer.js
 
-     if (sendChatButton && chatInput) {
-         sendChatButton.addEventListener('click', () => {
-             const message = chatInput.value.trim();
-             if (message && gameMode !== 'local') {
-                 window.sendChatMessage(message); // Defined in multiplayer.js
-                 displayChatMessage(playerName, message); // Display own message immediately
-                 chatInput.value = '';
+     // Use sendChatMessageButton if that's the correct ID
+      const chatSendHandler = () => {
+          const message = chatInput.value.trim();
+          if (message && gameMode !== 'local') {
+              // Call the exposed multiplayer function
+              window.multiplayer.sendChatMessage(message);
+              // displayChatMessage(playerName, message); // Let server echo back for consistency? Or display immediately?
+              chatInput.value = '';
+          }
+      };
+
+
+      if (sendChatMessageButton && chatInput) { // Check if elements exist
+         sendChatMessageButton.addEventListener('click', chatSendHandler);
+
+         chatInput.addEventListener('keypress', (e) => {
+             if (e.key === 'Enter') {
+                 chatSendHandler(); // Call the handler
              }
+         });
+     } else {
+         console.warn("Chat input or send button not found.");
+     }
+
+
+     if (toggleChatButton && chatContainer) {
+         toggleChatButton.addEventListener('click', () => {
+             // Check visibility using class or style
+              const isVisible = chatContainer.style.display !== 'none'; // Or check classList.contains('hidden')
+              chatContainer.style.display = isVisible ? 'none' : 'flex'; // Or add/remove 'hidden' class
+              toggleChatButton.textContent = isVisible ? 'Show Chat' : 'Hide Chat';
+         });
+          // Initially hide chat? Or based on gameMode?
+          if (gameMode === 'local' || !chatContainer) { // Check if chatContainer exists
+              if (chatContainer) chatContainer.style.display = 'none';
+              if (toggleChatButton) toggleChatButton.style.display = 'none';
+          } else {
+             chatContainer.style.display = 'flex'; // Show by default for online
+             toggleChatButton.style.display = 'block';
+          }
+     } else {
+          console.warn("Chat container or toggle button not found.");
+     }
+}
+
+// Update displayChatMessage to accept data object from server/local echo
+function displayChatMessage(senderName, messageText, options = {}) {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('chat-message');
+
+    const isMine = options.isMine || (senderName === playerName); // Determine if it's the local player's message
+    const isSystem = options.isSystem || (senderName === 'System');
+
+    messageElement.classList.add(isSystem ? 'system-message' : (isMine ? 'my-message' : 'other-message'));
+    if (options.isTaunt) messageElement.classList.add('taunt-message');
+
+
+    if (!isSystem) {
+        const nameSpan = document.createElement('div'); nameSpan.className = 'sender-name';
+        nameSpan.textContent = senderName; // Display the sender's name
+        messageElement.appendChild(nameSpan);
+    }
+
+    const msgTextElem = document.createElement('div'); msgTextElem.className = 'message-text';
+    msgTextElem.textContent = messageText; // Use textContent to prevent XSS
+    messageElement.appendChild(msgTextElem);
+
+    const timestampSpan = document.createElement('div'); timestampSpan.className = 'message-timestamp';
+    const time = options.timestamp ? new Date(options.timestamp) : new Date();
+    timestampSpan.textContent = `${time.getHours()}:${time.getMinutes().toString().padStart(2, '0')}`;
+    messageElement.appendChild(timestampSpan);
+
+
+    // Append and scroll logic
+     const shouldScroll = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 30; // Threshold
+    chatMessages.appendChild(messageElement);
+     if (shouldScroll || isMine) { // Always scroll for own messages or if already near bottom
+         chatMessages.scrollTop = chatMessages.scrollHeight;
+     }
+}
+
+// Global hook for multiplayer module to call
+window.addChatMessage = function(data) {
+    // data expected: { playerName: string, playerNumber: int, message: string, isTaunt: bool, isFromServer: bool, timestamp: date }
+     const sender = data.isFromServer ? 'System' : (data.playerName || `Player ${data.playerNumber}`);
+     const isMine = data.playerNumber === playerNumber; // Check against local player number
+     displayChatMessage(sender, data.message, { isMine: isMine, isSystem: data.isFromServer, isTaunt: data.isTaunt, timestamp: data.timestamp });
+};
          });
 
          chatInput.addEventListener('keypress', (e) => {
@@ -1224,16 +1419,44 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-     // --- Get UI Element References ---
-    const setupContainer = document.getElementById('setup-container');
-    const playerNameInput = document.getElementById('player-name-input');
-    const setupMessage = document.getElementById('setup-message');
-    const localGameButton = document.getElementById('local-game-button');
-    const createChallengeButton = document.getElementById('create-challenge-button');
-    const joinChallengeButton = document.getElementById('join-challenge-button');
-    const gameIdInput = document.getElementById('game-id-input'); // For joining
-    const leaveGameButton = document.getElementById('leave-game-button');
-    const restartGameButton = document.getElementById('restart-game-button'); // Make sure this button exists
+    // --- Get UI Element References ---
+     // Use correct IDs from index.html
+    setupContainer = document.getElementById('setup-container'); // Moved declaration to top
+    playerNameInput = document.getElementById('player-name-input'); // Moved & Corrected ID
+    setupMessageElement = document.getElementById('setup-message'); // Moved declaration & Renamed var
+    localGameButton = document.getElementById('local-game-button'); // Moved & Corrected ID
+    createChallengeButton = document.getElementById('create-challenge-button'); // Moved & Corrected ID
+    joinChallengeButton = document.getElementById('join-challenge-button'); // Moved & Corrected ID
+    gameIdInput = document.getElementById('game-id-input'); // Moved & Corrected ID // For joining
+    leaveGameButton = document.getElementById('leaveGameButton'); // Moved & Corrected ID
+    restartGameButton = document.getElementById('restartGameButton'); // Moved & Corrected ID
+
+     // Other elements referenced elsewhere
+     messageElement = document.getElementById('message');
+     gameScreen = document.getElementById('game-area'); // Assuming this is the main container now
+     gameIdDisplay = document.getElementById('game-id-display');
+     player1ScoreElement = document.getElementById('player1-score');
+     player2ScoreElement = document.getElementById('player2-score');
+     colorSwatchesContainer = document.getElementById('color-palette');
+     powerUpSlotsContainer = document.getElementById('powerup-slots'); // Assuming a container for both players exists
+     landmineInfoElement = document.getElementById('landmine-info');
+     chatInput = document.getElementById('chat-input');
+     chatMessages = document.getElementById('chat-messages');
+     sendChatButton = document.getElementById('send-chat'); // Corrected ID? check html
+     toggleChatButton = document.getElementById('toggle-chat');
+     chatContainer = document.getElementById('chat-container');
+
+     // Score container elements (ensure they exist)
+     const player1Container = document.getElementById('player1-score-container');
+     const player2Container = document.getElementById('player2-score-container');
+     const player1NameElem = document.getElementById('player1-name');
+     const player2NameElem = document.getElementById('player2-name');
+     const player1ColorSwatch = document.getElementById('player1-color-swatch');
+     const player2ColorSwatch = document.getElementById('player2-color-swatch');
+
+     // Powerup inventories (ensure they exist)
+     const player1Powerups = document.getElementById('player1-powerups');
+     const player2Powerups = document.getElementById('player2-powerups');
 
     // --- Initial UI State ---
     showSetupScreen(); // Start by showing the setup screen
@@ -1243,11 +1466,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localGameButton.addEventListener('click', () => {
             const name = playerNameInput.value.trim() || 'Player 1';
             if (!name) {
-                setupMessage.textContent = "Please enter your name.";
+                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
              playerName = name;
              gameMode = 'local';
+             if (setupMessageElement) setupMessageElement.textContent = "Starting local game...";
             initializeGame(playerName); // Start local game
         });
     }
@@ -1256,14 +1480,14 @@ document.addEventListener('DOMContentLoaded', () => {
         createChallengeButton.addEventListener('click', () => {
             const name = playerNameInput.value.trim();
             if (!name) {
-                setupMessage.textContent = "Please enter your name.";
+                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
              playerName = name; // Set global playerName
              gameMode = 'online-host';
-            setupMessage.textContent = "Connecting to server...";
-            // Connect and then create challenge (multiplayer.js handles the sequence)
-            window.connectToServer(playerName, 'create', { playerName: playerName });
+            if (setupMessageElement) setupMessageElement.textContent = "Connecting to server...";
+            // Use multiplayer module's connect function
+            window.multiplayer.connectToServer(playerName, 'create', { playerName: playerName });
         });
     }
 
@@ -1272,18 +1496,18 @@ document.addEventListener('DOMContentLoaded', () => {
              const name = playerNameInput.value.trim();
              const idToJoin = gameIdInput.value.trim().toUpperCase(); // Join uses separate input
             if (!name) {
-                setupMessage.textContent = "Please enter your name.";
+                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
             if (!idToJoin) {
-                 setupMessage.textContent = "Please enter a Game ID to join.";
+                 if (setupMessageElement) setupMessageElement.textContent = "Please enter a Game ID to join.";
                  return;
              }
              playerName = name; // Set global playerName
              gameMode = 'online-client';
-             setupMessage.textContent = "Connecting to server...";
-            // Connect and then join challenge (multiplayer.js handles the sequence)
-            window.connectToServer(playerName, 'join', { playerName: playerName, gameId: idToJoin });
+             if (setupMessageElement) setupMessageElement.textContent = "Connecting to server...";
+            // Use multiplayer module's connect function
+             window.multiplayer.connectToServer(playerName, 'join', { playerName: playerName, gameId: idToJoin });
         });
     }
 

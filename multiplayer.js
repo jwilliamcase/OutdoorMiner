@@ -235,9 +235,14 @@
         });
 
         // --- Chat/Taunt Events ---
-        socketInstance.on('receive-message', (data) => { // Changed from 'chat-message' based on server emit
+        socketInstance.on('chat-message', (data) => { // Match server 'chat-message' emit
             console.log("Chat message received:", data);
-            displayChatMessage(data);
+            // Call the globally exposed function in script.js
+             if (window.addChatMessage) {
+                 window.addChatMessage(data);
+             } else {
+                 console.error("window.addChatMessage function not found in script.js");
+             }
             window.playSound(data.isTaunt ? 'taunt' : 'message');
              if (chatContainer && chatContainer.classList.contains('hidden')) {
                  unreadMessages++;
@@ -496,9 +501,8 @@
     window.multiplayer = {
         connectToServer,
         disconnectFromServer,
-        // createChallenge, // Actions are now handled via connectToServer
-        // joinChallenge,   // Actions are now handled via connectToServer
-        sendInitialGameState, // Expose function for P1 to send initial state
+        // createChallenge and joinChallenge are initiated via connectToServer's action param
+        sendInitialGameState, // Ensure this function is defined above and included here
         sendMove,
         requestRestartGame,
         notifyLeaveGame, // Maybe remove this if disconnectFromServer handles it
