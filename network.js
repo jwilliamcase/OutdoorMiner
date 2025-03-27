@@ -366,26 +366,39 @@ export function emitCreateChallenge(playerName) {
 
 // Function to emit join challenge event, uses callback for response
 export function emitJoinChallenge(playerName, roomCode) {
-     if (socketInstance && socketInstance.connected) {
-         console.log(`Emitting join-challenge for player: ${playerName} to room: ${roomCode}`);
-         // Emit with a callback function to handle the server's response
-         socketInstance.emit('join-challenge', { playerName, roomCode }, (response) => {
-             console.log('join-challenge response:', response);
-             if (response.success) {
-                 currentRoomId = response.roomCode;
-                 displayMessage(`Joined room: ${response.roomCode}. Waiting for game to start...`, false);
-                 updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
-                 // The server should emit 'game-start' soon after successful join
-             } else {
-                 console.error('Failed to join challenge:', response.message);
-                 displayMessage(`Error joining challenge: ${response.message}`, true);
-                 // Optionally, reset UI state
-             }
-         });
-     } else {
-         console.error("Cannot join challenge: Not connected.");
-         displayMessage("Connect to the server first.", true);
-     }
+    if (!socketInstance || !socketInstance.connected) {
+        connectToServer('join', playerName, roomCode);
+        
+        socketInstance.once('connect', () => {
+            console.log(`Emitting join-challenge for player: ${playerName} to room: ${roomCode}`);
+            socketInstance.emit('join-challenge', { playerName, roomCode }, (response) => {
+                console.log('join-challenge response:', response);
+                if (response.success) {
+                    currentRoomId = response.roomCode;
+                    updateGameCode(response.roomCode);
+                    displayMessage(`Joined room: ${response.roomCode}. Waiting for game to start...`, false);
+                    updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
+                } else {
+                    console.error('Failed to join challenge:', response.message);
+                    displayMessage(`Error joining challenge: ${response.message}`, true);
+                }
+            });
+        });
+    } else {
+        console.log(`Emitting join-challenge for player: ${playerName} to room: ${roomCode}`);
+        socketInstance.emit('join-challenge', { playerName, roomCode }, (response) => {
+            console.log('join-challenge response:', response);
+            if (response.success) {
+                currentRoomId = response.roomCode;
+                updateGameCode(response.roomCode);
+                displayMessage(`Joined room: ${response.roomCode}. Waiting for game to start...`, false);
+                updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
+            } else {
+                console.error('Failed to join challenge:', response.message);
+                displayMessage(`Error joining challenge: ${response.message}`, true);
+            }
+        });
+    }
 }
 
 // playSound function moved to ui.js
