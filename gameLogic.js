@@ -1,18 +1,21 @@
 // Constants related to hexagon geometry
-export const HEX_SIZE = 25; // Slightly reduced for tighter packing
+export const HEX_SIZE = 30; // Slightly larger for better visibility
 export const HEX_HEIGHT = Math.sqrt(3) * HEX_SIZE;
 export const HEX_WIDTH = 2 * HEX_SIZE;
-export const VERTICAL_SPACING = HEX_HEIGHT * 0.75; // Tighter vertical spacing
-export const HORIZONTAL_SPACING = HEX_WIDTH * 0.87; // Adjusted for proper overlap
+export const VERTICAL_SPACING = HEX_HEIGHT;
+export const HORIZONTAL_SPACING = HEX_WIDTH * 0.75;
 
-// --- GameState Class ---
+// Axial direction vectors for neighboring hexes
+const DIRECTIONS = [
+    { q: 1, r: 0 },  // East
+    { q: 1, r: -1 }, // Northeast
+    { q: 0, r: -1 }, // Northwest
+    { q: -1, r: 0 }, // West
+    { q: -1, r: 1 }, // Southwest
+    { q: 0, r: 1 }   // Southeast
+];
+
 export class GameState {
-    /**
-     * Creates a new game state.
-     * @param {number} rows - Number of rows in the board.
-     * @param {number} cols - Number of columns in the board.
-     * @param {object} players - Map of player IDs to player info.
-     */
     constructor(rows, cols, players) {
         this.rows = rows;
         this.cols = cols;
@@ -24,185 +27,118 @@ export class GameState {
         this.winner = null;
     }
 
-    // Reset game state
-    reset(rows, cols, players) {
-        this.rows = rows;
-        this.cols = cols;
-        this.board = this.createInitialBoard(rows, cols);
-        this.players = players;
-        this.currentPlayerIndex = 0;
-        this.turnNumber = 1;
-        this.gameOver = false;
-        this.winner = null;
-    }
-
-
-    // Create the initial board state
     createInitialBoard(rows, cols) {
         const board = {};
+        
+        // Initialize empty board
         for (let r = 0; r < rows; r++) {
             for (let q = 0; q < cols; q++) {
-                const key = `${q},${r}`;
-                board[key] = { 
-                    q, r, 
-                    owner: null, 
+                board[`${q},${r}`] = {
+                    q, r,
+                    owner: null,
                     color: '#cccccc',
                     captured: false
                 };
             }
         }
 
-        // Set initial corner positions
-        const topLeftKey = '0,0';
-        const bottomRightKey = `${cols-1},${rows-1}`;
-        
-        // Player 1 starts top-left
-        board[topLeftKey].owner = 'player1';
-        board[topLeftKey].color = '#F76C6C';
-        board[topLeftKey].captured = true;
-        
-        // Player 2 starts bottom-right
-        board[bottomRightKey].owner = 'player2';
-        board[bottomRightKey].color = '#374785';
-        board[bottomRightKey].captured = true;
+        // Set starting positions at opposite corners
+        // Player 1 starts at bottom-left (0, rows-1)
+        const p1Start = `0,${rows-1}`;
+        board[p1Start] = {
+            q: 0,
+            r: rows-1,
+            owner: 'player1',
+            color: '#F76C6C',
+            captured: true
+        };
+
+        // Player 2 starts at top-right (cols-1, 0)
+        const p2Start = `${cols-1},0`;
+        board[p2Start] = {
+            q: cols-1,
+            r: 0,
+            owner: 'player2',
+            color: '#374785',
+            captured: true
+        };
 
         return board;
     }
 
-    // Method to get the owner of a tile (useful for checking wins, etc.)
-    getTileOwner(q, r) {
-        const key = this.getKey(q, r);
-        return this.board[key] ? this.board[key].owner : null;
-    }
-
-    // Helper method to determine current player ID based on turn number
-    getCurrentPlayerId() {
-        if (!this.players || typeof this.turn === 'undefined' || this.turn === null) {
-            console.warn("Cannot get current player ID: players or turn info missing", this.players, this.turn);
-            return null;
-        }
-        // Find the player entry ( [id, playerObject] ) whose playerNumber matches the current turn
-        const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
-        return playerEntry ? playerEntry[0] : null; // Return the socket ID (the key)
-    // Removed misplaced return statement
-
-        const playerColor = this.players[playerId]?.color;
-        if (!playerColor) {
-            console.error(`Invalid player ID ${playerId} or player has no color.`);
-            return { success: false, capturedCount: 0, message: "Invalid player ID." };
-        }
-
-        // Check if it's the player's turn
-        const playerIDs = Object.keys(this.players);
-        const expectedPlayerId = playerIDs[this.currentPlayerIndex];
-        if (playerId !== expectedPlayerId) {
-             console.log(`Not player ${playerId}'s turn. It's ${expectedPlayerId}'s turn.`);
-             return { success: false, capturedCount: 0, message: "Not your turn." };
-        }
-
-
-        // Place the tile
-        this.board[key].owner = playerId;
-        this.board[key].color = playerColor;
-        console.log(`Tile placed at ${q},${r} by player ${playerId}`);
-
-        // Capture adjacent tiles
-        let capturedCount = 0;
-        const neighbors = getNeighbors(q, r);
-        neighbors.forEach(neighbor => {
-            const nKey = `${neighbor.q},${neighbor.r}`;
-            const tile = this.board[nKey];
-            if (tile && tile.owner !== null && tile.owner !== playerId) {
-                console.log(`Checking neighbor at ${nKey}: Owner=${tile.owner}, PlayerId=${playerId}`);
-                // Check if the neighbor is surrounded
-                 if (this.isSurrounded(neighbor.q, neighbor.r, playerId)) {
-                    console.log(`Capturing tile at ${neighbor.q},${neighbor.r} originally owned by ${tile.owner}`);
-                     tile.owner = playerId;
-                     tile.color = playerColor;
-                     capturedCount++;
-                 }
+    // Get valid moves for current player
+    getValidMoves(playerId) {
+        const validMoves = new Set();
+        
+        // Check all owned cells for valid neighbors
+        Object.entries(this.board).forEach(([key, tile]) => {
+            if (tile.owner === playerId) {
+                // Get unclaimed neighbors
+                this.getNeighbors(tile.q, tile.r).forEach(neighbor => {
+                    const neighborKey = `${neighbor.q},${neighbor.r}`;
+                    const neighborTile = this.board[neighborKey];
+                    if (neighborTile && !neighborTile.owner) {
+                        validMoves.add(neighborKey);
+                    }
+                });
             }
         });
 
-         // Update scores
-         this.updateScores();
+        return Array.from(validMoves);
+    }
 
+    // Get neighbors for a hex position
+    getNeighbors(q, r) {
+        return DIRECTIONS
+            .map(dir => ({ q: q + dir.q, r: r + dir.r }))
+            .filter(pos => this.isValidPosition(pos.q, pos.r));
+    }
 
-        // Switch turn
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % playerIDs.length;
+    // Check if a position is within board bounds
+    isValidPosition(q, r) {
+        return q >= 0 && q < this.cols && r >= 0 && r < this.rows;
+    }
+
+    // Make a move
+    makeMove(q, r, playerId) {
+        const key = `${q},${r}`;
+        const tile = this.board[key];
+
+        // Validate move
+        if (!tile || tile.owner || !this.isValidMove(q, r, playerId)) {
+            return false;
+        }
+
+        // Place the tile
+        tile.owner = playerId;
+        tile.color = this.players[playerId].color;
+        tile.captured = true;
+
+        // Update scores
+        this.updateScores();
+
+        // Switch turns
+        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % Object.keys(this.players).length;
         this.turnNumber++;
-        console.log(`Turn switched to player ${playerIDs[this.currentPlayerIndex]}. Turn number: ${this.turnNumber}`);
 
-
-        // Check for game over condition (e.g., board full)
+        // Check for game over
         this.checkGameOver();
 
-        // Return placement details
-         // Return placement details including whether the move was successful
-        return {
-            success: true,
-            q,
-            r,
-            playerId,
-            playerColor,
-            capturedCount,
-            newState: this.serialize() // Send updated state back
-        };
-
+        return true;
     }
 
-
-    // Check if a tile at (q, r) is surrounded by playerId
-    isSurrounded(q, r, capturingPlayerId) {
-        const neighbors = getNeighbors(q, r);
-        for (const neighbor of neighbors) {
-            const nKey = `${neighbor.q},${neighbor.r}`;
-            const tile = this.board[nKey];
-             // If there's no tile, or the tile is owned by someone other than the capturing player,
-             // then it's not surrounded by the capturing player.
-            if (!tile || (tile.owner !== capturingPlayerId && tile.owner !== null /* allow empty neighbors */)) {
-                 // If the neighbor is empty or owned by a different player, it's not surrounded
-                 // Correction: Check if the *neighbor* owner is NOT the capturing player
-                if (!tile || tile.owner !== capturingPlayerId) {
-                    // This seems wrong. A tile is surrounded if *all* its neighbors
-                    // belong to the capturing player. Let's rethink.
-
-                    // A tile (q,r) owned by player P1 is captured by player P2 if ALL
-                    // neighbors of (q,r) are either owned by P2 or are off-board/non-existent.
-
-                    // Let's adjust the logic based on the capturing player:
-                    // The tile at (q,r) - which does NOT belong to capturingPlayerId - is captured
-                    // if all its neighbors are owned by capturingPlayerId.
-
-                    const tileToCheck = this.board[`${q},${r}`];
-                    if (!tileToCheck || tileToCheck.owner === capturingPlayerId) return false; // Can't capture own/empty tiles this way
-
-                    // Check all neighbors of the tile we might capture
-                    const neighborsOfTarget = getNeighbors(q, r);
-                    for (const neighborCoord of neighborsOfTarget) {
-                        const neighborKey = `${neighborCoord.q},${neighborCoord.r}`;
-                        const neighborTile = this.board[neighborKey];
-                        // If a neighbor doesn't exist, or is NOT owned by the capturing player, then the tile is not surrounded.
-                        if (!neighborTile || neighborTile.owner !== capturingPlayerId) {
-                            return false; // Found a neighbor not owned by the capturing player, so not surrounded.
-                        }
-                    }
-                     // If we went through all neighbors and all are owned by capturingPlayerId, it's surrounded.
-                    return true;
-
-                }
-
-            }
-        }
-        // Original logic seemed flawed, replaced above.
-        // If we iterate through all neighbors and none break the condition, it's surrounded.
-         // return true; // Should not be reached with the corrected logic above.
-         return false; // Default return if initial checks fail or loop finishes unexpectedly
+    // Check if a move is valid
+    isValidMove(q, r, playerId) {
+        // Must be adjacent to an owned tile
+        return this.getNeighbors(q, r).some(neighbor => {
+            const neighborKey = `${neighbor.q},${neighbor.r}`;
+            const neighborTile = this.board[neighborKey];
+            return neighborTile && neighborTile.owner === playerId;
+        });
     }
-
 
     // Update player scores based on owned tiles
-     updateScores() {
+    updateScores() {
         // Reset scores
         for (const playerId in this.players) {
             this.players[playerId].score = 0;
@@ -214,7 +150,7 @@ export class GameState {
                 this.players[tile.owner].score++;
             }
         }
-         console.log("Scores updated:", this.players);
+        console.log("Scores updated:", this.players);
     }
 
     // Check if the game is over
@@ -233,19 +169,18 @@ export class GameState {
             // Determine winner based on score
             let highestScore = -1;
             let winners = [];
-             for (const playerId in this.players) {
-                 if (this.players[playerId].score > highestScore) {
-                     highestScore = this.players[playerId].score;
-                     winners = [playerId];
-                 } else if (this.players[playerId].score === highestScore) {
-                     winners.push(playerId);
-                 }
-             }
-             this.winner = winners.length === 1 ? winners[0] : 'draw'; // Handle ties
+            for (const playerId in this.players) {
+                if (this.players[playerId].score > highestScore) {
+                    highestScore = this.players[playerId].score;
+                    winners = [playerId];
+                } else if (this.players[playerId].score === highestScore) {
+                    winners.push(playerId);
+                }
+            }
+            this.winner = winners.length === 1 ? winners[0] : 'draw'; // Handle ties
             console.log(`Game Over! Winner: ${this.winner}`);
         }
     }
-
 
     /**
      * Returns the current player's ID based on the turn number and player assignment.
@@ -274,7 +209,6 @@ export class GameState {
             turnNumber: this.turnNumber,
             gameOver: this.gameOver,
             winner: this.winner
-            // Removed power-up related properties
         });
     }
 
@@ -291,7 +225,6 @@ export class GameState {
             gameState.winner = data.winner;
             // Ensure players object is correctly assigned (might need deeper copy if complex)
             gameState.players = data.players;
-            // Removed power-up related properties
 
             // Ensure methods are available (they are via prototype)
             console.log("GameState deserialized successfully.");

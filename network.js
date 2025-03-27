@@ -261,6 +261,7 @@ export function emitCreateChallenge(playerName) {
                 console.log("Create challenge response:", response);
                 if (response.success) {
                     currentRoomId = response.challengeCode;
+                    updateGameCode(response.challengeCode); // Add this line
                     // Initialize game state with default board
                     const initialState = {
                         rows: CONFIG.BOARD_SIZE,
@@ -310,6 +311,7 @@ export function emitCreateChallenge(playerName) {
             console.log("Create challenge response:", response);
             if (response.success) {
                 currentRoomId = response.challengeCode;
+                updateGameCode(response.challengeCode); // Add this line
                 // Initialize game state with default board (same as above)
                 const initialState = {
                     rows: CONFIG.BOARD_SIZE,

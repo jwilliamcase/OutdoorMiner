@@ -44,7 +44,9 @@ export function initializeUI() {
             player1Info: document.getElementById('player1-info'),
             player2Info: document.getElementById('player2-info'),
             colorButtons: document.querySelectorAll('.color-button'),
-            colorPalette: document.getElementById('color-palette')
+            colorPalette: document.getElementById('color-palette'),
+            currentGameCode: document.getElementById('current-game-code'),
+            copyCodeButton: document.getElementById('copy-code')
         };
 
         // Update module-level references
@@ -77,6 +79,16 @@ export function initializeUI() {
             button.addEventListener('click', handleColorSelection);
         });
 
+        // Add copy button handler
+        if (elements.copyCodeButton) {
+            elements.copyCodeButton.addEventListener('click', () => {
+                const code = elements.currentGameCode.textContent;
+                navigator.clipboard.writeText(code)
+                    .then(() => displayMessage("Game code copied to clipboard!"))
+                    .catch(() => displayMessage("Failed to copy code", true));
+            });
+        }
+
         console.log("UI Initialized successfully");
         return true;
     } catch (error) {
@@ -85,6 +97,12 @@ export function initializeUI() {
     }
 }
 
+// Add new function to update game code display
+export function updateGameCode(code) {
+    if (elements.currentGameCode) {
+        elements.currentGameCode.textContent = code || '-';
+    }
+}
 
 // --- Screen Management ---
 export function showSetupScreen() {
