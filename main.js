@@ -80,10 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show the initial screen
     showSetupScreen(); // Make sure setup is visible first
 
-    console.log("DEBUG: DOMContentLoaded - END");
-});
+console.log("DEBUG: DOMContentLoaded - END");
 
-    // --- Add Event Listeners for Network Actions ---
+// --- Add Event Listeners for Network Actions ---
     if (createChallengeButton) {
         createChallengeButton.addEventListener('click', handleCreateGame);
     } else {

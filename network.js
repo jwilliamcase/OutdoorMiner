@@ -19,6 +19,12 @@ let currentPlayerId = null; // Store player ID assigned by server
 
 
 // Function to connect to the server
+/**
+ * Connects to the game server and initializes the socket connection.
+ * @param {string} action - The action to perform (e.g., 'create' or 'join').
+ * @param {string} playerName - The player's name to send to the server.
+ * @param {string} [roomCode=''] - Optional room code if joining a game.
+ */
 export function connectToServer(action, playerName, roomCode = '') {
     console.log(`connectToServer - START action: ${action}`);
 

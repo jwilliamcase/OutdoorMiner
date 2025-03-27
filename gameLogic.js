@@ -7,6 +7,12 @@ export const HORIZONTAL_SPACING = HEX_WIDTH * 3 / 4;
 
 // --- GameState Class ---
 export class GameState {
+    /**
+     * Creates a new game state.
+     * @param {number} rows - Number of rows in the board.
+     * @param {number} cols - Number of columns in the board.
+     * @param {object} players - Map of player IDs to player info.
+     */
     constructor(rows, cols, players) {
         this.rows = rows;
         this.cols = cols;
@@ -61,9 +67,7 @@ export class GameState {
         // Find the player entry ( [id, playerObject] ) whose playerNumber matches the current turn
         const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
         return playerEntry ? playerEntry[0] : null; // Return the socket ID (the key)
-    }
-            return { success: false, capturedCount: 0, message: "Invalid move: Tile does not exist or is already occupied." };
-        }
+    // Removed misplaced return statement
 
         const playerColor = this.players[playerId]?.color;
         if (!playerColor) {
@@ -226,59 +230,60 @@ export class GameState {
     }
 
 
-    // Get current player ID
-    getCurrentPlayerId() {
-        const playerIDs = Object.keys(this.players);
-        return winnerId; // Return 'P1', 'P2', or 'draw'
-    }
-
-    // Helper method to determine current player ID based on turn and playerNumber
+    /**
+     * Returns the current player's ID based on the turn number and player assignment.
+     * @returns {string|null} The player ID of the current player or null if unavailable.
+     */
     getCurrentPlayerId() {
         if (!this.players || !this.turn) return null;
-        // Find the player entry whose playerNumber matches the current turn ('P1' or 'P2')
-        const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
-        return playerEntry ? playerEntry[0] : null; // Return the socket ID (key)
+        const playerEntry = Object.entries(this.players).find(
+            ([id, player]) => player.playerNumber === this.turn
+        );
+        return playerEntry ? playerEntry[0] : null;
     }
 
-} // End GameState class
-     serialize() {
-         // Simple JSON stringify; can be optimized if needed
-         return JSON.stringify({
-             rows: this.rows,
-             cols: this.cols,
-             board: this.board,
-             players: this.players,
-             currentPlayerIndex: this.currentPlayerIndex,
-             turnNumber: this.turnNumber,
-             gameOver: this.gameOver,
-             winner: this.winner
-             // Removed power-up related properties
-         });
-     }
+    /**
+     * Serializes the current game state into a JSON string.
+     * @returns {string} JSON representation of the game state.
+     */
+    serialize() {
+        // Simple JSON stringify; can be optimized if needed
+        return JSON.stringify({
+            rows: this.rows,
+            cols: this.cols,
+            board: this.board,
+            players: this.players,
+            currentPlayerIndex: this.currentPlayerIndex,
+            turnNumber: this.turnNumber,
+            gameOver: this.gameOver,
+            winner: this.winner
+            // Removed power-up related properties
+        });
+    }
 
-     // Deserialize game state received from network
-     static deserialize(jsonString) {
-         try {
+    // Deserialize game state received from network
+    static deserialize(jsonString) {
+        try {
             const data = JSON.parse(jsonString);
             const gameState = new GameState(data.rows, data.cols, data.players); // Initial constructor
             // Overwrite properties with received data
-             gameState.board = data.board;
-             gameState.currentPlayerIndex = data.currentPlayerIndex;
-             gameState.turnNumber = data.turnNumber;
-             gameState.gameOver = data.gameOver;
-             gameState.winner = data.winner;
-             // Ensure players object is correctly assigned (might need deeper copy if complex)
-             gameState.players = data.players;
-             // Removed power-up related properties
+            gameState.board = data.board;
+            gameState.currentPlayerIndex = data.currentPlayerIndex;
+            gameState.turnNumber = data.turnNumber;
+            gameState.gameOver = data.gameOver;
+            gameState.winner = data.winner;
+            // Ensure players object is correctly assigned (might need deeper copy if complex)
+            gameState.players = data.players;
+            // Removed power-up related properties
 
-             // Ensure methods are available (they are via prototype)
-             console.log("GameState deserialized successfully.");
-             return gameState;
-         } catch (error) {
-             console.error("Failed to deserialize game state:", error, jsonString);
-             return null; // Return null or throw error on failure
-         }
-     }
+            // Ensure methods are available (they are via prototype)
+            console.log("GameState deserialized successfully.");
+            return gameState;
+        } catch (error) {
+            console.error("Failed to deserialize game state:", error, jsonString);
+            return null; // Return null or throw error on failure
+        }
+    }
 }
 
 
