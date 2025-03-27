@@ -1,9 +1,9 @@
-require('dotenv').config({ path: __dirname + '/.env' }); // Ensure .env is loaded early
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') }); // Ensure .env is loaded early
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io'); // Correct way to import Server class
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 
@@ -215,44 +215,35 @@ function generateGameId() {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    // --- Challenge Event Handlers ---
     socket.on('create-challenge', (playerName, callback) => {
-        // Wrap in try/catch for unexpected errors
         try {
-            playerName = String(playerName || '').trim(); // Basic sanitization
+            playerName = String(playerName || '').trim();
             console.log(`'create-challenge' received from ${socket.id} with name: '${playerName}'`);
 
             if (!playerName) {
                 console.log(`Challenge creation rejected for ${socket.id}: Missing player name.`);
                 return callback({ success: false, message: "Please enter a player name." });
             }
-        try {
             // Check if player is already hosting or in a game
             const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
-            const existingGame = Object.values(games).find(game => game.players.includes(socket.id));
-
+            const existingGame = playerSockets[socket.id] && playerSockets[socket.id].gameId;
             if (existingChallenge || existingGame) {
-                    console.log(`Player ${socket.id} (${playerName}) attempted to create a challenge but is already hosting room ${existingChallenge[0]}`);
-                     return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}.` });
-                } else if (playerSockets[socket.id].gameId) {
-                     return callback({ success: false, message: `You are already in game ${playerSockets[socket.id].gameId}.` });
-                }
-                // If somehow playerSocket exists but no game/challenge, log it maybe?
+                const msg = existingChallenge
+                    ? `You are already hosting challenge ${existingChallenge[0]}.`
+                    : `You are already in game ${playerSockets[socket.id].gameId}.`;
+                console.log(`Player ${socket.id} (${playerName}) attempted to create a challenge but is already active.`);
+                return callback({ success: false, message: msg });
             }
-
             const challengeCode = generateChallengeCode();
-            // Store challenge data
+            // ...existing code for creating challenge...
             challenges[challengeCode] = {
                 hostSocketId: socket.id,
                 hostPlayerName: playerName
             };
-            // Track the player socket, initially not in a game, defaults to P1 if they host
             playerSockets[socket.id] = { gameId: null, playerName: playerName, playerSymbol: 'P1' };
 
             console.log(`Challenge ${challengeCode} created by ${playerName} (${socket.id})`);
-            // Send success and the code back to the client
             callback({ success: true, challengeCode: challengeCode });
-
         } catch (error) {
             console.error(`Error in 'create-challenge' handler for ${socket.id}:`, error);
             callback({ success: false, message: "An internal server error occurred." });
@@ -286,7 +277,7 @@ io.on('connection', (socket) => {
             // Prevent player from joining if already in a game or hosting
             if (playerSockets[socket.id]) {
                 console.warn(`Player ${socket.id} (${playerSockets[socket.id].playerName}) attempted to join challenge while already tracked.`);
-                 const existingChallenge = Object.entries(challenges).find(([code, data])]) => data.hostSocketId === socket.id);
+                 const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
                  if(existingChallenge){
                      return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}. Leave it first.` });
                  } else if (playerSockets[socket.id].gameId) {
