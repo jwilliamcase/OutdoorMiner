@@ -19,13 +19,15 @@ const sounds = {
     powerUp: new Audio('sounds/power_up.mp3'),
     landmine: new Audio('sounds/landmine.mp3'),
     gameOver: new Audio('sounds/game_over.mp3'),
-    error: new Audio('sounds/error.mp3')
-};
-
 function playSound(soundName) {
-    if (sounds[soundName]) {
-        sounds[soundName].currentTime = 0;
-        sounds[soundName].play().catch(e => console.error(`Error playing sound ${soundName}:`, e));
+    // Basic sound playing function, assuming sounds are in assets/sounds/
+    try {
+        const audio = new Audio(`assets/sounds/${soundName}.mp3`);
+        // Lower volume slightly
+        audio.volume = 0.7;
+        audio.play().catch(e => console.warn(`Playback error for ${soundName}:`, e)); // Use warn for playback issues like user interaction needed
+    } catch (e) {
+        console.error(`Error creating Audio object for ${soundName}:`, e);
     }
 }
 
