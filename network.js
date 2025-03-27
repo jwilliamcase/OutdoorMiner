@@ -133,14 +133,25 @@ function setupSocketEventListeners() {
     // Server response handled via callbacks in emitCreateChallenge/emitJoinChallenge.
 
     socketInstance.on('game-start', (data) => {
-        console.log('Game starting:', data);
-        currentRoomId = data.roomCode; // Ensure room ID is set
-        // currentPlayerId is already set on connect
+        console.log('Game starting with data:', data);
+        if (!data || !data.gameState) {
+            console.error('Invalid game start data received:', data);
+            displayMessage("Error starting game: Invalid data", true);
+            return;
+        }
+
+        currentRoomId = data.roomCode;
         displayMessage(`Game started in room ${data.roomCode}!`, false);
-        // Pass the gameState object directly, assume server sends object, not string
-        handleInitialState(data.gameState, data.players, currentPlayerId);
-        showGameScreen(); // Switch UI view
-        updatePlayerInfo(data.players, currentPlayerId); // Update player displays
+        
+        // Initialize game state before showing screen
+        if (handleInitialState(data.gameState, data.players, currentPlayerId)) {
+            showGameScreen();
+            updatePlayerInfo(data.players, currentPlayerId);
+            console.log("Game initialized and screen shown");
+        } else {
+            console.error("Failed to initialize game state");
+            displayMessage("Failed to start game", true);
+        }
     });
 
      socketInstance.on('game-update', (data) => {

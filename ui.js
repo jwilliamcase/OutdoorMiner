@@ -29,30 +29,40 @@ let colsInput = null;
 
 // --- Initialization ---
 export function initializeUI() {
-    // Get DOM elements
-    canvas = document.getElementById('gameCanvas');
-    canvasContainer = document.getElementById('canvas-container'); // Get the container
-    setupContainer = document.getElementById('setup-container');
-    gameContainer = document.getElementById('game-container');
-    connectionStatusElement = document.getElementById('connection-status');
-    connectionIndicator = document.getElementById('connection-indicator');
-    messageArea = document.getElementById('message-area');
-    player1Info = document.getElementById('player1-info');
-    player2Info = document.getElementById('player2-info');
-    colorButtons = document.querySelectorAll('.color-button');
-    chatInput = document.getElementById('chat-input');
-    chatMessages = document.getElementById('chat-messages');
-    rowsInput = document.getElementById('rows-input'); // Assume these exist in setup
-    colsInput = document.getElementById('cols-input'); // Assume these exist in setup
+    // Get DOM elements with error checking
+    const elements = {
+        canvas: document.getElementById('gameCanvas'),
+        setupContainer: document.getElementById('setup-container'),
+        gameContainer: document.getElementById('game-container'),
+        connectionStatus: document.getElementById('connection-status'),
+        connectionIndicator: document.getElementById('connection-indicator'),
+        messageArea: document.getElementById('message-area'),
+        player1Info: document.getElementById('player1-info'),
+        player2Info: document.getElementById('player2-info'),
+        colorButtons: document.querySelectorAll('.color-button'),
+        chatInput: document.getElementById('chat-input'),
+        chatMessages: document.getElementById('chat-messages'),
+        colorPalette: document.getElementById('color-palette')
+    };
 
-    if (!canvas || !canvasContainer || !setupContainer || !gameContainer || !connectionStatusElement || !connectionIndicator || !messageArea || !player1Info || !player2Info || !chatInput || !chatMessages) {
-        console.error("Fatal Error: One or more essential UI elements are missing.");
-        return; // Stop initialization if critical elements are missing
+    // Check for missing elements
+    const missingElements = Object.entries(elements)
+        .filter(([key, element]) => !element)
+        .map(([key]) => key);
+
+    if (missingElements.length > 0) {
+        console.error("Missing UI elements:", missingElements);
+        displayMessage("UI initialization error. Check console.", true);
+        return false;
     }
 
-    ctx = canvas.getContext('2d');
-
-    // Add Event Listeners
+    // Store elements for later use
+    this.elements = elements;
+    
+    // Initialize canvas context
+    this.ctx = elements.canvas.getContext('2d');
+    
+    // Add event listeners
     window.addEventListener('resize', resizeGame);
     canvas.addEventListener('click', handleCanvasClick);
     canvas.addEventListener('mousedown', handleMouseDown);
@@ -75,7 +85,8 @@ export function initializeUI() {
     // Initial setup
     resizeGame(); // Initial sizing
     showSetupScreen(); // Start on the setup screen
-    console.log("UI Initialized");
+    console.log("UI Initialized successfully");
+    return true;
 }
 
 
@@ -99,15 +110,18 @@ export function showSetupScreen() {
 
 export function showGameScreen() {
     console.log("showGameScreen - START");
-    if (setupContainer) setupContainer.style.display = 'none';
-    if (gameContainer) {
-        gameContainer.style.display = 'flex'; // Or 'block'
-        console.log("Game screen displayed");
-        resizeGame(); // Ensure canvas is sized correctly when shown
-        renderGameBoard(); // Render the board immediately
-    } else {
-        console.error("gameContainer not found");
+    if (!this.elements) {
+        console.error("Cannot show game screen: UI not initialized");
+        return;
     }
+
+    this.elements.setupContainer.style.display = 'none';
+    this.elements.gameContainer.style.display = 'block';
+    this.elements.colorPalette.style.display = 'flex';
+
+    console.log("Game screen elements displayed");
+    resizeGame();
+    renderGameBoard();
     console.log("showGameScreen - END");
 }
 
