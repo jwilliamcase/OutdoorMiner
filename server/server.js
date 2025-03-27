@@ -286,493 +286,476 @@ io.on('connection', (socket) => {
 
     } catch (error) {
         console.error(`Error processing move for ${socket.id} in game ${data?.gameId}:`, error, data?.move);
-        socket.emit('game-error', { message: 'Internal server error processing move.' });
-    }
-  });
+        // Map to store game states, keyed by game ID
+const games = {};
+// Map to store player sockets, keyed by socket ID
+const players = {};
 
-    // Handle game restart request
-    socket.on('request-restart', (data) => {
-        try {
-            const { gameId } = data;
-            if (!activeGames.has(gameId)) return;
-            const game = activeGames.get(gameId);
-
-            // Simple implementation: Just notify players, let P1 re-trigger initialize-game
-            console.log(`Restart requested for game ${gameId} by ${socket.id}`);
-
-            // Reset server state partially (keep players)
-            game.initialStateProvided = false;
-            game.board = null;
-            game.gameStarted = false;
-            game.gameOver = false;
-            game.winner = null;
-            game.currentPlayer = 1; // Reset to P1 turn for init
-            // Mark players as not ready? Or just wait for P1 init
-            game.players.forEach(p => p.isReady = false);
-
-            // Notify all players in the room to reset their local state and wait
-            io.to(gameId).emit('game-restarted', { message: "Game restarting. Waiting for Player 1 to set up..." });
-
-        } catch (error) {
-            console.error(`Error restarting game ${data?.gameId} by ${socket.id}:`, error);
-            socket.emit('game-error', { message: 'Internal server error restarting game.' });
-        }
-    });
-
-    // Handle chat messages
-    socket.on('send-message', (data) => {
-        try {
-            const { gameId, playerNumber, playerName, message, isTaunt } = data;
-            if (!activeGames.has(gameId)) return;
-            const game = activeGames.get(gameId);
-
-            // Find sender's current name from game state for consistency
-            const sender = game.players.find(p => p.number === playerNumber);
-            const name = sender?.name || playerName || `Player ${playerNumber}`;
-
-            // Use 'chat-message' to match the client listener added in the rewrite
-            io.to(gameId).emit('chat-message', {
-                playerNumber, // Keep playerNumber to determine if 'isMine' client-side
-                playerName: name,
-                message,
-                isTaunt: isTaunt || false,
-                timestamp: Date.now()
-            });
-        } catch (error) {
-             console.error(`Error handling chat message for ${socket.id} in game ${data?.gameId}:`, error);
-             // Don't necessarily need to emit error to client for chat issues
-        }
-    });
-
-    // Handle player leaving notification (optional, supplements disconnect)
-    socket.on('leave-game', (data) => {
-         handleDisconnect(socket, "Player explicitly left game.");
-    });
-
-
-  // Disconnect handling
-  socket.on('disconnect', (reason) => {
-      handleDisconnect(socket, reason);
-   }); // End of specific socket event listener like 'disconnect'
-}); // End of io.on('connection', ...)
-// Corrected: Removed the extra closing pair. The server.listen call should follow this.
-
-// --- Server Game Logic Functions ---
-
-// Starts the game once both players are ready and P1 has provided state
-function startGame(gameId) {
-  if (!activeGames.has(gameId)) return;
-  const game = activeGames.get(gameId);
-
-  if (game.gameStarted) {
-      console.warn(`Attempted to start already started game: ${gameId}`);
-      return;
-  }
-   if (game.players.length < 2) {
-       console.warn(`Attempted to start game ${gameId} with only ${game.players.length} player(s).`);
-       return;
-   }
-   if (!game.initialStateProvided) {
-       console.warn(`Attempted to start game ${gameId} before Player 1 provided initial state.`);
-       return;
-   }
-
-
-  game.gameStarted = true;
-  game.gameOver = false;
-  game.winner = null;
-  game.lastActivity = Date.now();
-  console.log(`Game ${gameId} started! Player 1: ${game.players[0]?.name}, Player 2: ${game.players[1]?.name}. P1 starts.`);
-
-  // Emit 'game-setup' with the necessary initial state for both players
-  const player1 = game.players.find(p => p.number === 1);
-  const player2 = game.players.find(p => p.number === 2);
-
-  // Prepare the initial state payload common to both players
-  const commonInitialState = {
-        board: game.board,
-        currentPlayer: game.currentPlayer,
-        player1Color: game.player1Color,
-        player2Color: game.player2Color,
-        player1Tiles: game.player1Tiles,
-        player2Tiles: game.player2Tiles,
-        player1PowerUps: game.player1PowerUps,
-        player2PowerUps: game.player2PowerUps,
-        landmines: game.landmines,
-        explodedTiles: game.explodedTiles,
-        gameStarted: true,
-        gameOver: false,
-        winner: null
-  };
-
-  // Send to Player 1
-   if (player1) {
-       io.to(player1.id).emit('game-setup', {
-           gameId: game.id,
-           playerNumber: 1,
-           playerNames: { 1: player1.name, 2: player2?.name || 'Player 2' }, // Send both names
-           playerColors: { 1: game.player1Color, 2: game.player2Color }, // Send both starting colors
-           initialGameState: commonInitialState
-       });
-   }
-  // Send to Player 2
-  if (player2) {
-       io.to(player2.id).emit('game-setup', {
-           gameId: game.id,
-           playerNumber: 2,
-           playerNames: { 1: player1?.name || 'Player 1', 2: player2.name }, // Send both names
-           playerColors: { 1: game.player1Color, 2: game.player2Color }, // Send both starting colors
-           initialGameState: commonInitialState
-       });
-   }
+// Central GameState class definition (moved here for clarity, could be in separate file)
+class GameState {
+constructor(rows = 11, cols = 11) {
+    this.rows = rows;
+    this.cols = cols;
+    this.board = {}; // Using object { 'q,r': 'P1' | 'P2' }
+    this.currentPlayer = 'P1'; // P1 starts
+    this.winner = null;
+    this.winningPath = [];
+    // Axial directions for neighbor finding
+    this.directions = [
+        { dq: +1, dr: 0 }, { dq: +1, dr: -1 }, { dq: 0, dr: -1 },
+        { dq: -1, dr: 0 }, { dq: -1, dr: +1 }, { dq: 0, dr: +1 }
+    ];
 }
 
-// Broadcasts the current game state to all players in the room
-function broadcastGameState(gameId, game) {
-    if (!game || !game.gameStarted || game.gameOver) return; // Only send updates for active games
-
-    const player1 = game.players.find(p => p.number === 1);
-    const player2 = game.players.find(p => p.number === 2);
-
-    const stateToSend = {
-        // Core state
-        board: game.board, // Could be optimized to send only changes? Large state.
-        currentPlayer: game.currentPlayer,
-        player1Color: game.player1Color,
-        player2Color: game.player2Color,
-        player1Tiles: game.player1Tiles,
-        player2Tiles: game.player2Tiles,
-        player1PowerUps: game.player1PowerUps,
-        player2PowerUps: game.player2PowerUps,
-        landmines: game.landmines,
-        explodedTiles: game.explodedTiles, // Send recovery state
-        // Meta state
-        gameStarted: game.gameStarted,
-        gameOver: game.gameOver,
-        winner: game.winner,
-        // Player info
-        player1Name: player1?.name || 'Player 1',
-        player2Name: player2?.name || 'Player 2'
-        // Removed context fields updateType, moveDetails as they weren't used
-    };
-
-    // console.log(`Broadcasting game state for ${gameId}. CurrentPlayer: P${game.currentPlayer}`);
-    // Emit 'game-state' for regular updates
-    io.to(gameId).emit('game-state', stateToSend);
+// Basic check for valid coordinates using axial system (simple rectangular boundary)
+// NOTE: For a true hexagonal board shape, bounds checking is more complex.
+// This assumes a roughly parallelogram/rectangular layout within the q,r range.
+isValid(q, r) {
+    // Example check for a parallelogram grid:
+    // return q >= 0 && q < this.cols && r >= 0 && r < this.rows;
+    // Example check for pointy-top hex grid filling a rectangle more naturally:
+    const minQ = 0;
+    const maxQ = this.cols - 1;
+    const minR = 0;
+    const maxR = this.rows - 1;
+    // This check might need refinement based on exact board shape and origin (0,0) position
+    return q >= minQ && q <= maxQ && r >= minR && r <= maxR;
 }
 
-
-// Handle Color Selection Move (Server Side)
-// Returns true if a mine was triggered, false otherwise
-function handleColorSelectionServer(game, playerNumber, selectedColor) {
-    const playerTiles = playerNumber === 1 ? game.player1Tiles : game.player2Tiles;
-    const opponentTiles = playerNumber === 1 ? game.player2Tiles : game.player1Tiles;
-    const playerColorProp = playerNumber === 1 ? 'player1Color' : 'player2Color';
-    const opponentColorProp = playerNumber === 1 ? 'player2Color' : 'player1Color';
-
-    // Basic validation: Can't pick own or opponent's current color
-    if (selectedColor === game[playerColorProp] || selectedColor === game[opponentColorProp]) {
-        console.warn(`Game ${game.id}: Player ${playerNumber} tried invalid color ${selectedColor}.`);
-        // Technically should have been caught client-side, but good to prevent server error.
-        // How to handle? Ignore? Send error? For now, ignore & proceed (will capture 0).
-        // Or maybe just switch turn? Let's switch turn to penalize slightly.
-        // switchPlayerTurnServer(game); // Reconsider this, might be harsh. Let it capture 0 for now.
-    }
-
-    // Update player's color
-    game[playerColorProp] = selectedColor;
-
-    // Calculate capturable tiles based on *server* state
-    const capturable = getCaptureableTilesServer(game, playerNumber, selectedColor);
-    const capturedTileKeys = Array.from(capturable); // ['r,c', ...]
-
-    console.log(`Game ${game.id}: Player ${playerNumber} selects ${selectedColor}, captures ${capturedTileKeys.length} tiles.`);
-
-    let mineTriggered = null;
-    capturedTileKeys.forEach(key => {
-        // Add to player's tiles
-        if (!playerTiles.includes(key)) { // Avoid duplicates if somehow possible
-            playerTiles.push(key);
-        }
-        // Check for mine trigger
-        const [row, col] = key.split(',').map(Number);
-        if (game.landmines.some(mine => mine.row === row && mine.col === col)) {
-            if (!mineTriggered) { // Only trigger first mine encountered in capture batch
-                 mineTriggered = { row, col };
-            }
-        }
-        // Ensure tile color matches player's new color on board
-        const tile = getTileServer(game.board, row, col);
-        if (tile) tile.color = selectedColor; // Update board color too
-    });
-
-    if (mineTriggered) {
-        console.log(`Game ${game.id}: Player ${playerNumber} triggered mine at ${mineTriggered.row},${mineTriggered.col} via color selection.`);
-        triggerLandmineExplosionServer(game, playerNumber, mineTriggered.row, mineTriggered.col);
-        return true; // Mine was triggered
-    }
-
-    return false; // No mine triggered
+getTile(q, r) {
+    return this.board[`${q},${r}`];
 }
 
-// Handle Power-Up Move (Server Side)
-// Returns true if a mine was triggered (only via Teleport), false otherwise
-function handlePowerUpServer(game, playerNumber, move) {
-    const { powerUpType, row, col } = move;
-    const playerPowerUps = playerNumber === 1 ? game.player1PowerUps : game.player2PowerUps;
-    const playerTiles = playerNumber === 1 ? game.player1Tiles : game.player2Tiles;
-    const playerColor = playerNumber === 1 ? game.player1Color : game.player2Color;
-
-    // 1. Verify player has the power-up
-    const powerUpIndex = playerPowerUps.indexOf(powerUpType);
-    if (powerUpIndex === -1) {
-        throw new Error(`Player ${playerNumber} does not have power-up ${powerUpType}.`);
-    }
-
-    // 2. Validate target based on power-up type and server state
-    const targetTile = getTileServer(game.board, row, col);
-    if (!targetTile) throw new Error(`Invalid target tile coordinates: ${row}, ${col}`);
-
-    const targetKey = `${row},${col}`;
-    const targetOwner = getOwnerServer(game, row, col); // 0 = unowned, 1, 2
-    const isMyTile = targetOwner === playerNumber;
-    const isOpponentTile = targetOwner !== 0 && targetOwner !== playerNumber;
-    const isUnclaimed = targetOwner === 0;
-
-    let mineTriggered = false;
-
-    switch (powerUpType) {
-        case POWER_UPS.SABOTAGE:
-            if (!isOpponentTile) throw new Error("Sabotage must target an opponent's tile.");
-            // Apply effect
-            applySabotageServer(game, row, col);
-            break;
-
-        case POWER_UPS.WILDCARD:
-            if (!isUnclaimed) throw new Error("Wildcard must target an unclaimed tile.");
-            // Check adjacency
-            const neighbors = getNeighborsServer(row, col);
-            const isAdjacent = neighbors.some(n => playerTiles.includes(`${n.row},${n.col}`));
-            if (!isAdjacent) throw new Error("Wildcard must target an unclaimed tile adjacent to yours.");
-            // Apply effect
-            applyWildcardServer(game, playerNumber, row, col);
-            break;
-
-        case POWER_UPS.TELEPORT:
-            if (!isUnclaimed) throw new Error("Teleport must target an unclaimed tile.");
-            // Apply effect
-            mineTriggered = applyTeleportServer(game, playerNumber, row, col);
-            break;
-
-        default:
-            throw new Error(`Unknown power-up type for validation: ${powerUpType}`);
-    }
-
-    // 3. Consume the power-up
-    playerPowerUps.splice(powerUpIndex, 1);
-    console.log(`Game ${game.id}: Player ${playerNumber} used ${powerUpType} on ${row},${col}. Remaining: ${playerPowerUps.length}`);
-
-    return mineTriggered; // Return if teleport hit a mine
-}
-
-
-// Server-side application functions
-function applySabotageServer(game, row, col) {
-    const tileKey = `${row},${col}`;
-    const tile = getTileServer(game.board, row, col);
-    if (!tile) return;
-
-    // Remove from opponent's tiles
-    game.player1Tiles = game.player1Tiles.filter(key => key !== tileKey);
-    game.player2Tiles = game.player2Tiles.filter(key => key !== tileKey);
-
-    // Change color and add to recovery list (avoid duplicates)
-    tile.color = SABOTAGE_COLOR;
-    if (!game.explodedTiles.some(et => et.row === row && et.col === col)) {
-        game.explodedTiles.push({ row, col, turnsLeft: EXPLOSION_RECOVERY_TURNS, type: 'sabotage' });
+setTile(q, r, player) {
+    if (player === null || player === undefined) {
+        delete this.board[`${q},${r}`];
+    } else {
+        this.board[`${q},${r}`] = player;
     }
 }
 
-function applyWildcardServer(game, playerNumber, row, col) {
-    const tileKey = `${row},${col}`;
-    const tile = getTileServer(game.board, row, col);
-    if (!tile) return;
-    const playerTiles = playerNumber === 1 ? game.player1Tiles : game.player2Tiles;
-    const playerColor = playerNumber === 1 ? game.player1Color : game.player2Color;
-
-    // Add to player's territory (avoid duplicates)
-    if (!playerTiles.includes(tileKey)) {
-         playerTiles.push(tileKey);
+placeTile(q, r, player) {
+    if (this.winner) {
+        return { success: false, error: 'Game is already over.' };
     }
-    // Update tile color
-    tile.color = playerColor;
+    if (player !== this.currentPlayer) {
+        return { success: false, error: 'Not your turn.' };
+    }
+    if (!this.isValid(q, r)) {
+        return { success: false, error: 'Invalid coordinates.' };
+    }
+    if (this.getTile(q, r)) {
+        return { success: false, error: 'Cell already occupied.' };
+    }
+
+    this.setTile(q, r, player);
+
+    const winCheckResult = this.checkWin(player);
+    if (winCheckResult.won) {
+        this.winner = player;
+        this.winningPath = winCheckResult.path;
+        console.log(`${player} wins! Path:`, winCheckResult.path.map(c => `(${c.q},${c.r})`).join(' -> '));
+        return { success: true, winner: this.winner, winningPath: this.winningPath };
+    }
+
+    this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+    return { success: true };
 }
 
-// Returns true if mine triggered, false otherwise
-function applyTeleportServer(game, playerNumber, row, col) {
-    const tileKey = `${row},${col}`;
-    const tile = getTileServer(game.board, row, col);
-    if (!tile) return false;
-    const playerTiles = playerNumber === 1 ? game.player1Tiles : game.player2Tiles;
-    const playerColor = playerNumber === 1 ? game.player1Color : game.player2Color;
-
-    // Add to player's territory (avoid duplicates)
-    if (!playerTiles.includes(tileKey)) {
-         playerTiles.push(tileKey);
-    }
-    // Update tile color
-    tile.color = playerColor;
-
-    // Check for mine AFTER claiming
-    if (game.landmines.some(mine => mine.row === row && mine.col === col)) {
-        console.log(`Game ${game.id}: Player ${playerNumber} triggered mine at ${row},${col} via teleport.`);
-        triggerLandmineExplosionServer(game, playerNumber, row, col);
-        return true; // Mine triggered
-    }
-    return false; // No mine
-}
-
-
-// Trigger Landmine Explosion (Server Side)
-function triggerLandmineExplosionServer(game, triggeringPlayer, row, col) {
-    const explosionCenterKey = `${row},${col}`;
-    const tile = getTileServer(game.board, row, col);
-    if (!tile) return;
-
-    // Remove the mine
-    game.landmines = game.landmines.filter(mine => !(mine.row === row && mine.col === col));
-    if (tile) tile.hasMine = false;
-
-    // Identify affected tiles (center + neighbors)
-    const affectedCoords = [...getNeighborsServer(row, col), { row, col }];
-
-    // Apply effects
-    affectedCoords.forEach(coord => {
-        const currentTile = getTileServer(game.board, coord.row, coord.col);
-        if (currentTile) {
-            const key = `${coord.row},${coord.col}`;
-            // Remove ownership
-            game.player1Tiles = game.player1Tiles.filter(k => k !== key);
-            game.player2Tiles = game.player2Tiles.filter(k => k !== key);
-            // Change color
-            currentTile.color = EXPLOSION_COLOR;
-            // Add to recovery list (avoid duplicates)
-             if (!game.explodedTiles.some(et => et.row === coord.row && et.col === coord.col)) {
-                 game.explodedTiles.push({ row: coord.row, col: coord.col, turnsLeft: EXPLOSION_RECOVERY_TURNS, type: 'explosion' });
-             }
-        }
-    });
-
-    // Handle disconnected territories after removal
-    handleDisconnectedTerritoriesServer(game, 1);
-    handleDisconnectedTerritoriesServer(game, 2);
-
-    // Shuffle unclaimed tiles immediately? Or rely on client visual? Server state doesn't *need* shuffle.
-    // Let's skip server-side shuffle for now to keep state deterministic post-explosion.
-
-    // Explosion counts as the player's turn ending. Switch turn.
-    switchPlayerTurnServer(game);
-}
-
-// Find and remove disconnected territories for a player (Server Side)
-function handleDisconnectedTerritoriesServer(game, playerNumber) {
-    const playerTiles = playerNumber === 1 ? game.player1Tiles : game.player2Tiles;
-    if (playerTiles.length <= 1) return; // Can't disconnect 0 or 1 tile
-
-    const segments = findDisconnectedSegmentsServer(game, playerTiles);
-
-    if (segments.length > 1) {
-        console.log(`Game ${game.id}: Player ${playerNumber} territory split into ${segments.length} segments.`);
-        // Find the largest segment
-        let largestSegment = segments[0];
-        for (let i = 1; i < segments.length; i++) {
-            if (segments[i].length > largestSegment.length) {
-                largestSegment = segments[i];
-            }
-        }
-        console.log(`Keeping largest segment with ${largestSegment.length} tiles for Player ${playerNumber}.`);
-        // Update the player's tile list to be only the largest segment
-        if (playerNumber === 1) {
-            game.player1Tiles = largestSegment;
-        } else {
-            game.player2Tiles = largestSegment;
-        }
-        // Tiles in other segments implicitly become unowned (board color might need updating later if necessary)
-    }
-}
-
-// Find segments using BFS (Server Side) - returns array of arrays of keys
-function findDisconnectedSegmentsServer(game, playerTileKeys) {
-    const segments = [];
+checkWin(player) {
     const visited = new Set();
+    const queue = [];
+    const parentMap = new Map();
 
-    for (const startTileKey of playerTileKeys) {
-        if (visited.has(startTileKey)) continue;
+    let startNodes = [];
+    let isEndNode;
 
-        const currentSegmentKeys = [];
-        const queue = [startTileKey];
-        visited.add(startTileKey);
-        currentSegmentKeys.push(startTileKey);
-
-        while (queue.length > 0) {
-            const tileKey = queue.shift();
-            const [row, col] = tileKey.split(',').map(Number);
-
-            const neighbors = getNeighborsServer(row, col);
-            for (const neighbor of neighbors) {
-                const neighborKey = `${neighbor.row},${neighbor.col}`;
-                // Check if neighbor exists, is owned by player, and not visited
-                const neighborTile = getTileServer(game.board, neighbor.row, neighbor.col);
-                if (neighborTile && playerTileKeys.includes(neighborKey) && !visited.has(neighborKey)) {
-                    visited.add(neighborKey);
-                    currentSegmentKeys.push(neighborKey);
-                    queue.push(neighborKey);
+    // Define start edges and end condition based on player
+    if (player === 'P1') { // Top (r=0) to Bottom (r=rows-1)
+        for (let q = 0; q < this.cols; q++) {
+            if (this.isValid(q, 0) && this.getTile(q, 0) === player) {
+                const nodeKey = `${q},0`;
+                if (!visited.has(nodeKey)) {
+                    startNodes.push({ q, r: 0 });
+                    visited.add(nodeKey);
+                    parentMap.set(nodeKey, null);
                 }
             }
         }
-        segments.push(currentSegmentKeys);
+        isEndNode = (coord) => coord.r === this.rows - 1;
+    } else { // Left (q=0) to Right (q=cols-1)
+        for (let r = 0; r < this.rows; r++) {
+            if (this.isValid(0, r) && this.getTile(0, r) === player) {
+                const nodeKey = `0,${r}`;
+                 if (!visited.has(nodeKey)) {
+                    startNodes.push({ q: 0, r });
+                    visited.add(nodeKey);
+                    parentMap.set(nodeKey, null);
+                 }
+            }
+        }
+        isEndNode = (coord) => coord.q === this.cols - 1;
     }
-    return segments;
+
+    queue.push(...startNodes);
+    let finalNode = null;
+
+    while (queue.length > 0) {
+        const current = queue.shift();
+        const currentKey = `${current.q},${current.r}`;
+
+        if (isEndNode(current)) {
+            finalNode = current;
+            break;
+        }
+
+        for (const dir of this.directions) {
+            const nq = current.q + dir.dq;
+            const nr = current.r + dir.dr;
+            const neighborKey = `${nq},${nr}`;
+
+            if (this.isValid(nq, nr) && this.getTile(nq, nr) === player && !visited.has(neighborKey)) {
+                visited.add(neighborKey);
+                queue.push({ q: nq, r: nr });
+                parentMap.set(neighborKey, currentKey);
+            }
+        }
+    }
+
+    if (finalNode) {
+        const path = [];
+        let currentKey = `${finalNode.q},${finalNode.r}`;
+        while (currentKey) {
+            const [qStr, rStr] = currentKey.split(',');
+            path.push({ q: parseInt(qStr), r: parseInt(rStr) });
+            currentKey = parentMap.get(currentKey);
+        }
+        return { won: true, path: path.reverse() };
+    }
+
+    return { won: false, path: [] };
 }
 
-
-// Award Power-Up (Server Side)
-function checkForPowerUpAward(game, playerNumber) {
-    // This needs access to the number of tiles *just captured*.
-    // Modify handleColorSelectionServer to return capture count or calculate it here.
-    // For now, let's assume handleColorSelectionServer calculated `lastCaptureCount`.
-    // This logic needs refinement. Let's simplify: Award randomly after *any* successful color move.
-    // Proper implementation would check capture count.
-
-    const powerUpTypes = Object.values(POWER_UPS);
-    const randomPowerUp = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-    const playerPowerUps = playerNumber === 1 ? game.player1PowerUps : game.player2PowerUps;
-    playerPowerUps.push(randomPowerUp);
-    console.log(`Game ${game.id}: Awarded ${randomPowerUp} to Player ${playerNumber}. Total: ${playerPowerUps.length}`);
-    return true; // Indicate power-up was awarded
+serialize() {
+    return JSON.stringify({
+        rows: this.rows,
+        cols: this.cols,
+        board: this.board,
+        currentPlayer: this.currentPlayer,
+        winner: this.winner,
+        winningPath: this.winningPath
+    });
 }
 
-// Process Recovery of Exploded Tiles (Server Side)
-function processExplodedTilesRecoveryServer(game) {
-    const stillRecovering = [];
-    let changed = false;
+static deserialize(jsonString) {
+    try {
+        const data = JSON.parse(jsonString);
+        if (!data || typeof data.rows !== 'number' || typeof data.cols !== 'number' || typeof data.board !== 'object' || typeof data.currentPlayer !== 'string') {
+            console.error("Deserialize Error: Invalid game state data format", data);
+            return new GameState(); // Return default state
+        }
+        const gameState = new GameState(data.rows, data.cols);
+        gameState.board = data.board || {}; // Ensure board is at least an empty object
+        gameState.currentPlayer = data.currentPlayer;
+        gameState.winner = data.winner;
+        gameState.winningPath = data.winningPath || [];
+        return gameState;
+    } catch (error) {
+        console.error("Deserialize Error: Failed to parse game state JSON:", error);
+        return new GameState(); // Return default state on JSON parse error
+    }
+}
+} // End of GameState class
 
-    game.explodedTiles.forEach(tileInfo => {
-        tileInfo.turnsLeft--;
-        const tile = getTileServer(game.board, tileInfo.row, tileInfo.col);
-        if (!tile) return;
 
-        if (tileInfo.turnsLeft <= 0) {
-            // Fully recovered - assign random neutral color
-            const availableColors = COLORS.filter(c => c !== game.player1Color && c !== game.player2Color);
-            tile.color = availableColors.length > 0
-                ? availableColors[Math.floor(Math.random() * availableColors.length)]
-                : COLORS[0]; // Fallback
-            changed = true;
+// Utility function to generate unique game IDs
+function generateGameId() {
+return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// Main Socket.IO connection handler
+io.on('connection', (socket) => {
+console.log(`User connected: ${socket.id}`);
+players[socket.id] = { socket: socket, gameId: null, player: null }; // Track player info
+
+// --- Game Creation ---
+socket.on('create-game', (playerName) => {
+    try {
+        if (!playerName || playerName.trim().length === 0) {
+            socket.emit('game-error', 'Player name cannot be empty.');
+            return;
+        }
+        const gameId = generateGameId();
+        console.log(`Game created with ID: ${gameId} by ${playerName} (${socket.id})`);
+        games[gameId] = {
+            id: gameId,
+            players: {}, // { socketId: { name: string, player: 'P1' | 'P2' } }
+            playerCount: 0,
+            gameState: null, // Initialized when P2 joins
+            spectators: new Set()
+        };
+
+        games[gameId].players[socket.id] = { name: playerName, player: 'P1' };
+        games[gameId].playerCount = 1;
+        players[socket.id].gameId = gameId;
+        players[socket.id].player = 'P1';
+
+        socket.join(gameId);
+        socket.emit('game-created', { gameId, player: 'P1' });
+        console.log(`Player ${playerName} (${socket.id}) joined ${gameId} as P1`);
+    } catch (error) {
+        console.error(`[create-game] Error for ${socket.id}:`, error);
+        socket.emit('game-error', 'Server error creating game.');
+    }
+});
+
+// --- Game Joining ---
+socket.on('join-game', ({ gameId, playerName }) => {
+    try {
+        if (!playerName || playerName.trim().length === 0) {
+            socket.emit('game-error', 'Player name cannot be empty.');
+            return;
+        }
+        if (!gameId) {
+             socket.emit('game-error', 'Game ID is required.');
+             return;
+        }
+
+        const game = games[gameId];
+        if (!game) {
+            socket.emit('game-error', `Game not found: ${gameId}`);
+            return;
+        }
+
+        // Check if socket is already in game (player or spectator)
+        if (players[socket.id]?.gameId === gameId) {
+             socket.emit('game-error', 'You are already in this game.');
+             return;
+        }
+
+        // Join as Spectator if game is full or already started
+        if (game.playerCount >= 2 || game.gameState) {
+            if (!game.spectators.has(socket.id)) {
+                game.spectators.add(socket.id);
+                players[socket.id].gameId = gameId;
+                players[socket.id].player = 'Spectator';
+                socket.join(gameId);
+                socket.emit('game-joined', { gameId, player: 'Spectator', gameState: game.gameState ? game.gameState.serialize() : null });
+                console.log(`Spectator ${playerName} (${socket.id}) joined ${gameId}`);
+                if (game.gameState) {
+                    socket.emit('update-state', game.gameState.serialize());
+                }
+            } else {
+                 socket.emit('game-error', 'Already spectating this game.'); // Should be caught above, but safeguard
+            }
+            return; // Stop further execution for spectators or late joiners
+        }
+
+        // Join as P2 if slot available and game not started
+        if (game.playerCount === 1 && !Object.values(game.players).some(p => p.player === 'P2')) {
+            game.players[socket.id] = { name: playerName, player: 'P2' };
+            game.playerCount = 2;
+            players[socket.id].gameId = gameId;
+            players[socket.id].player = 'P2';
+            socket.join(gameId);
+
+            // Initialize GameState *now* that P2 has joined
+            game.gameState = new GameState();
+            console.log(`Game state initialized for ${gameId}`);
+
+            console.log(`Player ${playerName} (${socket.id}) joined ${gameId} as P2`);
+
+            const playerNames = {
+                P1: Object.values(game.players).find(p => p.player === 'P1')?.name || 'Player 1',
+                P2: playerName
+            };
+            const initialState = game.gameState.serialize();
+
+            // Notify P2 (joining player)
+            socket.emit('game-start', { gameId, player: 'P2', playerNames: playerNames, initialState: initialState });
+
+            // Notify P1
+            const p1SocketId = Object.keys(game.players).find(id => game.players[id].player === 'P1');
+            if (p1SocketId && io.sockets.sockets.get(p1SocketId)) {
+                io.sockets.sockets.get(p1SocketId).emit('game-start', { gameId, player: 'P1', playerNames: playerNames, initialState: initialState });
+                console.log(`Sent game-start to P1 (${p1SocketId})`);
+            } else {
+                console.error(`Could not find P1 socket (${p1SocketId}) for game ${gameId} to send game-start`);
+                // Handle potential error - maybe P1 disconnected right before P2 joined?
+                 socket.emit('game-error', 'Could not notify Player 1. They may have disconnected.');
+                 // Clean up P2's join attempt? Or let disconnect handle it?
+                 // For now, P2 is technically in, but P1 won't get the message.
+            }
         } else {
-            // Still recovering - ensure color is correct (black/red)
-            const expectedColor = tileInfo.type === 'sabotage' ? SABOTAGE_COLOR : EXPLOSION_COLOR;
-            if (tile.color !== expectedColor) {
+            socket.emit('game-error', 'Cannot join game. It might be full or in an invalid state.');
+            console.warn(`Join attempt failed for ${gameId} by ${socket.id}. Player count: ${game.playerCount}, Game state exists: ${!!game.gameState}`);
+        }
+    } catch (error) {
+         console.error(`[join-game] Error for ${socket.id} joining ${gameId}:`, error);
+         socket.emit('game-error', 'Server error joining game.');
+    }
+});
+
+// --- Tile Placement ---
+socket.on('place-tile', ({ gameId, q, r, color }) => {
+    try {
+        const game = games[gameId];
+        const playerInfo = players[socket.id];
+
+        // Basic validation
+        if (!game || !playerInfo || playerInfo.gameId !== gameId) {
+             console.error(`[place-tile] Invalid game/player state for ${socket.id} in game ${gameId}`);
+             socket.emit('game-error', 'Invalid game or player state.');
+             return;
+        }
+        if (!game.gameState) {
+             console.error(`[place-tile] Game state not initialized for ${gameId}`);
+             socket.emit('game-error', 'Game state not initialized yet.');
+             return;
+        }
+         if (playerInfo.player !== 'P1' && playerInfo.player !== 'P2') {
+              socket.emit('game-error', 'Spectators cannot place tiles.');
+              return;
+         }
+
+        const playerRole = playerInfo.player;
+        const currentPlayerTurn = game.gameState.currentPlayer;
+
+        if (playerRole !== currentPlayerTurn) {
+            socket.emit('game-error', `Not your turn. It's ${currentPlayerTurn}'s turn.`);
+            return;
+        }
+        if (playerRole !== color) {
+            socket.emit('game-error', `Invalid color selection. You are ${playerRole}, tried to place ${color}.`);
+            return;
+        }
+
+        // Attempt to place tile using GameState logic
+        const result = game.gameState.placeTile(q, r, color);
+
+        if (result.success) {
+            console.log(`[${gameId}] Tile placed at (${q}, ${r}) by ${playerRole}. Turn: ${game.gameState.currentPlayer}`);
+            const newState = game.gameState.serialize();
+            io.to(gameId).emit('update-state', newState); // Broadcast updated state
+
+            if (result.winner) {
+                console.log(`[${gameId}] Game Over. Winner: ${result.winner}`);
+                io.to(gameId).emit('game-over', { winner: result.winner, winningPath: result.winningPath });
+                // Optional: Clean up finished games after a delay?
+                // setTimeout(() => { delete games[gameId]; }, 60000); // Example: remove after 1 min
+            }
+        } else {
+            socket.emit('game-error', result.error || 'Invalid move.');
+            console.log(`[${gameId}] Invalid move by ${playerRole} at (${q}, ${r}): ${result.error}`);
+        }
+    } catch (error) {
+        console.error(`[place-tile] Error processing move in ${gameId} by ${socket.id}:`, error);
+        socket.emit('game-error', 'An server error occurred processing the move.');
+    }
+});
+
+// --- Chat Messages ---
+socket.on('send-message', ({ gameId, message }) => {
+    try {
+        const playerInfo = players[socket.id];
+        const game = games[gameId];
+
+        if (!playerInfo || playerInfo.gameId !== gameId || !game) {
+             console.warn(`[send-message] Unauthorized attempt by ${socket.id} for game ${gameId}`);
+            socket.emit('game-error', 'You are not in this game.');
+            return;
+        }
+         if (!message || typeof message !== 'string' || message.trim().length === 0) {
+             socket.emit('game-error', 'Message cannot be empty.');
+             return;
+         }
+
+        let senderName = 'Spectator'; // Default
+        if (playerInfo.player === 'P1' || playerInfo.player === 'P2') {
+            senderName = game.players[socket.id]?.name || `Player (${playerInfo.player})`;
+        }
+
+        const messageData = {
+            sender: senderName,
+            text: message.substring(0, 200) // Sanitize/limit length
+        };
+
+        io.to(gameId).emit('chat-message', messageData);
+         console.log(`[${gameId}] Chat from ${senderName}: ${messageData.text}`);
+
+    } catch (error) {
+         console.error(`[send-message] Error processing message in ${gameId} from ${socket.id}:`, error);
+         socket.emit('game-error', 'Server error sending message.');
+    }
+});
+
+
+// --- Disconnection ---
+socket.on('disconnect', (reason) => {
+    console.log(`User disconnected: ${socket.id}, Reason: ${reason}`);
+    const playerInfo = players[socket.id];
+
+    if (playerInfo && playerInfo.gameId) {
+        const gameId = playerInfo.gameId;
+        const game = games[gameId];
+
+        if (game) {
+            const playerName = game.players[socket.id]?.name || playerInfo.player; // Get name before deleting
+
+            // If a player (P1 or P2) disconnected
+            if (playerInfo.player === 'P1' || playerInfo.player === 'P2') {
+                console.log(`Player ${playerName} (${playerInfo.player}) disconnected from game ${gameId}`);
+                io.to(gameId).emit('player-disconnected', { player: playerInfo.player, playerName: playerName });
+
+                // Forfeit game if not already over
+                if (game.gameState && !game.gameState.winner) {
+                     const winner = playerInfo.player === 'P1' ? 'P2' : 'P1';
+                     game.gameState.winner = winner; // Mark winner in state
+                     console.log(`Game ${gameId} ended. Winner: ${winner} due to disconnect.`);
+                     io.to(gameId).emit('game-over', { winner: winner, reason: 'Opponent disconnected' });
+                }
+
+                // Clean up player entry
+                delete game.players[socket.id];
+                game.playerCount = Object.keys(game.players).length;
+
+                // If player count drops to zero, consider cleaning up spectators too? Or let them stay?
+                // if (game.playerCount === 0 && game.spectators.size === 0) {
+                //     delete games[gameId];
+                //     console.log(`Game ${gameId} removed (no players or spectators).`);
+                // }
+
+            }
+            // If a spectator disconnected
+            else if (playerInfo.player === 'Spectator') {
+                game.spectators.delete(socket.id);
+                console.log(`Spectator ${socket.id} left game ${gameId}`);
+                // if (game.playerCount === 0 && game.spectators.size === 0) {
+                //    delete games[gameId];
+                //    console.log(`Game ${gameId} removed (no players or spectators).`);
+                // }
+            }
+        } else {
+             console.log(`User ${socket.id} disconnected, but their game ${gameId} was not found.`);
+        }
+    } else {
+        console.log(`User ${socket.id} disconnected, was not in any tracked game.`);
+    }
+    // Clean up player tracking map entry regardless
+    delete players[socket.id];
+});
+
+}); // End of io.on('connection', ...)
+
+// Start the server
+server.listen(port, () => {
+console.log(`Server listening on port ${port}`);
+// Verify static path - adjust if root directory is different relative to server.js
+const staticPath = path.join(__dirname, '..');
+console.log(`Attempting to serve static files from: ${staticPath}`);
+// Log CORS config (ensure '*' is intended or replace with specific origin)
+console.log(`Allowing CORS from origin: *`);
+});
                 tile.color = expectedColor;
                 changed = true;
             }
