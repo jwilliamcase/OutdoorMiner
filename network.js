@@ -269,23 +269,32 @@ export function emitCreateChallenge(playerName) {
                         players: {
                             [socketInstance.id]: {
                                 name: playerName,
-                                color: '#F76C6C',
-                                score: 0,
-                                playerNumber: 1
+                                color: '#F76C6C', // Player 1 color (red)
+                                score: 1,
+                                playerNumber: 1,
+                                position: { q: 0, r: 0 } // Top-left start
                             }
-                        }
+                        },
+                        currentPlayerIndex: 0,
+                        turnNumber: 1
                     };
                     
-                    // Initialize board cells
+                    // Initialize board with proper hex grid
                     for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
                         for (let q = 0; q < CONFIG.BOARD_SIZE; q++) {
                             initialState.board[`${q},${r}`] = {
                                 q, r,
                                 owner: null,
-                                color: '#cccccc'
+                                color: '#cccccc',
+                                captured: false
                             };
                         }
                     }
+                    
+                    // Set starting positions
+                    initialState.board['0,0'].owner = socketInstance.id;
+                    initialState.board['0,0'].color = '#F76C6C';
+                    initialState.board['0,0'].captured = true;
                     
                     // Pass to UI for initialization
                     handleInitialState(initialState, initialState.players, socketInstance.id);
@@ -309,11 +318,14 @@ export function emitCreateChallenge(playerName) {
                     players: {
                         [socketInstance.id]: {
                             name: playerName,
-                            color: '#F76C6C',
-                            score: 0,
-                            playerNumber: 1
+                            color: '#F76C6C', // Player 1 color (red)
+                            score: 1,
+                            playerNumber: 1,
+                            position: { q: 0, r: 0 } // Top-left start
                         }
-                    }
+                    },
+                    currentPlayerIndex: 0,
+                    turnNumber: 1
                 };
                 
                 for (let r = 0; r < CONFIG.BOARD_SIZE; r++) {
@@ -321,10 +333,15 @@ export function emitCreateChallenge(playerName) {
                         initialState.board[`${q},${r}`] = {
                             q, r,
                             owner: null,
-                            color: '#cccccc'
+                            color: '#cccccc',
+                            captured: false
                         };
                     }
                 }
+                
+                initialState.board['0,0'].owner = socketInstance.id;
+                initialState.board['0,0'].color = '#F76C6C';
+                initialState.board['0,0'].captured = true;
                 
                 handleInitialState(initialState, initialState.players, socketInstance.id);
                 displayMessage(`Challenge created! Code: ${response.challengeCode}`);

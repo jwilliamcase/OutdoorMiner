@@ -219,38 +219,30 @@ export function renderGameBoard() {
 function drawHexagon(q, r, color) {
     if (!ctx) return;
 
-     const center = getHexCenter(q, r); // Use logic from gameLogic.js
-     const points = [];
-     for (let i = 0; i < 6; i++) {
-         const angle_deg = 60 * i - 30; // -30 degrees to start from pointy top edge
-         const angle_rad = Math.PI / 180 * angle_deg;
-         points.push({
-             x: center.x + HEX_SIZE * Math.cos(angle_rad),
-             y: center.y + HEX_SIZE * Math.sin(angle_rad)
-         });
-     }
+    const center = getHexCenter(q, r);
+    const points = [];
+    
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i;
+        points.push({
+            x: center.x + HEX_SIZE * Math.cos(angle),
+            y: center.y + HEX_SIZE * Math.sin(angle)
+        });
+    }
 
-     ctx.beginPath();
-     ctx.moveTo(points[0].x, points[0].y);
-     for (let i = 1; i < 6; i++) {
-         ctx.lineTo(points[i].x, points[i].y);
-     }
-     ctx.closePath();
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+    ctx.closePath();
 
-     ctx.fillStyle = color;
-     ctx.fill();
+    // Fill with color
+    ctx.fillStyle = color;
+    ctx.fill();
 
-     ctx.strokeStyle = '#333'; // Border color
-     ctx.lineWidth = 1;
-     ctx.stroke();
-
-     // Optional: Draw coordinates for debugging
-     // ctx.fillStyle = '#000';
-     // ctx.font = '8px Arial';
-     // ctx.textAlign = 'center';
-     // ctx.textBaseline = 'middle';
-     // ctx.fillText(`${q},${r}`, center.x, center.y);
-
+    // Draw border
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 }
 
 // --- UI Updates ---
@@ -530,16 +522,15 @@ export function handleGameUpdate(gameStateObject) {
 function centerCamera() {
     if (!canvas || !gameState || !gameState.rows || !gameState.cols) return;
 
-    // Calculate approximate center of the board in world coordinates
     const centerQ = Math.floor(gameState.cols / 2);
     const centerR = Math.floor(gameState.rows / 2);
     const boardCenter = getHexCenter(centerQ, centerR);
 
-    // Calculate desired offset to bring board center to canvas center
-    cameraOffset.x = canvas.width / 2 - boardCenter.x;
-    cameraOffset.y = canvas.height / 2 - boardCenter.y;
-     console.log("Camera centered", cameraOffset);
-    return { rows, cols };
+    // Adjust camera to center the board
+    cameraOffset.x = (canvas.width / 2) - boardCenter.x;
+    cameraOffset.y = (canvas.height / 2) - boardCenter.y;
+    
+    console.log("Camera centered", { x: cameraOffset.x, y: cameraOffset.y });
 }
 
 // --- Audio ---

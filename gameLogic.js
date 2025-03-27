@@ -1,9 +1,9 @@
 // Constants related to hexagon geometry
-export const HEX_SIZE = 20; // Size of the hexagon (distance from center to corner)
+export const HEX_SIZE = 25; // Slightly reduced for tighter packing
 export const HEX_HEIGHT = Math.sqrt(3) * HEX_SIZE;
 export const HEX_WIDTH = 2 * HEX_SIZE;
-export const VERTICAL_SPACING = HEX_HEIGHT;
-export const HORIZONTAL_SPACING = HEX_WIDTH * 3 / 4;
+export const VERTICAL_SPACING = HEX_HEIGHT * 0.75; // Tighter vertical spacing
+export const HORIZONTAL_SPACING = HEX_WIDTH * 0.87; // Adjusted for proper overlap
 
 // --- GameState Class ---
 export class GameState {
@@ -17,12 +17,11 @@ export class GameState {
         this.rows = rows;
         this.cols = cols;
         this.board = this.createInitialBoard(rows, cols);
-        this.players = players; // { id: { color: string, score: number }, ... }
-        this.currentPlayerIndex = 0; // Index for this.players array/object keys
+        this.players = players || {};
+        this.currentPlayerIndex = 0;
         this.turnNumber = 1;
         this.gameOver = false;
         this.winner = null;
-        // Removed power-up related properties
     }
 
     // Reset game state
@@ -44,10 +43,30 @@ export class GameState {
         for (let r = 0; r < rows; r++) {
             for (let q = 0; q < cols; q++) {
                 const key = `${q},${r}`;
-                board[key] = { q, r, owner: null, color: '#cccccc' };
+                board[key] = { 
+                    q, r, 
+                    owner: null, 
+                    color: '#cccccc',
+                    captured: false
+                };
             }
         }
-        return board; // Return the board object, not a key string
+
+        // Set initial corner positions
+        const topLeftKey = '0,0';
+        const bottomRightKey = `${cols-1},${rows-1}`;
+        
+        // Player 1 starts top-left
+        board[topLeftKey].owner = 'player1';
+        board[topLeftKey].color = '#F76C6C';
+        board[topLeftKey].captured = true;
+        
+        // Player 2 starts bottom-right
+        board[bottomRightKey].owner = 'player2';
+        board[bottomRightKey].color = '#374785';
+        board[bottomRightKey].captured = true;
+
+        return board;
     }
 
     // Method to get the owner of a tile (useful for checking wins, etc.)
@@ -289,12 +308,8 @@ export class GameState {
 
 // Get the pixel coordinates of the center of a hex cell
 export function getHexCenter(q, r) {
-    const x = HEX_SIZE + q * HORIZONTAL_SPACING;
-    // Offset every other row (odd rows)
-    const y = HEX_SIZE + r * VERTICAL_SPACING + (q % 2 === 1 ? VERTICAL_SPACING / 2 : 0);
-     // Or using axial coordinates directly:
-     // const x = HEX_SIZE * (3./2 * q) ;
-     // const y = HEX_SIZE * (Math.sqrt(3)/2 * q + Math.sqrt(3) * r); // Requires adjustment based on grid alignment
+    const x = q * HORIZONTAL_SPACING + HEX_SIZE;
+    const y = r * VERTICAL_SPACING + HEX_SIZE + (q % 2) * (VERTICAL_SPACING / 2);
     return { x, y };
 }
 
