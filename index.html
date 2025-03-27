@@ -51,38 +51,37 @@
           </div>
     </div>
     <div id="game-container" style="display: none;">
+        <div id="score-container">
+            <div id="player1-info" class="player-info">Player 1: -</div>
+            <div id="player2-info" class="player-info">Player 2: -</div>
+        </div>
+
         <div id="game-area">
             <canvas id="gameCanvas" width="800" height="600">
                 Your browser does not support the canvas element.
             </canvas>
         </div>
 
-        <div id="score-container">
-            <div id="player1-info" class="player-info">Player 1: -</div>
-            <div id="player2-info" class="player-info">Player 2: -</div>
-        </div>
-
         <div id="message-area" class="message-area"></div>
+        <div id="color-palette" style="display: none;">
+            <div class="color-swatch">
+                <button class="color-button" data-color="#F8E9A1" style="background-color: #F8E9A1;"></button>
+            </div>
+            <div class="color-swatch">
+                <button class="color-button" data-color="#F76C6C" style="background-color: #F76C6C;"></button>
+            </div>
+            <div class="color-swatch">
+                <button class="color-button" data-color="#B8E0F6" style="background-color: #B8E0F6;"></button>
+            </div>
+            <div class="color-swatch">
+                <button class="color-button" data-color="#374785" style="background-color: #374785;"></button>
+            </div>
+            <div class="color-swatch">
+                <button class="color-button" data-color="#0F1A40" style="background-color: #0F1A40;"></button>
+            </div>
+        </div>
     </div>
 
-    <!-- Move color-palette inside game-container -->
-    <div id="color-palette" style="display: none;">
-        <div class="color-swatch">
-            <button class="color-button" data-color="#F8E9A1" style="background-color: #F8E9A1;"></button>
-        </div>
-        <div class="color-swatch">
-            <button class="color-button" data-color="#F76C6C" style="background-color: #F76C6C;"></button>
-        </div>
-        <div class="color-swatch">
-            <button class="color-button" data-color="#B8E0F6" style="background-color: #B8E0F6;"></button>
-        </div>
-        <div class="color-swatch">
-            <button class="color-button" data-color="#374785" style="background-color: #374785;"></button>
-        </div>
-        <div class="color-swatch">
-            <button class="color-button" data-color="#0F1A40" style="background-color: #0F1A40;"></button>
-        </div>
-    </div>
     <div id="game-controls" class="hidden-initially">
           <!-- Game control buttons like restart/leave might go here later if needed -->
           <button id="restartGameButton">Restart Game</button>

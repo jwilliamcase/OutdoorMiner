@@ -402,7 +402,18 @@ h1 {
     justify-content: center;
     width: 100%;
     max-width: 1100px;
-    margin-bottom: 20px;
+    min-height: 600px;
+    height: calc(100vh - 300px); /* Adjust based on your header/footer height */
+    margin: 0 auto;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#gameCanvas {
+    display: block;
+    background-color: transparent;
+    touch-action: none; /* Prevents scrolling on mobile */
 }
 
 .power-side {

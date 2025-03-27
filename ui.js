@@ -125,22 +125,47 @@ export function showGameScreen() {
 
 // Resize canvas and re-render
 export function resizeGame() {
-    if (!canvas || !canvasContainer) {
-        console.warn("Canvas or container not ready for resize.");
+    if (!canvas) {
+        console.warn("Canvas not ready for resize.");
         return;
     }
-     // Make canvas fill the container
-    canvas.width = canvasContainer.offsetWidth;
-    canvas.height = canvasContainer.offsetHeight;
+    
+    // Set default dimensions if container is not available or has no dimensions
+    let width = 800;  // Default width
+    let height = 600; // Default height
+    
+    if (canvasContainer) {
+        // Get parent container dimensions
+        const containerRect = canvasContainer.getBoundingClientRect();
+        if (containerRect.width > 0 && containerRect.height > 0) {
+            width = containerRect.width;
+            height = containerRect.height;
+        }
+    }
+
+    // Set canvas dimensions
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
 
     console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
 
-    // Only re-render if the game has started (gameState exists)
     if (gameState) {
         console.log("resizeGame triggered, re-rendering.");
         renderGameBoard();
     } else {
-         console.log("resizeGame triggered, but gameState not ready for rendering.");
+        console.log("resizeGame triggered, but gameState not ready for rendering.");
+        // Draw placeholder
+        if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#eee';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#555';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("Waiting for game to start...", canvas.width / 2, canvas.height / 2);
+        }
     }
 }
 
