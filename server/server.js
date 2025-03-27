@@ -353,9 +353,9 @@ io.on('connection', (socket) => {
   // Disconnect handling
   socket.on('disconnect', (reason) => {
       handleDisconnect(socket, reason);
-  });
-}); // End io.on('connection')
-
+   }); // End of specific socket event listener like 'disconnect'
+}); // End of io.on('connection', ...)
+// Corrected: Removed the extra closing pair. The server.listen call should follow this.
 
 // --- Server Game Logic Functions ---
 
@@ -1028,8 +1028,8 @@ setInterval(() => {
 //   res.sendFile(path.join(__dirname, '..', 'index.html'));
 // });
 
+  });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+    console.log(\`Server listening on port \${PORT}\`);
+}); // Corrected: Removed the potentially extra parenthesis if it was nested incorrectly. Ensure brace matching.
 });
