@@ -39,11 +39,12 @@ function playSound(soundName) {
     }
     
     // DOM element references (initialized in DOMContentLoaded)
-    let canvas, ctx, messageElement, setupContainer, gameScreen, playerNameInput, localGameButton,
+    // Note: canvas, ctx are already declared globally above.
+    let messageElement, setupContainer, gameScreen, playerNameInput, localGameButton, gameIdInput, // Added gameIdInput here
         createChallengeButton, joinChallengeButton, setupMessageElement, gameIdDisplay,
         player1ScoreElement, player2ScoreElement, colorSwatchesContainer, powerUpSlotsContainer,
         landmineInfoElement, chatInput, chatMessages, sendChatButton, toggleChatButton, chatContainer,
-        leaveGameButton;
+        leaveGameButton, restartGameButton; // Added restartGameButton here
     
     // --- State Management ---
     class GameState {
@@ -1484,7 +1485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-     if (joinChallengeButton) {
+     if (joinChallengeButton && gameIdInput) { // Added check for gameIdInput
         joinChallengeButton.addEventListener('click', () => {
              const name = playerNameInput.value.trim();
              const idToJoin = gameIdInput.value.trim().toUpperCase(); // Join uses separate input
