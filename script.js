@@ -118,12 +118,12 @@ function playSound(soundName) {
         this.player1PowerUps = data.player1PowerUps || [];
         this.player2PowerUps = data.player2PowerUps || [];
         this.landmines = data.landmines || [];
-        this.explodedTiles = data.explodedTiles || []; // Ensure semicolon termination
+        this.explodedTiles = data.explodedTiles || [];
         this.gameStarted = data.gameStarted || false;
         this.gameOver = data.gameOver || false;
-        this.winner = data.winner !== undefined ? data.winner : null; // Allow winner = 0 (tie)
-        this.gameOver = data.gameOver || false;
-        this.winner = data.winner !== undefined ? data.winner : null; // Handle 0 for tie
+        this.winner = data.winner !== undefined ? data.winner : null;
+    }
+        this.winner = data.winner !== undefined ? data.winner : null
     }
 
     getTile(row, col) {
@@ -522,7 +522,7 @@ function renderGameBoard() {
         for (let c = 0; c < gameState.cols; c++) {
             const tile = gameState.board[r][c];
             // Pass the tile object to drawHexagon
-            drawHexagon(r, c, tile.color, tile);
+            drawHexagon(ctx, c * HEX_SIZE * 1.5, r * HEX_SIZE * Math.sqrt(3) + (c % 2 === 1 ? HEX_SIZE * Math.sqrt(3) / 2 : 0), HEX_SIZE, tile.color, 1, '#555', false, tile.hasLandmine, tile);
         }
     }
 
@@ -1393,14 +1393,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Get DOM Elements ---
     canvas = document.getElementById('gameCanvas');
-    if (!canvas) {
+    if (canvas) {
+        ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error("Failed to get 2D context!");
+            return; // Exit if context cannot be obtained
+        }
+    } else {
         console.error("Canvas element not found!");
-        return;
-    }
-    ctx = canvas.getContext('2d');
-    if (!ctx) {
-        console.error("Failed to get 2D context!");
-        return;
+        return; // Exit if canvas element is not found
     }
 
     // --- Get UI Element References ---
@@ -1455,12 +1456,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localGameButton.addEventListener('click', () => {
             const name = playerNameInput.value.trim() || 'Player 1';
             if (!name) {
-                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
+                setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
              playerName = name;
              gameMode = 'local';
-             if (setupMessageElement) setupMessageElement.textContent = "Starting local game...";
+             setupMessageElement.textContent = "Starting local game...";
             initializeGame(playerName); // Start local game
         });
     }
@@ -1469,12 +1470,12 @@ document.addEventListener('DOMContentLoaded', () => {
         createChallengeButton.addEventListener('click', () => {
             const name = playerNameInput.value.trim();
             if (!name) {
-                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
+                setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
              playerName = name; // Set global playerName
              gameMode = 'online-host';
-            if (setupMessageElement) setupMessageElement.textContent = "Connecting to server...";
+            setupMessageElement.textContent = "Connecting to server...";
             // Use multiplayer module's connect function
             window.multiplayer.connectToServer(playerName, 'create', { playerName: playerName });
         });
@@ -1485,16 +1486,16 @@ document.addEventListener('DOMContentLoaded', () => {
              const name = playerNameInput.value.trim();
              const idToJoin = gameIdInput.value.trim().toUpperCase(); // Join uses separate input
             if (!name) {
-                if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";
+                setupMessageElement.textContent = "Please enter your name.";
                 return;
             }
             if (!idToJoin) {
-                 if (setupMessageElement) setupMessageElement.textContent = "Please enter a Game ID to join.";
+                 setupMessageElement.textContent = "Please enter a Game ID to join.";
                  return;
              }
              playerName = name; // Set global playerName
              gameMode = 'online-client';
-             if (setupMessageElement) setupMessageElement.textContent = "Connecting to server...";
+             setupMessageElement.textContent = "Connecting to server...";
             // Use multiplayer module's connect function
              window.multiplayer.connectToServer(playerName, 'join', { playerName: playerName, gameId: idToJoin });
         });
