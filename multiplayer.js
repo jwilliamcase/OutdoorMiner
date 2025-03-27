@@ -25,6 +25,7 @@
 
     // --- Initialization ---
     function init() {
+        console.log("Multiplayer init - START init");
         if (typeof io === 'undefined') {
             console.error('Socket.IO library (io) not found! Ensure index.html includes it.');
             updateStatusIndicator(false, 'Error: Lib Missing');
@@ -39,6 +40,7 @@
 
     // --- Connection Management ---
     function connectToServer(playerName, action, args) {
+        console.log("connectToServer - START connectToServer", playerName, action, args);
         if (connected) {
             console.log("connectToServer: Already connected.");
             // If connected, proceed with action directly
@@ -96,6 +98,7 @@
     function setupSocketListeners(socketInstance) {
         // --- Core Connection Events ---
         socketInstance.on('connect', () => {
+            console.log("socket.on('connect') - START connect handler");
             connected = true;
             playerId = socketInstance.id;
             isOnlineGame = true; // Mark as potentially starting online mode
@@ -112,6 +115,7 @@
         });
 
         socketInstance.on('disconnect', (reason) => {
+            console.log("socket.on('disconnect') - START disconnect handler", reason);
             console.log('Disconnected from server:', reason);
             const wasConnected = connected; // Store previous state
             connected = false;
@@ -127,6 +131,7 @@
         });
 
         socketInstance.on('connect_error', (error) => {
+            console.log("socket.on('connect_error') - START connect_error handler", error);
             console.error('Connection Error:', error);
             connected = false;
             isOnlineGame = false;
@@ -139,6 +144,7 @@
 
         // --- Game Handshake/Setup Events ---
         socketInstance.on('game-created', (data) => {
+            console.log("socket.on('game-created') - START game-created handler", data);
             console.log("Server response: Game created", data);
             gameId = data.gameId; // Store the game ID provided by the server
             localPlayerNumber = data.playerNumber; // Store player number (should be 1)
@@ -151,6 +157,7 @@
         });
 
         socketInstance.on('game-joined', (data) => {
+            console.log("socket.on('game-joined') - START game-joined handler", data);
             console.log("Server response: Game joined", data);
             gameId = data.gameId; // Store game ID
             localPlayerNumber = data.playerNumber; // Store player number (should be 2)
@@ -160,6 +167,7 @@
         });
 
          socketInstance.on('player-joined', (data) => { // For Player 1 when Player 2 joins
+             console.log("socket.on('player-joined') - START player-joined handler", data);
              console.log("Server notification: Player joined", data);
              window.updateMessage(`Player ${data.playerName} (P${data.playerNumber}) joined. Initializing game...`, 'info');
              window.setOpponentInfo(data.playerNumber, data.playerName); // Update script.js with opponent info
@@ -168,12 +176,14 @@
          });
 
         socketInstance.on('waiting-for-opponent', () => {
+            console.log("socket.on('waiting-for-opponent') - START waiting-for-opponent handler");
             console.log("Server notification: Waiting for opponent");
             window.updateMessage(`Game ${gameId} initialized. Waiting for opponent to join...`, 'info');
         });
 
         // --- Core Game State Events ---
         socketInstance.on('game-setup', (data) => {
+            console.log("socket.on('game-setup') - START game-setup handler", data);
             // This event *starts* the game visually for both players
             console.log("Received game-setup:", data);
             if (data.error) {
@@ -190,12 +200,14 @@
         });
 
         socketInstance.on('game-state', (newGameState) => {
+            console.log("socket.on('game-state') - START game-state handler");
             // This event updates the board/scores during gameplay
             console.log("Received game-state update");
             window.syncGameState(newGameState); // Delegate state sync and UI update to script.js
         });
 
         socketInstance.on('game-over', (data) => {
+            console.log("socket.on('game-over') - START game-over handler", data);
             console.log('Received game-over:', data);
              if (data.gameState) { // Sync final state if provided
                  window.syncGameState(data.gameState);
@@ -206,6 +218,7 @@
         });
 
         socketInstance.on('player-disconnected', (data) => {
+            console.log("socket.on('player-disconnected') - START player-disconnected handler", data);
             console.log('Received player-disconnected:', data);
             window.handleOpponentDisconnect(data.message || 'Opponent disconnected. Game ended.'); // Let script.js handle UI
             updateStatusIndicator(true, 'Opponent Left'); // Keep connected status
@@ -222,6 +235,7 @@
 
         // --- Error Handling ---
         socketInstance.on('game-error', (data) => { // General game-related errors from server
+             console.log("socket.on('game-error') - START game-error handler", data);
              console.error('Server Game Error:', data.message);
              window.handleGenericServerError(data.message, data.errorType); // Let script.js show user
 
@@ -236,6 +250,7 @@
 
         // --- Chat/Taunt Events ---
         socketInstance.on('chat-message', (data) => { // Match server 'chat-message' emit
+            console.log("socket.on('chat-message') - START chat-message handler", data);
             console.log("Chat message received:", data);
             // Call the globally exposed function in script.js
              if (window.addChatMessage) {
@@ -299,6 +314,7 @@
     // --- Actions (Called by script.js, exposed via window) ---
 
     function createChallenge(playerName) {
+        console.log("createChallenge - START createChallenge", playerName);
         if (!connected || !socket) {
             console.error('Socket not connected when trying to create challenge.');
             window.updateMessage('Error: Could not create challenge. Not connected.', true);
@@ -312,6 +328,7 @@
     }
 
     function joinChallenge(playerName, joinGameId) { // Renamed param to avoid conflict with global gameId
+        console.log("joinChallenge - START joinChallenge", playerName, joinGameId);
         if (!joinGameId) {
             console.error("Game ID is required to join.");
             window.updateMessage('Error: Game ID is required.', true);

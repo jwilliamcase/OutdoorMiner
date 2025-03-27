@@ -121,7 +121,7 @@ function playSound(soundName) {
         this.explodedTiles = data.explodedTiles || [];
         this.gameStarted = data.gameStarted || false;
         this.gameOver = data.gameOver || false;
-        this.winner = data.winner !== undefined ? data.winner : null;
+        this.winner = data.winner !== undefined ? data.winner : null, // Added comma here
     }
 
     getTile(row, col) {
@@ -927,7 +927,7 @@ function handlePowerUpSelection(powerUpType) {
 // --- Game Initialization and State Sync ---
 
 function initializeGame(localPlayerName = "Player 1", opponentName = "Player 2", p1Color = '#FF0000', p2Color = '#0000FF') {
-    console.log(`Initializing ${gameMode} game.`);
+    console.log(`Initializing ${gameMode} game - START initializeGame.`);
     gameState = new GameState(); // Create a fresh state
     gameState.playerNames = [localPlayerName, opponentName];
     gameState.playerColors = [p1Color, p2Color];
@@ -992,7 +992,7 @@ function setupInitialTilesLocal() {
 
 // Called by multiplayer.js when receiving game state from server
 window.syncGameState = function(serverState) {
-    console.log("Syncing game state from server...");
+    console.log("Syncing game state from server... - START syncGameState");
      if (!gameState) {
          console.log("No local gameState found, creating new one for sync.");
          // This case should ideally be handled by initializeOnlineGame first
@@ -1028,7 +1028,7 @@ window.syncGameState = function(serverState) {
 
 // Called by multiplayer.js when the server confirms game setup
 window.initializeOnlineGame = function(setupData) {
-     console.log("Initializing online game with data:", setupData);
+     console.log("Initializing online game with data: - START initializeOnlineGame", setupData);
      gameId = setupData.gameId;
      playerNumber = setupData.playerNumber; // Server tells us if we are 0 or 1
      playerName = setupData.playerName; // Our name
@@ -1387,7 +1387,7 @@ window.leaveGame = function() {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM fully loaded and parsed.");
+    console.log("DOM fully loaded and parsed - STARTING DOMContentLoaded HANDLER.");
 
     // --- Get DOM Elements ---
     canvas = document.getElementById('gameCanvas');
@@ -1536,6 +1536,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Window Resize Listener ---
     window.addEventListener('resize', resizeGame);
 
-    console.log("Initial setup complete. Waiting for user action.");
+    console.log("Initial setup complete. Waiting for user action. - END DOMContentLoaded HANDLER");
 
 }); // End of DOMContentLoaded listener - THIS WAS LIKELY THE MISSING BRACE
