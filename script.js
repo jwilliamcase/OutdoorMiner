@@ -121,7 +121,7 @@ function playSound(soundName) {
         this.explodedTiles = data.explodedTiles || [];
         this.gameStarted = data.gameStarted || false;
         this.gameOver = data.gameOver || false,
-        this.winner = data.winner !== undefined ? data.winner : null
+        this.winner = data.winner !== undefined ? data.winner : null,
     }
 
     getTile(row, col) {
