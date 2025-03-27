@@ -14,6 +14,9 @@ import {
     updateGameCode // Add this import
 } from './ui.js';
 
+import { eventManager, EventTypes } from './eventManager.js';
+import { NetworkEvents, GameEvents } from './eventTypes.js';
+
 let socketInstance = null;
 let currentRoomId = null;
 let currentPlayerId = null; // Store player ID assigned by server
@@ -87,36 +90,9 @@ function setupSocketEventListeners() {
         console.log('Connected to server with ID:', socketInstance.id);
         currentPlayerId = socketInstance.id; // Store the session ID as player ID
         updateConnectionStatus(true, `Connected as Player ${socketInstance.id.substring(0, 4)}`); // Update UI - Connected
-        // Now join or create room based on the original action (might need player name etc.)
-        // This part needs refinement - how do we pass the original action (create/join)?
-        // Maybe pass it inside connectToServer or have separate functions join/create
-        // For now, assume connection is step 1. User clicks create/join AFTER connecting.
-        // OR pass data in the initial query.
-
-        // Temporary: Assume create/join happens via buttons after connection
-        // Let's rethink: connection should include intent (create/join)
-
-        /* Example: Refined connectToServer to handle create/join
-        export function createGame(playerName) {
-             connectAndSetup({ action: 'create', playerName });
-        }
-        export function joinGame(playerName, roomCode) {
-             connectAndSetup({ action: 'join', playerName, roomCode });
-        }
-        function connectAndSetup(options) {
-             // ... socket init ...
-             socketInstance.on('connect', () => {
-                  currentPlayerId = socketInstance.id;
-                  updateConnectionStatus(true, `Connected`);
-                  if (options.action === 'create') {
-                       socketInstance.emit('create-challenge', { playerName: options.playerName });
-                  } else if (options.action === 'join') {
-                       socketInstance.emit('join-challenge', { playerName: options.playerName, roomCode: options.roomCode });
-                  }
-             });
-        }
-        */
-         // Reverting to simpler connect, assuming create/join emit is called separately for now
+        eventManager.dispatchEvent(EventTypes.NETWORK.CONNECTED, {
+            id: socketInstance.id
+        });
     });
 
     socketInstance.on('disconnect', (reason) => {
@@ -125,6 +101,7 @@ function setupSocketEventListeners() {
         currentRoomId = null;
 
         updateConnectionStatus(false, `Disconnected: ${reason}`);
+        eventManager.dispatchEvent(EventTypes.NETWORK.DISCONNECTED, { reason });
 
         if (wasConnected) {
             // Save current game state for potential recovery
@@ -196,22 +173,21 @@ function setupSocketEventListeners() {
     });
 
      socketInstance.on('game-update', (data) => {
-        if (!data.gameState || !data.changes) {
-            console.error("Invalid game update received");
-            return;
-        }
-
-        // Apply changes atomically
-        handleGameUpdate(data.gameState, data.changes);
+        eventManager.dispatchEvent(NetworkEvents.SYNC_START, { timestamp: Date.now() });
         
-        // Update scores immediately
-        if (data.changes.scores) {
-            updatePlayerInfo(data.gameState.players, currentPlayerId);
-        }
-
-        // Check win condition after update
-        if (data.gameState.gameOver) {
-            showGameOver(data.gameState.winner, data.gameState.players, currentPlayerId);
+        try {
+            // Apply changes atomically
+            handleGameUpdate(data.gameState, data.changes);
+            
+            eventManager.dispatchEvent(NetworkEvents.SYNC_COMPLETE, {
+                success: true,
+                timestamp: Date.now()
+            });
+        } catch (error) {
+            eventManager.dispatchEvent(NetworkEvents.SYNC_ERROR, {
+                error: error.message,
+                timestamp: Date.now()
+            });
         }
     });
 
@@ -237,6 +213,18 @@ function setupSocketEventListeners() {
             playSound('message'); // Play sound on receiving message
         } else {
             console.warn("Received malformed chat message:", data);
+        }
+    });
+
+    // Add state validation event handlers
+    eventManager.addEventListener(GameEvents.MOVE, (moveData) => {
+        if (moveData.success) {
+            socketInstance.emit('validate-move', moveData, (response) => {
+                if (!response.valid) {
+                    // Roll back invalid move
+                    handleGameUpdate(response.correctState);
+                }
+            });
         }
     });
 }

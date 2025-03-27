@@ -5,7 +5,11 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server/server.js"
+    "dev": "nodemon server/server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -13,6 +17,12 @@
     "express": "^4.21.2",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.x",
+    "@babel/preset-env": "^7.x",
+    "jest": "^29.x",
+    "jest-environment-jsdom": "^29.x"
   },
   "engines": {
     "node": ">=16.0.0"

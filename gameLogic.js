@@ -15,6 +15,10 @@ const DIRECTIONS = [
     { q: 0, r: 1 }   // Southeast
 ];
 
+import { eventManager } from './eventManager.js';
+import { GameEvents } from './eventTypes.js';
+import { moveHistory } from './moveHistory.js';
+
 export class GameState {
     constructor(rows, cols, players) {
         this.rows = rows;
@@ -26,6 +30,8 @@ export class GameState {
         this.currentPlayerColor = null;  // Track current player's active color
         this.gameOver = false;
         this.winner = null;
+        this.stateHistory = [];
+        this.maxHistoryLength = 10;
     }
 
     createInitialBoard(rows, cols) {
@@ -127,12 +133,14 @@ export class GameState {
 
     // Single consolidated makeMove method
     makeMove(playerId, selectedColor) {
-        // Validate move
-        if (!this.isValidMove(playerId, selectedColor)) {
-            return {
+        // Validate move first
+        const validationResult = this.validateMove(playerId, selectedColor);
+        if (!validationResult.valid) {
+            eventManager.dispatchEvent(GameEvents.MOVE, {
                 success: false,
-                message: this.getInvalidMoveMessage(playerId, selectedColor)
-            };
+                error: validationResult.reason
+            });
+            return false;
         }
 
         // Track changes for efficient updates
@@ -142,45 +150,91 @@ export class GameState {
             scores: {}
         };
 
-        // 1. Find capturable hexes
-        const capturedHexes = this.findCapturableTiles(playerId, selectedColor);
+        // Find and apply captures
+        const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
         
-        // 2. Update captured hexes
-        capturedHexes.forEach(key => {
+        // Record move before applying
+        const moveRecord = {
+            playerId,
+            selectedColor,
+            boardState: this.serialize(),
+            turnNumber: this.turnNumber
+        };
+
+        // Apply changes and emit events
+        const result = this.applyMoveChanges(playerId, selectedColor, capturedTiles, changes);
+
+        if (result.success) {
+            // Add to history if successful
+            moveHistory.addMove(moveRecord);
+        }
+
+        // Emit completed move event
+        eventManager.dispatchEvent(GameEvents.MOVE, {
+            success: true,
+            changes,
+            gameOver: this.gameOver,
+            winner: this.winner
+        });
+
+        return result;
+    }
+
+    validateMove(playerId, selectedColor) {
+        if (this.gameOver) {
+            return { valid: false, reason: 'Game is over' };
+        }
+        if (this.getCurrentPlayerId() !== playerId) {
+            return { valid: false, reason: 'Not your turn' };
+        }
+        if (selectedColor === this.lastUsedColor) {
+            return { valid: false, reason: 'Color was just used' };
+        }
+        if (this.findCapturableTiles(playerId, selectedColor).length === 0) {
+            return { valid: false, reason: 'No valid captures' };
+        }
+        return { valid: true };
+    }
+
+    applyMoveChanges(playerId, selectedColor, capturedTiles, changes) {
+        // Apply captures
+        capturedTiles.forEach(key => {
             this.board[key].owner = playerId;
             this.board[key].color = selectedColor;
             changes.captured.push(key);
         });
 
-        // 3. Update existing territory
+        // Update territory
         Object.entries(this.board)
             .filter(([_, tile]) => tile.owner === playerId)
             .forEach(([key, tile]) => {
-                if (tile.color !== selectedColor) {
-                    tile.color = selectedColor;
-                    changes.territory.push(key);
-                }
+                tile.color = selectedColor;
+                changes.territory.push(key);
             });
 
-        // 4. Update game state
+        // Update game state
         this.lastUsedColor = selectedColor;
         this.currentPlayerIndex = (this.currentPlayerIndex + 1) % Object.keys(this.players).length;
+
+        // Calculate scores
         this.updateScores();
+        changes.scores = this.getScores();
 
-        // 5. Check win condition
-        this.checkGameOver();
+        // Check win condition
+        if (this.checkGameOver()) {
+            eventManager.dispatchEvent(GameEvents.GAME_OVER, {
+                winner: this.winner,
+                scores: changes.scores
+            });
+        }
 
-        // Record final scores
-        changes.scores = Object.fromEntries(
-            Object.entries(this.players).map(([id, p]) => [id, p.score])
-        );
+        // Emit state update
+        eventManager.dispatchEvent(GameEvents.STATE_UPDATE, {
+            state: this.serialize(),
+            changes
+        });
 
-        return {
-            success: true,
-            changes,
-            gameOver: this.gameOver,
-            winner: this.winner
-        };
+        return { success: true };
     }
 
     isValidMove(playerId, selectedColor) {
@@ -314,6 +368,48 @@ export class GameState {
             console.error("Failed to deserialize game state:", error, jsonString);
             return null; // Return null or throw error on failure
         }
+    }
+
+    saveState() {
+        const currentState = {
+            timestamp: Date.now(),
+            state: this.serialize(),
+            moveNumber: this.turnNumber
+        };
+        this.stateHistory.push(currentState);
+        if (this.stateHistory.length > this.maxHistoryLength) {
+            this.stateHistory.shift();
+        }
+        return currentState;
+    }
+
+    rollbackToState(timestamp) {
+        const historicState = this.stateHistory.find(s => s.timestamp === timestamp);
+        if (!historicState) {
+            throw new Error('State not found in history');
+        }
+        const recoveredState = GameState.deserialize(historicState.state);
+        Object.assign(this, recoveredState);
+        // Remove all states after this point
+        this.stateHistory = this.stateHistory.filter(s => s.timestamp <= timestamp);
+        return true;
+    }
+
+    // Add method to restore from history
+    restoreFromHistory(moveIndex) {
+        const historicMove = moveHistory.getMoveAt(moveIndex);
+        if (!historicMove) return false;
+
+        const restoredState = GameState.deserialize(historicMove.boardState);
+        Object.assign(this, restoredState);
+        moveHistory.currentIndex = moveIndex;
+
+        eventManager.dispatchEvent(GameEvents.STATE_UPDATE, {
+            type: 'history_restore',
+            move: historicMove
+        });
+
+        return true;
     }
 }
 
