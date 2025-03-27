@@ -692,7 +692,8 @@ function renderGameBoard() {
                 hexCenterX, hexCenterY,
                 currentHexSize, // Use potentially larger size for hover
                 displayColor,
-                owner // Pass owner (0, 1, or 2)
+                owner, // Pass owner (0, 1, or 2)
+                tile // Pass the tile object itself
                 // tile.hasMine // Not visually shown by default
             );
         }
@@ -753,22 +754,21 @@ function drawHexagon(x, y, size, color, owner) {
 
     ctx.fill();
 
-     // Clear shadow for stroke
-    if (tile && tile.owner !== null) {
+    // Clear shadow for stroke styling
+    ctx.shadowColor = 'transparent'; // Remove shadow for stroke
+
+    // Determine border style based on ownership
+    if (owner > 0) { // Owned tile (owner is 1 or 2)
         // Darker shade of owner color for border
-        ctx.strokeStyle = darkenColor(fillColor, 0.7);
-    } else { // Correctly associate else with the if
-        ctx.strokeStyle = '#888888'; // Dark grey border for unowned
-    }
-    ctx.stroke();
-        ctx.lineWidth = 1.5;
-    } else {
-        // Unowned tiles: lighter grey border
-        ctx.strokeStyle = '#bbb'; // Lighter border for unowned
+        const ownerColor = owner === 1 ? gameState.player1Color : gameState.player2Color;
+        ctx.strokeStyle = darkenColor(ownerColor || color, 0.7); // Use owner color or base color if missing
+        ctx.lineWidth = 1.5; // Thicker border for owned tiles
+    } else { // Unowned tile (owner is 0)
+        // Lighter grey border for unowned
+        ctx.strokeStyle = '#bbb';
         ctx.lineWidth = 1;
     }
-    ctx.stroke();
-
+    ctx.stroke(); // Apply the border stroke
 
     ctx.restore();
 }
@@ -1814,6 +1814,22 @@ function sendLandmineTriggerToServer(row, col) {
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+// Helper to darken a hex color by a percentage
+function darkenColor(hex, percent) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex; // Return original if conversion fails
+
+    const factor = 1 - (percent || 0.1); // Default to 10% darker
+
+    const r = Math.max(0, Math.floor(rgb.r * factor));
+    const g = Math.max(0, Math.floor(rgb.g * factor));
+    const b = Math.max(0, Math.floor(rgb.b * factor));
+
+    // Convert back to hex
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 
 // Helper function to convert hex color to RGB object
 function hexToRgb(hex) {

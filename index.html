@@ -134,9 +134,14 @@
     <!-- Socket.IO Client - Load before multiplayer.js -->
     <!-- Make sure the path is correct for your setup or use a CDN -->
     <!-- Example using server-served path: -->
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- Multiplayer Logic -->
+    <!-- Socket.IO Client Library (v4) - Load FIRST -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+
+    <!-- Game Scripts - Load AFTER Socket.IO -->
+    <script src="config.js"></script>
+    <script src="script.js"></script>
     <script src="multiplayer.js"></script>
+
 </body>
 </html>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
