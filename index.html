@@ -16,20 +16,20 @@
     <div id="setup-container">
         <h2>Welcome!</h2>
         <div class="input-group">
-            <label for="player-name-input">Enter Your Name:</label> <!-- Changed ID -->
-            <input type="text" id="player-name-input" placeholder="Player Name" maxlength="20"> <!-- Changed ID -->
+            <label for="player-name-input">Your Name:</label>
+            <input type="text" id="player-name-input" placeholder="Enter your name">
         </div>
         <div class="button-group">
-            <button id="local-game-button">Play Local Game</button> <!-- Changed ID -->
-            <button id="create-challenge-button">Create Online Challenge</button> <!-- Changed ID -->
+            <!-- Local game button removed -->
+            <button id="create-challenge-button">Create Game</button>
         </div>
         <div class="join-group">
-            <input type="text" id="game-id-input" placeholder="Enter Code to Join"> <!-- Changed ID -->
-            <button id="join-challenge-button">Join Online Challenge</button> <!-- Changed ID -->
+            <input type="text" id="game-id-input" placeholder="Enter Game ID to Join">
+            <button id="join-challenge-button">Join Game</button>
         </div>
-        <div id="setup-message" class="message-area"></div>
+        <p id="setup-message" class="message-area"></p> <!-- Message area for setup screen -->
     </div>
-
+</div>
     <!-- Main Game Elements - Hidden Initially -->
     <div id="score-container" style="display: none;">
          <!-- Score display structure needs review/fixing -->

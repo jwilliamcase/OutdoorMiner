@@ -252,18 +252,17 @@
         socketInstance.on('chat-message', (data) => { // Match server 'chat-message' emit
             console.log("socket.on('chat-message') - START chat-message handler", data);
             console.log("Chat message received:", data);
-            // Call the globally exposed function in script.js
-             console.error("Game Error:", data.message);
-                displayMessage(`Error: ${data.message}`, true); // Use displayMessage from script.js
-                playSound('message'); // Play message sound for errors instead of missing 'error.mp3'
-            }
-        
-            // --- Public Methods ---
-             if (chatContainer && chatContainer.classList.contains('hidden')) {
+            // Call the globally exposed function in script.js to handle displaying the message
+            window.addChatMessage(data);
+
+            // Update unread indicator if chat is hidden
+            if (chatContainer && (chatContainer.style.display === 'none' || chatContainer.classList.contains('hidden'))) {
                  unreadMessages++;
                  updateUnreadIndicator();
              }
         });
+
+        // Listener setup continues...
     }
 
     function disconnectFromServer(isInternal = false) {

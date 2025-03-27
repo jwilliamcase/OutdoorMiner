@@ -37,7 +37,7 @@ function playSound(soundName) {
 
     // DOM element references (initialized in DOMContentLoaded)
     // Note: canvas, ctx are already declared globally above.
-    let messageElement, setupContainer, gameScreen, playerNameInput, localGameButton, gameIdInput, // Added gameIdInput here
+    let messageElement, setupContainer, gameScreen, playerNameInput, gameIdInput, // Added gameIdInput here
         createChallengeButton, joinChallengeButton, setupMessageElement, gameIdDisplay,
         player1ScoreElement, player2ScoreElement, colorSwatchesContainer, // Removed powerUpSlotsContainer
         landmineInfoElement, chatInput, chatMessages, sendChatButton, toggleChatButton, chatContainer,
@@ -244,6 +244,7 @@ function playSound(soundName) {
         if (capturedCount > 0) {
             console.log(`Player ${playerIndex} captured ${capturedCount} tiles!`);
             this.updateScores(); // Update score again after captures
+        } // END if (capturedCount > 0)
 
         this.checkForGameOver(); // Check if this move ended the game
 
@@ -1428,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupContainer = document.getElementById('setup-container');
     playerNameInput = document.getElementById('player-name-input'); // Correct ID
     setupMessageElement = document.getElementById('setup-message');
-    localGameButton = document.getElementById('local-game-button'); // Correct ID
+    // localGameButton removed
     createChallengeButton = document.getElementById('create-challenge-button'); // Correct ID
     joinChallengeButton = document.getElementById('join-challenge-button'); // Correct ID
     gameIdInput = document.getElementById('game-id-input'); // Correct ID
@@ -1461,21 +1462,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial UI State ---
     showSetupScreen(); // Start by showing the setup screen
      // --- Setup Screen Button Listeners ---
-     if (localGameButton) {
-         localGameButton.style.display = 'none'; // Hide local game button
-+        // Remove the event listener as the button is hidden
-+        /*
-         localGameButton.addEventListener('click', () => {
-             console.log("DEBUG: localGameButton clicked.");
-             const name = playerNameInput.value.trim() || 'Player 1';
-@@ -1467,6 +1432,7 @@
-              if (setupMessageElement) setupMessageElement.textContent = "Starting local game...";
-              initializeGame(playerName); // Start local game
-         });
-+        */
-     } else console.warn("DEBUG: localGameButton not found.");
-        createChallengeButton.addEventListener('click', () => {
-            console.log("DEBUG: createChallengeButton clicked.");
+     // Local game button and listener completely removed.
+
+     if (createChallengeButton) {
             const name = playerNameInput.value.trim();
             if (!name) {
                 if (setupMessageElement) setupMessageElement.textContent = "Please enter your name.";

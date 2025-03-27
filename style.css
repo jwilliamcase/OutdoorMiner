@@ -830,12 +830,7 @@ footer {
     text-align: center;
     color: #666;
     font-size: 0.9rem;
-    width: 100%;
-    padding: 10px 0;
-/* Chat Styles */
-/* ... existing chat styles ... */
-
-/* Hide Powerup Displays */
+/* Hide Power-up displays via CSS */
 #player1-powerups,
 #player2-powerups {
     display: none !important; /* Hide powerup sections */
