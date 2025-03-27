@@ -558,17 +558,17 @@ socket.on('join-game', ({ gameId, playerName }) => {
             players[socket.id].gameId = gameId;
             players[socket.id].player = 'P2';
             socket.join(gameId);
+            const capturedTiles = captureOpponentTiles(gameState.board, data.q, data.r, player, gameState.players); // Ensure only one semicolon
 
-            // Initialize GameState *now* that P2 has joined
-            game.gameState = new GameState();
-            console.log(`Game state initialized for ${gameId}`);
-        // Capture logic
-        const capturedTiles = captureOpponentTiles(state, playerColor, row, col); // Added semicolon
-        if (capturedTiles.length > 0) {
-            console.log(`Player ${playerColor} captured ${capturedTiles.length} tiles.`);
-                P1: game.P1
-            };
-            // Store P2 name
+            // Check if any tiles were captured
+            if (capturedTiles && capturedTiles.length > 0) { // Added check for capturedTiles existence
+                console.log(`Player ${player} captured ${capturedTiles.length} tiles.`);
+                // Potentially update score or other game state based on captures
+                // Example: gameState.scores[player] += capturedTiles.length;
+            }
+        } // Ensure this brace correctly closes the placement success block
+
+        // Update turn
             game.P2 = playerName;
             game.status = 'active'; // Set game status to active
             // Notify P2 (joining player)
