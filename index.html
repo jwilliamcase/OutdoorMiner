@@ -20,7 +20,7 @@
         <h2>Welcome to Outdoor Miner</h2>
         <div class="input-group">
             <label for="player-name-input">Your Name:</label>
-            <input type="text" id="player-name-input" placeholder="Enter your name">
+            <input type="text" id="player-name-input" placeholder="Enter your name" required>
         </div>
         <div class="button-group">
             <!-- Local game button removed -->
@@ -49,14 +49,16 @@
           </div>
     </div>
     <div id="game-container" class="container" style="display: none;">
-        <div id="game-code-display" class="game-code-display">
-            Game Code: <span id="current-game-code">-</span>
-            <button id="copy-code" title="Copy to clipboard">📋</button>
-        </div>
-        <div id="score-container">
-            <div id="player1-info" class="player-info">Player 1: -</div>
-            <div id="turn-indicator">Waiting for players...</div>
-            <div id="player2-info" class="player-info">Player 2: -</div>
+        <div id="game-header">
+            <div id="score-container">
+                <div id="player1-info" class="player-info">Player 1: -</div>
+                <div id="turn-indicator">Waiting for players...</div>
+                <div id="player2-info" class="player-info">Player 2: -</div>
+            </div>
+            <div id="game-code-display" class="game-code-display">
+                Game Code: <span id="current-game-code">-</span>
+                <button id="copy-code" title="Copy to clipboard">📋</button>
+            </div>
         </div>
 
         <div id="game-area">
@@ -106,7 +108,8 @@
             <div id="taunt-menu" class="hidden">
                 <div class="taunt-list"></div>
             </div>
-        </div> <!-- Fix unclosed chat-container div -->
+        </div>
+    </div>
 
     <!-- Load Socket.IO client library -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -124,8 +127,6 @@
     <audio id="sound-taunt" src="sounds/taunt.mp3" preload="auto"></audio>
     <audio id="sound-explosion" src="sounds/explosion.mp3" preload="auto"></audio>
 
-</body>
-</html>
     <footer>
         <p>Outdoor Miner &copy; 2025 - A colorful territory capture game</p>
     </footer>

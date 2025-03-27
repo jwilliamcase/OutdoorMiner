@@ -36,6 +36,20 @@ let elements = {};
 // --- Initialization ---
 export function initializeUI() {
     try {
+        // Initialize DOM elements first
+        setupContainer = document.getElementById('setup-container');
+        gameContainer = document.getElementById('game-container');
+        connectionStatusElement = document.getElementById('status-text');
+        connectionIndicator = document.getElementById('connection-indicator');
+        messageArea = document.getElementById('message-area');
+        player1Info = document.getElementById('player1-info');
+        player2Info = document.getElementById('player2-info');
+        canvasContainer = document.getElementById('game-area');
+
+        if (!setupContainer || !gameContainer || !connectionStatusElement || !connectionIndicator) {
+            throw new Error("Critical UI elements not found");
+        }
+
         if (!uiManager.initialize()) {
             throw new Error("UI Manager initialization failed");
         }
@@ -236,8 +250,8 @@ function drawHexagon(q, r, color, isOwned = false) {
     for (let i = 0; i < 6; i++) {
         const angle = (Math.PI / 3) * i;
         points.push({
-            x: center.x + HEX_SIZE * Math.cos(angle),
-            y: center.y + HEX_SIZE * Math.sin(angle)
+            x: center.x + BOARD.HEX_SIZE * Math.cos(angle),
+            y: center.y + BOARD.HEX_SIZE * Math.sin(angle)
         });
     }
 

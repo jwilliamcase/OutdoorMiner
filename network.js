@@ -11,7 +11,8 @@ import {
     updatePlayerInfo,
     showGameOver,
     playSound,
-    updateGameCode // Add this import
+    updateGameCode, // Add this import
+    centerOnPlayerStart // Add this import
 } from './ui.js';
 
 import { eventManager, EventTypes } from './eventManager.js';
@@ -292,7 +293,6 @@ export function emitCreateChallenge(playerName) {
         socketInstance.once('connect', () => {
             console.log(`Emitting create-challenge for player: ${playerName}`);
             socketInstance.emit('create-challenge', playerName, (response) => {
-                console.log("Create challenge response:", response);
                 try {
                     if (response.success) {
                         currentRoomId = response.challengeCode;
@@ -302,7 +302,7 @@ export function emitCreateChallenge(playerName) {
                         const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
                         initialState.initializePlayerPositions(socketInstance.id, null);
                         
-                        // Initialize UI
+                        // Initialize UI with correct order
                         handleInitialState(initialState, {
                             [socketInstance.id]: {
                                 name: playerName,
@@ -311,8 +311,8 @@ export function emitCreateChallenge(playerName) {
                             }
                         }, socketInstance.id);
 
-                        // Center view on player's starting position
-                        centerOnPlayerStart();
+                        showGameScreen();
+                        centerOnPlayerStart(); // Now correctly imported
                         
                         displayMessage(`Challenge created! Code: ${response.challengeCode}`);
                     }

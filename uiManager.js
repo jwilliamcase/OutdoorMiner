@@ -10,44 +10,61 @@ class UIManager {
 
     initialize() {
         try {
-            this.elements = {
-                game: {
-                    canvas: document.getElementById('gameCanvas'),
-                    container: document.getElementById('game-container'),
-                    area: document.getElementById('game-area'),
-                    colorOptions: document.querySelector('.color-options'),
-                    turnIndicator: document.getElementById('turn-indicator')
-                },
-                status: {
-                    connection: document.getElementById('connection-indicator'),
-                    statusText: document.getElementById('status-text'),
-                    messages: document.getElementById('message-area')
-                },
-                players: {
-                    player1: document.getElementById('player1-info'),
-                    player2: document.getElementById('player2-info')
-                },
-                setup: {
-                    container: document.getElementById('setup-container')
-                }
-            };
-
-            this.validateElements();
+            this.cacheElements();
+            this.validateRequiredElements();
+            this.setupEventListeners();
             this.initialized = true;
             return true;
         } catch (error) {
-            console.error("UI initialization failed:", error);
+            console.error("UI initialization failed:", error.message);
             return false;
         }
     }
 
-    validateElements() {
-        // Check critical elements
-        const required = ['game.canvas', 'game.container', 'game.colorOptions'];
-        required.forEach(path => {
+    cacheElements() {
+        this.elements = {
+            setup: {
+                container: document.getElementById('setup-container'),
+                playerNameInput: document.getElementById('player-name-input'),
+                roomCodeInput: document.getElementById('room-code-input'),
+                createButton: document.getElementById('create-challenge-button'),
+                joinButton: document.getElementById('join-challenge-button')
+            },
+            game: {
+                container: document.getElementById('game-container'),
+                canvas: document.getElementById('gameCanvas'),
+                area: document.getElementById('game-area'),
+                colorOptions: document.querySelector('.color-options'),
+                turnIndicator: document.getElementById('turn-indicator'),
+                scoreContainer: document.getElementById('score-container'),
+                gameCodeDisplay: document.getElementById('current-game-code')
+            },
+            status: {
+                container: document.getElementById('connection-status'),
+                indicator: document.getElementById('connection-indicator'),
+                text: document.getElementById('status-text'),
+                message: document.getElementById('message-area')
+            }
+        };
+    }
+
+    validateRequiredElements() {
+        const required = [
+            'setup.container',
+            'game.container',
+            'game.canvas',
+            'status.container',
+            'status.indicator'
+        ];
+
+        const missing = required.filter(path => {
             const value = path.split('.').reduce((obj, key) => obj?.[key], this.elements);
-            if (!value) throw new Error(`Missing required element: ${path}`);
+            return !value;
         });
+
+        if (missing.length > 0) {
+            throw new Error(`Missing required elements: ${missing.join(', ')}`);
+        }
     }
 
     initializeColorButtons() {
