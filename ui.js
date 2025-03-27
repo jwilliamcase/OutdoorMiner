@@ -408,41 +408,81 @@ function handleMouseUp() {
 // --- Game State Handling ---
 
 // Called by network module when initial game state is received
-export function handleInitialState(serializedGameState, playersData, ownPlayerId) {
-    console.log("Handling initial state:", serializedGameState, "Players:", playersData, "My ID:", ownPlayerId);
-    const newState = GameState.deserialize(serializedGameState);
-    if (newState) {
-        gameState = newState;
+// Expects gameStateObject to be a plain JS object from the server
+export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
+    console.log("Handling initial state:", gameStateObject, "Players:", playersData, "My ID:", ownPlayerId);
+    // Assume gameStateObject is already the correct structure (no deserialize needed here)
+    if (gameStateObject) {
+        // We might still want to create a GameState instance for its methods,
+        // but let's first try using the plain object directly if possible.
+        // If GameState class has important methods used elsewhere, we might need:
+        // gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
+        // Object.assign(gameState.board, gameStateObject.board); // etc.
+        // For now, assume plain object is sufficient for rendering and logic checks:
+        gameState = gameStateObject;
         currentPlayerId = ownPlayerId; // Store our own ID
         gameState.players = playersData; // Ensure players data is correctly assigned
+
          // Center the camera initially (approximate)
          centerCamera();
         resizeGame(); // Ensure correct size
         renderGameBoard();
         updatePlayerInfo(gameState.players, currentPlayerId); // Update player scores/names
         console.log("Initial game state processed.");
+
+        // Add a check for the current player ID based on the new state
+        if (!gameState || gameState.gameOver) {
+             console.log("Initial state is game over or invalid.");
+        } else if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
+             console.log("Initial state received, but it's not your turn.");
+             displayMessage("Waiting for opponent's move.", false);
+        } else {
+            console.log("Initial state received, it's your turn.");
+            displayMessage("Game started. Your turn!", false);
+        }
+
     } else {
-        console.error("Failed to initialize game state from server data.");
+        console.error("Failed to initialize game state from server data (gameStateObject is null/undefined).");
         displayMessage("Error initializing game. Check console.", true);
     }
+    return null; // Or handle error appropriately
 }
 
-
-// Called by network module when a game update is received
-export function handleGameUpdate(serializedGameState) {
-    console.log("Handling game update");
-    const newState = GameState.deserialize(serializedGameState);
-    if (newState) {
-        gameState = newState;
+// Represents the state of the game board and players
+export class GameState {
+    // Helper method to determine current player ID (add if not present)
+    // This might exist on the server's version but needed client-side for UI checks
+    getCurrentPlayerId() {
+        if (!this.players || !this.turn) return null;
+        const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
+        return playerEntry ? playerEntry[0] : null; // Return the socket ID (key)
+    }
+// Expects gameStateObject to be a plain JS object from the server
+export function handleGameUpdate(gameStateObject) {
+    console.log("Handling game update:", gameStateObject);
+    // Assume gameStateObject is already the correct structure (no deserialize needed here)
+    if (gameStateObject) {
+        // See comment in handleInitialState about potentially needing GameState instance
+        // For now, assume plain object works:
+        gameState = gameStateObject;
         renderGameBoard(); // Re-render the board with the new state
-        updatePlayerInfo(gameState.players, currentPlayerId); // Update scores/turn indicator
-        // Check for game over state handled within network.js listener or here
-         if (gameState.gameOver) {
-             showGameOver(gameState.winner, gameState.players, currentPlayerId);
-         }
+
+        // Player info and game over checks are now handled in the network.js 'game-update' listener
+        // But we can add turn indication here:
+        if (!gameState || gameState.gameOver) {
+             console.log("Game update indicates game over or invalid state.");
+             // Game over message should be displayed via showGameOver called from network.js
+        } else if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
+             console.log("Game updated, now waiting for opponent's move.");
+             displayMessage("Waiting for opponent's move.", false);
+        } else {
+            console.log("Game updated, now it's your turn.");
+            displayMessage("Your turn!", false);
+        }
+
         console.log("Game state updated and rendered.");
     } else {
-        console.error("Failed to update game state from server data.");
+        console.error("Failed to update game state from server data (gameStateObject is null/undefined).");
         displayMessage("Error updating game state. Check console.", true);
     }
 }

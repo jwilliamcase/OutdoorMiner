@@ -43,14 +43,25 @@ export class GameState {
                  board[key] = { q, r, owner: null, color: '#cccccc' }; // Neutral color
             }
         }
-        return board;
+        return `${q},${r}`;
     }
 
-    // Place a tile and capture neighbors
-    placeTile(q, r, playerId) {
-        const key = `${q},${r}`;
-        if (!this.board[key] || this.board[key].owner !== null) {
-            console.log("Invalid move: Tile does not exist or is already occupied.");
+    // Method to get the owner of a tile (useful for checking wins, etc.)
+    getTileOwner(q, r) {
+        const key = this.getKey(q, r);
+        return this.board[key] ? this.board[key].owner : null;
+    }
+
+    // Helper method to determine current player ID based on turn number
+    getCurrentPlayerId() {
+        if (!this.players || typeof this.turn === 'undefined' || this.turn === null) {
+            console.warn("Cannot get current player ID: players or turn info missing", this.players, this.turn);
+            return null;
+        }
+        // Find the player entry ( [id, playerObject] ) whose playerNumber matches the current turn
+        const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
+        return playerEntry ? playerEntry[0] : null; // Return the socket ID (the key)
+    }
             return { success: false, capturedCount: 0, message: "Invalid move: Tile does not exist or is already occupied." };
         }
 

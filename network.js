@@ -120,44 +120,35 @@ function setupSocketEventListeners() {
 
 
     // --- Custom Game Events ---
-    socketInstance.on('challenge-created', (data) => {
-        console.log('Challenge created:', data);
-        currentRoomId = data.roomCode;
-        displayMessage(`Challenge created! Code: ${data.roomCode}. Waiting for opponent...`, false);
-        updateConnectionStatus(true, `Connected | Room: ${data.roomCode}`);
-        // Player 1 state might be set here by server, or wait for 'game-start'
-    });
-
-    socketInstance.on('challenge-joined', (data) => {
-        console.log('Challenge joined:', data);
-        currentRoomId = data.roomCode;
-        displayMessage(`Joined room: ${data.roomCode}. Waiting for game to start...`, false);
-        updateConnectionStatus(true, `Connected | Room: ${data.roomCode}`);
-         // Player 2 state might be set here by server, or wait for 'game-start'
-    });
+    // Listeners for 'challenge-created' and 'challenge-joined' removed.
+    // Server response handled via callbacks in emitCreateChallenge/emitJoinChallenge.
 
     socketInstance.on('game-start', (data) => {
         console.log('Game starting:', data);
         currentRoomId = data.roomCode; // Ensure room ID is set
         // currentPlayerId is already set on connect
         displayMessage(`Game started in room ${data.roomCode}!`, false);
-        handleInitialState(data.gameState, data.players, currentPlayerId); // Pass player ID
+        // Pass the gameState object directly, assume server sends object, not string
+        handleInitialState(data.gameState, data.players, currentPlayerId);
         showGameScreen(); // Switch UI view
         updatePlayerInfo(data.players, currentPlayerId); // Update player displays
     });
 
      socketInstance.on('game-update', (data) => {
          console.log('Game state update received:', data);
-         // Assuming data is the serialized gameState JSON string
-         handleGameUpdate(data); // Update UI and local game state
-         // Update player info/scores which should be part of the gameState
-         const state = GameState.deserialize(data);
-         if(state) {
-             updatePlayerInfo(state.players, currentPlayerId);
-             // Check for game over state from the update
-             if (state.gameOver) {
-                 showGameOver(state.winner, state.players, currentPlayerId);
-             }
+         // Pass the gameState object directly, assume server sends object, not string
+         handleGameUpdate(data.gameState); // Update UI and local game state using the nested gameState object
+         // Player info update should happen within handleGameUpdate if needed, using the received state.
+         // Game over check also likely happens within handleGameUpdate now.
+         // We can still update player info here if handleGameUpdate doesn't do it.
+         if(data.gameState && data.gameState.players) {
+            updatePlayerInfo(data.gameState.players, currentPlayerId);
+            // Check for game over state from the update
+            if (data.gameState.gameOver) {
+                showGameOver(data.gameState.winner, data.gameState.players, currentPlayerId);
+            }
+         } else {
+            console.warn("Game update received without gameState or players data");
          }
      });
 
@@ -167,9 +158,9 @@ function setupSocketEventListeners() {
         playSound('message'); // Use message sound for game logic errors
     });
 
-     socketInstance.on('player-disconnected', (data) => {
-         console.log('Player disconnected:', data.playerId);
-         displayMessage(`Player ${data.playerId.substring(0,4)} disconnected. Game paused or ended.`, true);
+     socketInstance.on('opponent-disconnected', (data) => { // Changed from 'player-disconnected'
+         console.log('Opponent disconnected:', data.playerId);
+         displayMessage(`Opponent ${data.playerId.substring(0,4)} disconnected. Game may have ended.`, true);
          // Handle game pausing or ending based on rules
          // Maybe reset UI or show a specific message
      });
@@ -230,25 +221,51 @@ export function sendTilePlacement(q, r, color) {
     }
 }
 
-// Function to emit create challenge event
+// Function to emit create challenge event, uses callback for response
 export function emitCreateChallenge(playerName) {
     if (socketInstance && socketInstance.connected) {
         console.log(`Emitting create-challenge for player: ${playerName}`);
-        socketInstance.emit('create-challenge', { playerName });
+        // Emit with a callback function to handle the server's response
+        socketInstance.emit('create-challenge', { playerName }, (response) => {
+            console.log('create-challenge response:', response);
+            if (response.success) {
+                currentRoomId = response.roomCode;
+                displayMessage(`Challenge created! Code: ${response.roomCode}. Waiting for opponent...`, false);
+                updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
+                // Optionally, update UI further (e.g., show waiting state)
+            } else {
+                console.error('Failed to create challenge:', response.message);
+                displayMessage(`Error creating challenge: ${response.message}`, true);
+                // Optionally, reset UI state
+            }
+        });
     } else {
         console.error("Cannot create challenge: Not connected.");
-        displayMessage("Connect to server first.", true);
+        displayMessage("Connect to the server first.", true);
     }
 }
 
-// Function to emit join challenge event
+// Function to emit join challenge event, uses callback for response
 export function emitJoinChallenge(playerName, roomCode) {
      if (socketInstance && socketInstance.connected) {
          console.log(`Emitting join-challenge for player: ${playerName} to room: ${roomCode}`);
-         socketInstance.emit('join-challenge', { playerName, roomCode });
+         // Emit with a callback function to handle the server's response
+         socketInstance.emit('join-challenge', { playerName, roomCode }, (response) => {
+             console.log('join-challenge response:', response);
+             if (response.success) {
+                 currentRoomId = response.roomCode;
+                 displayMessage(`Joined room: ${response.roomCode}. Waiting for game to start...`, false);
+                 updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
+                 // The server should emit 'game-start' soon after successful join
+             } else {
+                 console.error('Failed to join challenge:', response.message);
+                 displayMessage(`Error joining challenge: ${response.message}`, true);
+                 // Optionally, reset UI state
+             }
+         });
      } else {
          console.error("Cannot join challenge: Not connected.");
-         displayMessage("Connect to server first.", true);
+         displayMessage("Connect to the server first.", true);
      }
 }
 

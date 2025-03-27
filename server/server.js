@@ -139,18 +139,24 @@ class ServerGameState {
     updateScores() {
         let p1Score = 0;
         let p2Score = 0;
+        // Iterate through the tiles owned on the board
         for (const owner of Object.values(this.boardState)) {
-            // Correctly count scores based on tile owner
-                 // Corrected: Removed extra ']' in the find() predicate
-                 const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
+            // Correctly increment score based on the owner of each tile
+            if (owner === 'P1') {
                 p1Score++;
             } else if (owner === 'P2') {
                 p2Score++;
             }
         }
         // Update scores in the players object
-        if (this.players.P1) this.players.P1.score = p1Score;
-        if (this.players.P2) this.players.P2.score = p2Score;
+        // Ensure player objects exist before assigning score
+        if (this.players.P1) {
+            this.players.P1.score = p1Score;
+        }
+        if (this.players.P2) {
+            this.players.P2.score = p2Score;
+        }
+        // console.log(`Scores updated: P1=${p1Score}, P2=${p2Score}`); // Optional: logging
     }
 
     // Mark the game as ended and determine the winner
