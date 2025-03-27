@@ -10,13 +10,30 @@ class UIManager {
 
     initialize() {
         try {
+            if (this.initialized) {
+                console.warn("UIManager already initialized");
+                return true;
+            }
+
+            console.log("Initializing UI Manager...");
+            
+            // Cache DOM elements
             this.cacheElements();
+            
+            // Validate required elements
             this.validateRequiredElements();
-            this.setupEventListeners();
+            
+            // Setup event listeners
+            if (!this.setupEventListeners()) {
+                throw new Error("Failed to setup event listeners");
+            }
+
             this.initialized = true;
+            console.log("UI Manager initialized successfully");
             return true;
         } catch (error) {
             console.error("UI initialization failed:", error.message);
+            this.cleanup(); // Clean up any partial initialization
             return false;
         }
     }
@@ -64,6 +81,36 @@ class UIManager {
 
         if (missing.length > 0) {
             throw new Error(`Missing required elements: ${missing.join(', ')}`);
+        }
+    }
+
+    setupEventListeners() {
+        try {
+            // Setup core UI element listeners
+            const setupElements = this.elements.setup;
+            if (setupElements.createButton) {
+                this.addEventListener(setupElements.createButton, 'click', () => {
+                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { action: 'create' });
+                });
+            }
+
+            if (setupElements.joinButton) {
+                this.addEventListener(setupElements.joinButton, 'click', () => {
+                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { action: 'join' });
+                });
+            }
+
+            // Add window resize handler
+            window.addEventListener('resize', () => {
+                if (this.elements.game.canvas) {
+                    eventManager.dispatchEvent(EventTypes.UI.RESIZE);
+                }
+            });
+
+            return true;
+        } catch (error) {
+            console.error("Failed to setup event listeners:", error);
+            return false;
         }
     }
 

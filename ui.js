@@ -35,52 +35,61 @@ let elements = {};
 
 // --- Initialization ---
 export function initializeUI() {
+    console.log("Starting UI initialization...");
+    
     try {
-        // Initialize DOM elements first
+        // First initialize the UI manager
+        if (!uiManager.initialize()) {
+            throw new Error("UI Manager initialization failed");
+        }
+
+        // Initialize canvas and context
+        canvas = document.getElementById('gameCanvas');
+        if (!canvas) {
+            throw new Error("Canvas element not found");
+        }
+
+        ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error("Failed to get canvas context");
+        }
+
+        // Cache critical elements
         setupContainer = document.getElementById('setup-container');
         gameContainer = document.getElementById('game-container');
         connectionStatusElement = document.getElementById('status-text');
         connectionIndicator = document.getElementById('connection-indicator');
         messageArea = document.getElementById('message-area');
-        player1Info = document.getElementById('player1-info');
-        player2Info = document.getElementById('player2-info');
-        canvasContainer = document.getElementById('game-area');
 
-        if (!setupContainer || !gameContainer || !connectionStatusElement || !connectionIndicator) {
-            throw new Error("Critical UI elements not found");
+        // Verify critical elements
+        if (!setupContainer || !gameContainer) {
+            throw new Error("Critical UI elements missing");
         }
 
-        if (!uiManager.initialize()) {
-            throw new Error("UI Manager initialization failed");
-        }
-
-        // Initialize canvas context
-        canvas = uiManager.getElement('game.canvas');
-        ctx = canvas?.getContext('2d');
-        
-        if (!canvas || !ctx) {
-            throw new Error("Canvas initialization failed");
-        }
-
-        // Set up canvas event listeners
-        canvas.addEventListener('click', handleCanvasClick);
-        canvas.addEventListener('mousedown', handleMouseDown);
-        canvas.addEventListener('mousemove', handleMouseMove);
-        canvas.addEventListener('mouseup', handleMouseUp);
-        canvas.addEventListener('mouseleave', handleMouseUp);
-
-        // Initialize color buttons
-        setupColorButtons();
-
-        // Add window resize listener
-        window.addEventListener('resize', resizeGame);
+        // Setup initial event listeners
+        setupInitialEventListeners();
 
         console.log("UI Initialized successfully");
         return true;
     } catch (error) {
         console.error("UI initialization error:", error);
+        displayFallbackError("Failed to initialize game interface");
         return false;
     }
+}
+
+function setupInitialEventListeners() {
+    // Add only essential event listeners here
+    window.addEventListener('resize', resizeGame);
+    // Other critical listeners...
+}
+
+function displayFallbackError(message) {
+    // Fallback error display if normal UI fails
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:red;color:white;padding:20px;';
+    errorDiv.textContent = message;
+    document.body.appendChild(errorDiv);
 }
 
 function setupColorButtons() {
