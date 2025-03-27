@@ -229,10 +229,18 @@ export class GameState {
     // Get current player ID
     getCurrentPlayerId() {
         const playerIDs = Object.keys(this.players);
-        return playerIDs[this.currentPlayerIndex];
+        return winnerId; // Return 'P1', 'P2', or 'draw'
     }
 
-    // Serialize game state for sending over network
+    // Helper method to determine current player ID based on turn and playerNumber
+    getCurrentPlayerId() {
+        if (!this.players || !this.turn) return null;
+        // Find the player entry whose playerNumber matches the current turn ('P1' or 'P2')
+        const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
+        return playerEntry ? playerEntry[0] : null; // Return the socket ID (key)
+    }
+
+} // End GameState class
      serialize() {
          // Simple JSON stringify; can be optimized if needed
          return JSON.stringify({

@@ -9,7 +9,8 @@ import {
     handleInitialState,
     addChatMessage,
     updatePlayerInfo,
-    showGameOver
+    showGameOver,
+    playSound // Import playSound
 } from './ui.js';
 
 let socketInstance = null;
@@ -269,23 +270,4 @@ export function emitJoinChallenge(playerName, roomCode) {
      }
 }
 
-
-// Helper function to play sounds (assuming sounds are loaded globally or accessible)
-// Might move this to ui.js if it manipulates DOM/Audio elements directly
-function playSound(soundName) {
-    // Example: find audio element and play
-    try {
-        const sound = document.getElementById(`sound-${soundName}`);
-        if (sound) {
-             // sound.currentTime = 0; // Reset playback
-            sound.play().catch(error => console.error(`Error playing sound ${soundName}:`, error));
-        } else {
-            console.warn(`Sound element not found: sound-${soundName}`);
-            // Attempt dynamic load as fallback (if not preloaded)
-            const audio = new Audio(`sounds/${soundName}.mp3`);
-            audio.play().catch(error => console.error(`Error playing dynamic sound ${soundName}:`, error));
-        }
-     } catch (error) {
-         console.error(`General error playing sound ${soundName}:`, error);
-     }
-}
+// playSound function moved to ui.js

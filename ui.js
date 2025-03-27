@@ -1,3 +1,4 @@
+// Import GameState class itself, not the whole module object if exporting default
 import { HEX_SIZE, HEX_HEIGHT, HEX_WIDTH, getHexCenter, worldToHex, GameState } from './gameLogic.js';
 import { sendTilePlacement, sendMessage } from './network.js'; // Import network functions
 
@@ -418,10 +419,15 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         // If GameState class has important methods used elsewhere, we might need:
         // gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
         // Object.assign(gameState.board, gameStateObject.board); // etc.
-        // For now, assume plain object is sufficient for rendering and logic checks:
-        gameState = gameStateObject;
+        // Create a GameState instance from the plain object received
+        // This ensures methods like getCurrentPlayerId are available
+        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
+        // Copy properties from the received object to the instance
+        Object.assign(gameState, gameStateObject);
+        // Ensure players data is attached (might already be copied by Object.assign)
+        gameState.players = playersData;
+
         currentPlayerId = ownPlayerId; // Store our own ID
-        gameState.players = playersData; // Ensure players data is correctly assigned
 
          // Center the camera initially (approximate)
          centerCamera();
@@ -448,23 +454,18 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     return null; // Or handle error appropriately
 }
 
-// Represents the state of the game board and players
-export class GameState {
-    // Helper method to determine current player ID (add if not present)
-    // This might exist on the server's version but needed client-side for UI checks
-    getCurrentPlayerId() {
-        if (!this.players || !this.turn) return null;
-        const playerEntry = Object.entries(this.players).find(([id, player]) => player.playerNumber === this.turn);
-        return playerEntry ? playerEntry[0] : null; // Return the socket ID (key)
-    }
 // Expects gameStateObject to be a plain JS object from the server
 export function handleGameUpdate(gameStateObject) {
     console.log("Handling game update:", gameStateObject);
     // Assume gameStateObject is already the correct structure (no deserialize needed here)
     if (gameStateObject) {
-        // See comment in handleInitialState about potentially needing GameState instance
-        // For now, assume plain object works:
-        gameState = gameStateObject;
+        // Create a GameState instance from the plain object received
+        // This ensures methods like getCurrentPlayerId are available
+        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
+        // Copy properties from the received object to the instance
+        Object.assign(gameState, gameStateObject);
+        // gameState.players should be copied by Object.assign if present in gameStateObject
+
         renderGameBoard(); // Re-render the board with the new state
 
         // Player info and game over checks are now handled in the network.js 'game-update' listener
@@ -500,11 +501,26 @@ function centerCamera() {
     cameraOffset.x = canvas.width / 2 - boardCenter.x;
     cameraOffset.y = canvas.height / 2 - boardCenter.y;
      console.log("Camera centered", cameraOffset);
+    return { rows, cols };
 }
 
-// Get current dimensions for game creation (if needed)
-export function getBoardDimensions() {
-    const rows = parseInt(rowsInput?.value) || 10; // Default to 10 if input missing/invalid
-    const cols = parseInt(colsInput?.value) || 10; // Default to 10
-    return { rows, cols };
+// --- Audio ---
+// Helper function to play sounds
+export function playSound(soundName) {
+    // Example: find audio element and play
+    try {
+        const sound = document.getElementById(`sound-${soundName}`);
+        if (sound) {
+            sound.currentTime = 0; // Reset playback to play again if clicked rapidly
+            sound.play().catch(error => console.error(`Error playing sound ${soundName}:`, error));
+        } else {
+            console.warn(`Sound element not found: sound-${soundName}`);
+            // Attempt dynamic load as fallback (if not preloaded) - less reliable
+            const audio = new Audio(`sounds/${soundName}.mp3`);
+             audio.play().catch(error => console.error(`Error playing dynamic sound ${soundName}:`, error));
+        }
+     } catch (error) {
+         console.error(`General error playing sound ${soundName}:`, error);
+     }
+}
 }

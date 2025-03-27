@@ -228,11 +228,11 @@ io.on('connection', (socket) => {
             }
 
             // Prevent player from creating multiple challenges or creating while in game
-            if (playerSockets[socket.id]) {
-                console.warn(`Player ${socket.id} (${playerSockets[socket.id].playerName}) attempted to create challenge while already tracked (in game or hosting).`);
-                // Find if they are hosting another challenge
+            // Check if the player is already hosting a different challenge
+           if (socket.id && challenges) {
                 const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
-                if(existingChallenge){
+                if (existingChallenge) {
+                    console.log(`Player ${socket.id} (${playerName}) attempted to create a challenge but is already hosting room ${existingChallenge[0]}`);
                      return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}.` });
                 } else if (playerSockets[socket.id].gameId) {
                      return callback({ success: false, message: `You are already in game ${playerSockets[socket.id].gameId}.` });
