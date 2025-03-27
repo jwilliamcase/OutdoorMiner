@@ -19,9 +19,9 @@ const staticPath = path.join(__dirname, '..');
 console.log(`Serving static files from: ${staticPath}`);
 app.use(express.static(staticPath));
 
-// --- Server Setup ---
-const server = http.createServer(app);
-const io = socketIo(server, {
+// --- Socket.IO Setup ---
+// Note: The 'server' variable from the first http.createServer(app) call is used here.
+const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || "*", // Use client URL from env if available
     methods: ["GET", "POST"],
