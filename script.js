@@ -477,15 +477,15 @@ function drawHexagon(ctx, r, c, x_center, y_center, size, tile) {
     }
     ctx.closePath();
 
-    // Fill with tile color
-    ctx.fillStyle = tile ? tile.color : '#CCCCCC'; // Fallback color if tile missing
+    // Draw player color indicator if the tile is occupied
+if (tileOwner !== null && tileOwner >= 0 && tileOwner < playerColors.length) {
+    ctx.fillStyle = playerColors[tileOwner];
+    // Simple circle indicator for ownership
+    // TODO: Review if this size is appropriate
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, hexRadius * 0.3, 0, Math.PI * 2);
     ctx.fill();
-
-    // --- Border styling ---
-    let borderColor = '#555'; // Default dark border for unowned
-    let borderWidth = 1;
-
-    if (tile && tile.owner !== -1) {
+}
         // Owned tile: Use slightly darker version of player color
         borderColor = darkenColor(tile.color, 30); // Darken by 30%
         borderWidth = 2; // Thicker border for owned tiles

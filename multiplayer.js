@@ -244,13 +244,13 @@
                  updateStatusIndicator(connected, connected ? 'Error' : 'Connection Failed');
                  disconnectFromServer(); // Disconnect on critical game finding/state errors
              } else if (data.errorType === 'INVALID_ACTION' || data.errorType === 'NOT_YOUR_TURN') {
-                 updateStatusIndicator(connected, 'Error'); // Show error, but don't disconnect for recoverable errors
-             }
-    socketInstance.on('chat-message', (data) => {
-           window.addChatMessage(data); // Correctly pass data to the UI function
+               // Listen for chat messages
+       socketInstance.on('chat-message', (data) => {
+           // Correctly pass the received message data to the display function
+           window.addChatMessage(data);
        });
 
-            // Update unread indicator if chat is hidden
+       // Handle game errors broadcast by the server
             if (chatContainer && (chatContainer.style.display === 'none' || chatContainer.classList.contains('hidden'))) {
                  unreadMessages++;
                  updateUnreadIndicator();
