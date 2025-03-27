@@ -566,11 +566,11 @@ socket.on('join-game', ({ gameId, playerName }) => {
         const capturedTiles = captureOpponentTiles(state, playerColor, row, col); // Added semicolon
         if (capturedTiles.length > 0) {
             console.log(`Player ${playerColor} captured ${capturedTiles.length} tiles.`);
-                P1: Object.values(game.players).find(p => p.player === 'P1')?.name || 'Player 1',
-                P2: playerName
+                P1: game.P1
             };
-            const initialState = game.gameState.serialize();
-
+            // Store P2 name
+            game.P2 = playerName;
+            game.status = 'active'; // Set game status to active
             // Notify P2 (joining player)
             socket.emit('game-start', { gameId, player: 'P2', playerNames: playerNames, initialState: initialState });
 
