@@ -32,63 +32,57 @@ let elements = {};
 
 // --- Initialization ---
 export function initializeUI() {
-    // Get DOM elements with error checking
-    elements = {
-        canvas: document.getElementById('gameCanvas'),
-        setupContainer: document.getElementById('setup-container'),
-        gameContainer: document.getElementById('game-container'),
-        connectionStatus: document.getElementById('connection-status'),
-        connectionIndicator: document.getElementById('connection-indicator'),
-        messageArea: document.getElementById('message-area'),
-        player1Info: document.getElementById('player1-info'),
-        player2Info: document.getElementById('player2-info'),
-        colorButtons: document.querySelectorAll('.color-button'),
-        chatInput: document.getElementById('chat-input'),
-        chatMessages: document.getElementById('chat-messages'),
-        colorPalette: document.getElementById('color-palette')
-    };
+    try {
+        elements = {
+            canvas: document.getElementById('gameCanvas'),
+            canvasContainer: document.getElementById('game-area'),
+            setupContainer: document.getElementById('setup-container'),
+            gameContainer: document.getElementById('game-container'),
+            connectionStatus: document.getElementById('status-text'),
+            connectionIndicator: document.getElementById('connection-indicator'),
+            messageArea: document.getElementById('message-area'),
+            player1Info: document.getElementById('player1-info'),
+            player2Info: document.getElementById('player2-info'),
+            colorButtons: document.querySelectorAll('.color-button'),
+            colorPalette: document.getElementById('color-palette')
+        };
 
-    // Check for missing elements
-    const missingElements = Object.entries(elements)
-        .filter(([key, element]) => !element)
-        .map(([key]) => key);
+        // Update module-level references
+        canvas = elements.canvas;
+        canvasContainer = elements.canvasContainer;
+        setupContainer = elements.setupContainer;
+        gameContainer = elements.gameContainer;
+        connectionStatusElement = elements.connectionStatus;
+        connectionIndicator = elements.connectionIndicator;
+        messageArea = elements.messageArea;
+        player1Info = elements.player1Info;
+        player2Info = elements.player2Info;
+        colorButtons = Array.from(elements.colorButtons);
 
-    if (missingElements.length > 0) {
-        console.error("Missing UI elements:", missingElements);
-        displayMessage("UI initialization error. Check console.", true);
+        // Initialize canvas if available
+        if (canvas) {
+            ctx = canvas.getContext('2d');
+            canvas.addEventListener('click', handleCanvasClick);
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+        }
+
+        // Add window resize listener
+        window.addEventListener('resize', resizeGame);
+
+        // Add color button listeners
+        colorButtons.forEach(button => {
+            button.addEventListener('click', handleColorSelection);
+        });
+
+        console.log("UI Initialized successfully");
+        return true;
+    } catch (error) {
+        console.error("UI initialization error:", error);
         return false;
     }
-
-    // Initialize canvas context
-    canvas = elements.canvas;
-    ctx = canvas.getContext('2d');
-    
-    // Set up event listeners using the stored elements
-    window.addEventListener('resize', resizeGame);
-    canvas.addEventListener('click', handleCanvasClick);
-    canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseleave', handleMouseUp);
-
-    elements.colorButtons.forEach(button => {
-        button.addEventListener('click', handleColorSelection);
-    });
-
-    if (elements.chatInput) {
-        elements.chatInput.addEventListener('keypress', function(event) {
-            if (event.key === 'Enter' && this.value.trim() !== '') {
-                sendMessage(this.value.trim());
-                this.value = '';
-            }
-        });
-    }
-
-    // Initial setup
-    resizeGame();
-    showSetupScreen();
-    console.log("UI Initialized successfully");
-    return true;
 }
 
 

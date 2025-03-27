@@ -1,12 +1,9 @@
 // Configuration object accessible globally (legacy) and exported
 const CONFIG = {
-    // Use environment variables or default values
-    // Note: process.env won't work directly in browser-side JS without a build tool.
-    // Defaulting to localhost for typical local development.
-    // Ensure this URL points to your *running* server.
-    SERVER_URL: window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000' 
-        : 'https://your-production-server.com', // Update this with your actual production server
+    // Use localhost when running locally, otherwise use deployed server URL
+    SERVER_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3000'
+        : 'https://outdoor-miner-server.onrender.com', // Update with your actual deployed server URL
     BOARD_SIZE: 12,
     HEX_SIZE: 30,
     COMBO_THRESHOLD: 4,

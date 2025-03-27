@@ -36,35 +36,44 @@ export function connectToServer(action, playerName, roomCode = '') {
     }
 
     if (socketInstance && socketInstance.connected) {
-        console.log("Already connected.");
-        // Maybe disconnect first if changing rooms or actions?
-        // socketInstance.disconnect();
-        // For now, just return or show message
-        displayMessage("Already connected.", false);
-        return;
+        console.log("Already connected, disconnecting first...");
+        socketInstance.disconnect();
     }
 
-    // Establish connection - Use the global `io` from the CDN script
-     try {
+    try {
         socketInstance = io(CONFIG.SERVER_URL, {
             transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
-            reconnectionAttempts: 5,
-            timeout: 20000, // Increase timeout
-            query: { playerName } // Send player name on connection
+            reconnectionAttempts: 3,
+            timeout: 10000, // Increase timeout
+            query: { playerName, action, roomCode } // Send player name on connection
         });
         console.log("Socket.IO client initialized, attempting connection...");
         updateConnectionStatus(false, 'Connecting...'); // Update UI - Connecting
 
+        // Add connection timeout
+        const connectionTimeout = setTimeout(() => {
+            if (!socketInstance.connected) {
+                console.error("Connection attempt timed out");
+                displayMessage("Connection timed out. Server may be down.", true);
+                socketInstance.disconnect();
+            }
+        }, 10000);
+
         setupSocketEventListeners(); // Setup listeners after creating instance
 
-     } catch (error) {
-         console.error("Socket.IO connection failed:", error);
-         displayMessage("Connection failed. Is the server running?", true);
-         updateConnectionStatus(false, 'Connection Failed');
-         playSound('error');
-     }
+        // Clear timeout on successful connection
+        socketInstance.on('connect', () => {
+            clearTimeout(connectionTimeout);
+        });
+
+    } catch (error) {
+        console.error("Socket.IO connection failed:", error);
+        displayMessage("Connection failed. Is the server running?", true);
+        updateConnectionStatus(false, 'Connection Failed');
+        playSound('error');
+    }
 
 }
 
