@@ -562,10 +562,10 @@ socket.on('join-game', ({ gameId, playerName }) => {
             // Initialize GameState *now* that P2 has joined
             game.gameState = new GameState();
             console.log(`Game state initialized for ${gameId}`);
-
-            console.log(`Player ${playerName} (${socket.id}) joined ${gameId} as P2`);
-
-            const playerNames = {
+        // Capture logic
+        const capturedTiles = captureOpponentTiles(state, playerColor, row, col); // Added semicolon
+        if (capturedTiles.length > 0) {
+            console.log(`Player ${playerColor} captured ${capturedTiles.length} tiles.`);
                 P1: Object.values(game.players).find(p => p.player === 'P1')?.name || 'Player 1',
                 P2: playerName
             };
