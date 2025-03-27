@@ -1,9 +1,4 @@
-// Constants related to hexagon geometry
-export const HEX_SIZE = 30; // Slightly larger for better visibility
-export const HEX_HEIGHT = Math.sqrt(3) * HEX_SIZE;
-export const HEX_WIDTH = 2 * HEX_SIZE;
-export const VERTICAL_SPACING = HEX_HEIGHT;
-export const HORIZONTAL_SPACING = HEX_WIDTH * 0.75;
+import { BOARD, COLORS } from './constants.js';
 
 // Axial direction vectors for neighboring hexes
 const DIRECTIONS = [
@@ -439,8 +434,8 @@ export class GameState {
 
 // Get the pixel coordinates of the center of a hex cell
 export function getHexCenter(q, r) {
-    const x = q * HORIZONTAL_SPACING + HEX_SIZE;
-    const y = r * VERTICAL_SPACING + HEX_SIZE + (q % 2) * (VERTICAL_SPACING / 2);
+    const x = q * BOARD.HORIZONTAL_SPACING + BOARD.HEX_SIZE;
+    const y = r * BOARD.VERTICAL_SPACING + BOARD.HEX_SIZE + (q % 2) * (BOARD.VERTICAL_SPACING / 2);
     return { x, y };
 }
 
@@ -450,8 +445,8 @@ export function worldToHex(x, y) {
     // Adjust for the offset/origin if necessary (assuming origin is top-left of canvas)
 
     // Convert pixel coordinates to fractional axial coordinates
-    const q_frac = (2 / 3 * x) / HEX_SIZE;
-    const r_frac = (-1 / 3 * x + Math.sqrt(3) / 3 * y) / HEX_SIZE;
+    const q_frac = (2 / 3 * x) / BOARD.HEX_SIZE;
+    const r_frac = (-1 / 3 * x + Math.sqrt(3) / 3 * y) / BOARD.HEX_SIZE;
     const s_frac = -q_frac - r_frac; // s = -q - r for axial coordinates
 
     // Round fractional coordinates to nearest integer hex coordinates
@@ -483,7 +478,7 @@ export function worldToHex(x, y) {
 
     // --- Alternative: Check distance to nearest centers ---
     // Estimate rough q, r based on spacing
-    const approx_q = (x - HEX_SIZE) / HORIZONTAL_SPACING;
+    const approx_q = (x - BOARD.HEX_SIZE) / BOARD.HORIZONTAL_SPACING;
      // Adjust y for potential staggering before dividing by vertical spacing
      // This depends heavily on the exact grid layout getHexCenter produces.
      // Given the complexity and potential inaccuracy, a common method is to find the

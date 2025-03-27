@@ -9,15 +9,15 @@
 <body>
     <header>
         <h1>Outdoor Miner</h1>
-        <div id="connection-status">
-            <span id="connection-indicator"></span>
-            <span id="status-text">Offline</span>
+        <div id="connection-status" class="status-bar">
+            <div id="connection-indicator"></div>
+            <span id="status-text">Disconnected</span>
         </div>
     </header>
 
     <!-- Setup Container - Shown Initially -->
-    <div id="setup-container">
-        <h2>Welcome!</h2>
+    <div id="setup-container" class="container">
+        <h2>Welcome to Outdoor Miner</h2>
         <div class="input-group">
             <label for="player-name-input">Your Name:</label>
             <input type="text" id="player-name-input" placeholder="Enter your name">
@@ -48,7 +48,7 @@
               Game ID: <span id="game-id-display">N/A</span>
           </div>
     </div>
-    <div id="game-container" style="display: none;">
+    <div id="game-container" class="container" style="display: none;">
         <div id="game-code-display" class="game-code-display">
             Game Code: <span id="current-game-code">-</span>
             <button id="copy-code" title="Copy to clipboard">📋</button>

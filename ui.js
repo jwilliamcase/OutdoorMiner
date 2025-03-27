@@ -1,5 +1,5 @@
-// Import GameState class itself, not the whole module object if exporting default
-import { HEX_SIZE, HEX_HEIGHT, HEX_WIDTH, getHexCenter, worldToHex, GameState } from './gameLogic.js';
+import { BOARD } from './constants.js';
+import { getHexCenter, worldToHex, GameState } from './gameLogic.js';
 import { sendTilePlacement, sendMessage } from './network.js'; // Import network functions
 import { uiManager } from './uiManager.js';
 
@@ -186,9 +186,9 @@ export function renderGameBoard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
 
-    // Calculate board dimensions
-    const boardWidth = gameState.cols * HORIZONTAL_SPACING;
-    const boardHeight = gameState.rows * VERTICAL_SPACING;
+    // Calculate board dimensions using BOARD constants
+    const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
+    const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
 
     // Center the board
     const centerX = (canvas.width - boardWidth) / 2;
@@ -218,7 +218,7 @@ export function centerOnPlayerStart() {
 
     // Always center on bottom-left corner of the board
     const startX = 0;
-    const startY = (gameState.rows - 1) * VERTICAL_SPACING;
+    const startY = (gameState.rows - 1) * BOARD.VERTICAL_SPACING;
     
     cameraOffset.x = (canvas.width / 2) - startX;
     cameraOffset.y = (canvas.height / 2) - startY;
@@ -375,8 +375,8 @@ function handleCanvasClick(event) {
 
      // If player 2, transform the coordinates
      if (currentPlayerId === gameState.players[1]?.id) {
-         const boardWidth = gameState.cols * HORIZONTAL_SPACING;
-         const boardHeight = gameState.rows * VERTICAL_SPACING;
+         const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
+         const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
          x = boardWidth - x;
          y = boardHeight - y;
      }
