@@ -120,13 +120,44 @@ function setupSocketEventListeners() {
     });
 
     socketInstance.on('disconnect', (reason) => {
-        console.log('Disconnected from server:', reason);
-        updateConnectionStatus(false, 'Disconnected');
+        const wasConnected = currentRoomId !== null;
         currentPlayerId = null;
         currentRoomId = null;
-        // Optionally show setup screen or a disconnected message
-        displayMessage("Disconnected from server.", true);
-        // Potentially need ui.showSetupScreen() here if not handled elsewhere
+
+        updateConnectionStatus(false, `Disconnected: ${reason}`);
+
+        if (wasConnected) {
+            // Save current game state for potential recovery
+            const lastState = gameState ? gameState.serialize() : null;
+            sessionStorage.setItem('lastGameState', lastState);
+            sessionStorage.setItem('lastRoomId', currentRoomId);
+            
+            displayMessage("Connection lost. Attempting to reconnect...", true);
+            
+            // Attempt to reconnect
+            setTimeout(() => {
+                if (!socketInstance.connected) {
+                    reconnectToGame();
+                }
+            }, 1000);
+        }
+    });
+
+    // Add reconnection handler
+    socketInstance.on('reconnect', () => {
+        const lastRoomId = sessionStorage.getItem('lastRoomId');
+        if (lastRoomId) {
+            socketInstance.emit('rejoin-game', {
+                roomId: lastRoomId
+            }, (response) => {
+                if (response.success) {
+                    handleGameUpdate(response.gameState);
+                    displayMessage("Reconnected to game!", false);
+                } else {
+                    displayMessage("Could not rejoin game. Please refresh.", true);
+                }
+            });
+        }
     });
 
     socketInstance.on('connect_error', (error) => {
@@ -165,22 +196,24 @@ function setupSocketEventListeners() {
     });
 
      socketInstance.on('game-update', (data) => {
-         console.log('Game state update received:', data);
-         // Pass the gameState object directly, assume server sends object, not string
-         handleGameUpdate(data.gameState); // Update UI and local game state using the nested gameState object
-         // Player info update should happen within handleGameUpdate if needed, using the received state.
-         // Game over check also likely happens within handleGameUpdate now.
-         // We can still update player info here if handleGameUpdate doesn't do it.
-         if(data.gameState && data.gameState.players) {
+        if (!data.gameState || !data.changes) {
+            console.error("Invalid game update received");
+            return;
+        }
+
+        // Apply changes atomically
+        handleGameUpdate(data.gameState, data.changes);
+        
+        // Update scores immediately
+        if (data.changes.scores) {
             updatePlayerInfo(data.gameState.players, currentPlayerId);
-            // Check for game over state from the update
-            if (data.gameState.gameOver) {
-                showGameOver(data.gameState.winner, data.gameState.players, currentPlayerId);
-            }
-         } else {
-            console.warn("Game update received without gameState or players data");
-         }
-     });
+        }
+
+        // Check win condition after update
+        if (data.gameState.gameOver) {
+            showGameOver(data.gameState.winner, data.gameState.players, currentPlayerId);
+        }
+    });
 
     socketInstance.on('game-error', (errorMessage) => {
         console.error('Game Error:', errorMessage);
@@ -206,6 +239,18 @@ function setupSocketEventListeners() {
             console.warn("Received malformed chat message:", data);
         }
     });
+}
+
+// Add reconnection helper
+function reconnectToGame() {
+    if (socketInstance.connected) return;
+    
+    try {
+        socketInstance.connect();
+    } catch (error) {
+        console.error("Reconnection failed:", error);
+        displayMessage("Reconnection failed. Please refresh.", true);
+    }
 }
 
 // Function to disconnect from the server
@@ -234,21 +279,21 @@ export function sendMessage(message) {
     }
 }
 
-// Function to send tile placement action
-export function sendTilePlacement(q, r, color) {
-    if (socketInstance && socketInstance.connected && currentRoomId && currentPlayerId) {
-        console.log(`Sending tile placement: q=${q}, r=${r}, color=${color} by ${currentPlayerId} to room ${currentRoomId}`);
-         socketInstance.emit('place-tile', {
-             roomCode: currentRoomId,
-             playerId: currentPlayerId, // Send player ID with the move
-             q: q,
-             r: r,
-             color: color // Color might be redundant if server uses player ID to determine color
-         });
-    } else {
-        console.error("Cannot place tile: Not connected or not in a room.");
-        displayMessage("Cannot place tile. Not connected?", true);
+// Update move protocol
+export function sendTilePlacement(selectedColor) {
+    if (!socketInstance?.connected || !currentRoomId || !currentPlayerId) {
+        displayMessage("Connection error", true);
+        return;
     }
+
+    socketInstance.emit('make-move', {
+        roomCode: currentRoomId,
+        playerId: currentPlayerId,
+        move: {
+            type: 'color-select',
+            color: selectedColor
+        }
+    });
 }
 
 // Function to emit create challenge event, uses callback for response

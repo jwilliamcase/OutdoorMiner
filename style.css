@@ -423,126 +423,18 @@ h1 {
     touch-action: none; /* Prevents scrolling on mobile */
 }
 
-.power-side {
-    width: 100px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-#left-powers {
-    margin-right: 15px;
-}
-
-#right-powers {
-    margin-left: 15px;
-}
-
-.power-up-slot {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 8px;
-    border-radius: 8px;
-    background-color: rgba(255, 255, 255, 0.9);
-    border: 2px solid #ddd;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    position: relative;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Softer shadow */
-    border: 2px solid #cdddee; /* Lighter border */
-    background: linear-gradient(to bottom, #ffffff, #f0f4f8); /* Very subtle gradient */
-}
-
-.power-up-slot:hover:not(.disabled) { /* Add :not(.disabled) */
-    transform: translateY(-4px) scale(1.02); /* Slightly more lift and scale */
-    box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
-    border-color: #a8d0e6;
-}
-
-.power-up-slot.active {
-    border-color: #F76C6C;
-    background-color: rgba(247, 108, 108, 0.15); /* Slightly less intense background */
-    box-shadow: 0 0 15px rgba(247, 108, 108, 0.6), 0 4px 12px rgba(0, 0, 0, 0.15); /* Keep base shadow + glow */
-    animation: pulse-border 1.5s infinite;
-}
-
-@keyframes pulse-border {
-    0% { border-color: #F76C6C; }
-    50% { border-color: #F8E9A1; }
-    100% { border-color: #F76C6C; }
-}
-
-.power-up-slot.disabled {
-    opacity: 0.4; /* More faded */
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); /* Subtle inner shadow when disabled */
-    background: #e9ecef;
-    border-color: #ddd;
-}
-
-.power-up-icon {
-    font-size: 28px;
-    margin-bottom: 5px;
-}
-
-.power-up-name {
-    font-weight: bold;
-    color: #0F1A40;
-    margin-bottom: 5px;
-    text-align: center;
-}
-
-.power-up-count {
-    background-color: #374785;
-    color: white;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 14px;
-    font-weight: bold;
-    position: absolute;
-    top: -10px; /* Adjust position */
-    right: -10px; /* Adjust position */
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); /* Stronger shadow */
-    border: 1px solid rgba(255,255,255,0.5); /* Subtle border */
-}
-
-/* Tooltip styles for power-ups */
+/* Remove powerup related styles */
+#player1-powerups,
+#player2-powerups,
+.power-up-slot,
+.power-side,
+#left-powers,
+#right-powers,
+.power-up-icon,
+.power-up-name,
+.power-up-count,
 .power-up-tooltip {
-    position: absolute;
-    background-color: rgba(15, 26, 64, 0.95);
-    color: white;
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 14px;
-    line-height: 1.4;
-    z-index: 100;
-    width: 220px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-
-#left-powers .power-up-tooltip {
-    left: 130px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-#right-powers .power-up-tooltip {
-    right: 130px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.power-up-slot:hover .power-up-tooltip {
-    opacity: 1;
+    display: none !important;
 }
 
 #chat-container {
@@ -915,27 +807,9 @@ footer {
     .power-up-name {
         font-size: 12px;
     }
-}
-
-@media (max-width: 700px) {
-    #game-area {
-        flex-direction: column;
-    }
     
-    .power-side {
-        width: 100%;
-        flex-direction: row;
-        justify-content: center;
-        margin: 20px 0;
-        padding: 0 15px;
-    }
-    
-    #left-powers {
-        margin: 20px 0 0 0;
-    }
-    
-    #right-powers {
-        margin: 0 0 20px 0;
+    .color-button {
+        height: 50px;
     }
     
     .power-up-slot {
@@ -967,10 +841,6 @@ footer {
     
     #turn-indicator {
         order: -1;
-    }
-    
-    .color-button {
-        height: 50px;
     }
 }
 
@@ -1012,4 +882,80 @@ footer {
     content: "";
     clear: both;
     display: table;
+}
+
+#color-selection {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.color-options {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.color-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    border: 2px solid #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.color-button:hover:not(.disabled) {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+}
+
+.color-button.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: #999;
+}
+
+.color-button.last-used {
+    border-color: #F76C6C;
+    box-shadow: 0 0 10px rgba(247, 108, 108, 0.5);
+}
+
+.turn-status {
+    text-align: center;
+    font-size: 14px;
+    color: #374785;
+}
+
+.turn-indicator {
+    transition: all 0.3s ease;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.turn-indicator.my-turn {
+    background-color: #374785;
+    color: white;
+    box-shadow: 0 0 15px rgba(55, 71, 133, 0.5);
+}
+
+.turn-indicator.opponent-turn {
+    background-color: #F76C6C;
+    color: white;
+    box-shadow: 0 0 15px rgba(247, 108, 108, 0.5);
+}
+
+.turn-indicator.transitioning {
+    animation: turnTransition 0.8s ease;
+    transform-origin: center;
+}
+
+@keyframes turnTransition {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
 }

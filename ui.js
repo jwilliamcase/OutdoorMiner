@@ -1,16 +1,19 @@
 // Import GameState class itself, not the whole module object if exporting default
 import { HEX_SIZE, HEX_HEIGHT, HEX_WIDTH, getHexCenter, worldToHex, GameState } from './gameLogic.js';
 import { sendTilePlacement, sendMessage } from './network.js'; // Import network functions
+import { uiManager } from './uiManager.js';
 
 // --- State ---
 let gameState = null; // Holds the current game state object
 let canvas = null;
 let ctx = null;
-let selectedColor = null; // Store the selected color hex value
+let selectedColor = null; // Will be removed once we finish the refactor
 let currentPlayerId = null; // Store the client's player ID for UI logic
 let isDragging = false;
 let lastMousePos = { x: 0, y: 0 };
 let cameraOffset = { x: 0, y: 0 }; // Pan offset
+let isTransitioning = false;
+const TURN_TRANSITION_DELAY = 800; // ms
 
 // --- DOM Elements ---
 let setupContainer = null;
@@ -33,61 +36,30 @@ let elements = {};
 // --- Initialization ---
 export function initializeUI() {
     try {
-        elements = {
-            canvas: document.getElementById('gameCanvas'),
-            canvasContainer: document.getElementById('game-area'),
-            setupContainer: document.getElementById('setup-container'),
-            gameContainer: document.getElementById('game-container'),
-            connectionStatus: document.getElementById('status-text'),
-            connectionIndicator: document.getElementById('connection-indicator'),
-            messageArea: document.getElementById('message-area'),
-            player1Info: document.getElementById('player1-info'),
-            player2Info: document.getElementById('player2-info'),
-            colorButtons: document.querySelectorAll('.color-button'),
-            colorPalette: document.getElementById('color-palette'),
-            currentGameCode: document.getElementById('current-game-code'),
-            copyCodeButton: document.getElementById('copy-code')
-        };
-
-        // Update module-level references
-        canvas = elements.canvas;
-        canvasContainer = elements.canvasContainer;
-        setupContainer = elements.setupContainer;
-        gameContainer = elements.gameContainer;
-        connectionStatusElement = elements.connectionStatus;
-        connectionIndicator = elements.connectionIndicator;
-        messageArea = elements.messageArea;
-        player1Info = elements.player1Info;
-        player2Info = elements.player2Info;
-        colorButtons = Array.from(elements.colorButtons);
-
-        // Initialize canvas if available
-        if (canvas) {
-            ctx = canvas.getContext('2d');
-            canvas.addEventListener('click', handleCanvasClick);
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseleave', handleMouseUp);
+        if (!uiManager.initialize()) {
+            throw new Error("UI Manager initialization failed");
         }
+
+        // Initialize canvas context
+        canvas = uiManager.getElement('game.canvas');
+        ctx = canvas?.getContext('2d');
+        
+        if (!canvas || !ctx) {
+            throw new Error("Canvas initialization failed");
+        }
+
+        // Set up canvas event listeners
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('mouseleave', handleMouseUp);
+
+        // Initialize color buttons
+        setupColorButtons();
 
         // Add window resize listener
         window.addEventListener('resize', resizeGame);
-
-        // Add color button listeners
-        colorButtons.forEach(button => {
-            button.addEventListener('click', handleColorSelection);
-        });
-
-        // Add copy button handler
-        if (elements.copyCodeButton) {
-            elements.copyCodeButton.addEventListener('click', () => {
-                const code = elements.currentGameCode.textContent;
-                navigator.clipboard.writeText(code)
-                    .then(() => displayMessage("Game code copied to clipboard!"))
-                    .catch(() => displayMessage("Failed to copy code", true));
-            });
-        }
 
         console.log("UI Initialized successfully");
         return true;
@@ -95,6 +67,18 @@ export function initializeUI() {
         console.error("UI initialization error:", error);
         return false;
     }
+}
+
+function setupColorButtons() {
+    if (!uiManager.initializeColorButtons()) {
+        console.error("Failed to initialize color buttons");
+        return;
+    }
+
+    const colorOptions = uiManager.getElement('game.colorOptions');
+    colorOptions.querySelectorAll('.color-button').forEach(button => {
+        button.addEventListener('click', handleColorSelection);
+    });
 }
 
 // Add new function to update game code display
@@ -122,25 +106,25 @@ export function showSetupScreen() {
     console.log("showSetupScreen - END");
 }
 
+// Update showGameScreen to use uiManager
 export function showGameScreen() {
-    console.log("showGameScreen - START");
-    
-    // Make sure we have the required elements
-    if (!elements.gameContainer || !elements.setupContainer) {
-        console.error("Required game screen elements missing");
+    const gameContainer = uiManager.getElement('game.container');
+    const setupContainer = uiManager.getElement('setup.container');
+
+    if (!gameContainer || !setupContainer) {
+        console.error("Required containers not found");
         return;
     }
 
-    // Hide setup, show game elements
-    elements.setupContainer.style.display = 'none';
-    elements.gameContainer.style.display = 'block';
-    elements.colorPalette.style.display = 'flex';
+    setupContainer.style.display = 'none';
+    gameContainer.style.display = 'block';
 
     // Force a resize to ensure canvas is properly sized
     requestAnimationFrame(() => {
         resizeGame();
         if (gameState) {
             renderGameBoard();
+            updateAvailableColors(gameState.lastUsedColor); // Update color buttons state
         }
     });
 
@@ -224,7 +208,12 @@ export function renderGameBoard() {
     for (const key in gameState.board) {
         const tile = gameState.board[key];
         if (tile) {
-            drawHexagon(tile.q, tile.r, tile.color || '#cccccc'); // Use tile color or default
+            drawHexagon(
+                tile.q, 
+                tile.r, 
+                tile.color || '#cccccc',
+                tile.owner !== null
+            );
         }
     }
      ctx.restore(); // Restore context after applying camera offset
@@ -234,7 +223,7 @@ export function renderGameBoard() {
 
 
 // Draw a single hexagon
-function drawHexagon(q, r, color) {
+function drawHexagon(q, r, color, isOwned = false) {
     if (!ctx) return;
 
     const center = getHexCenter(q, r);
@@ -257,9 +246,9 @@ function drawHexagon(q, r, color) {
     ctx.fillStyle = color;
     ctx.fill();
 
-    // Draw border
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
+    // Draw stronger border for owned territories
+    ctx.strokeStyle = isOwned ? '#000' : '#666';
+    ctx.lineWidth = isOwned ? 2 : 1;
     ctx.stroke();
 }
 
@@ -375,11 +364,6 @@ function handleCanvasClick(event) {
          return;
      }
 
-    if (!selectedColor) {
-        displayMessage("Please select a color first.", true);
-        return;
-    }
-
      // Convert click coordinates to world coordinates (relative to canvas, considering pan)
      const rect = canvas.getBoundingClientRect();
      const clickX = event.clientX - rect.left;
@@ -398,9 +382,9 @@ function handleCanvasClick(event) {
     // Check if the click corresponds to a valid hex on the board
     const key = `${q},${r}`;
     if (gameState.board[key]) {
-        console.log(`Attempting to place tile at (${q}, ${r}) with color ${selectedColor}`);
+        console.log(`Attempting to place tile at (${q}, ${r})`);
         // Send placement to server via network module
-        sendTilePlacement(q, r, selectedColor);
+        sendTilePlacement(q, r);
         // The UI should be updated based on server response ('game-update')
         // Optionally provide immediate feedback (e.g., temporary placement color)
         // but the authoritative state comes from the server.
@@ -413,17 +397,23 @@ function handleCanvasClick(event) {
 
 // Handle color selection from buttons
 function handleColorSelection(event) {
-    selectedColor = event.target.getAttribute('data-color');
-    console.log(`Color selected: ${selectedColor}`);
-    // Update UI to show selected color (e.g., border)
-    colorButtons.forEach(button => {
-        if (button.getAttribute('data-color') === selectedColor) {
-            button.style.border = '3px solid black';
-        } else {
-            button.style.border = '1px solid #ccc';
-        }
-    });
-    displayMessage(`Selected color: ${selectedColor}`, false);
+    if (!gameState || gameState.gameOver) {
+        displayMessage("Game is not active", true);
+        return;
+    }
+
+    if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
+        displayMessage("Not your turn!", true);
+        return;
+    }
+
+    const selectedColor = event.target.dataset.color;
+    if (selectedColor === gameState.lastUsedColor) {
+        displayMessage("This color was just used by your opponent!", true);
+        return;
+    }
+
+    sendTilePlacement(selectedColor);
 }
 
 // --- Panning Handlers ---
@@ -504,36 +494,61 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
 
 // Expects gameStateObject to be a plain JS object from the server
 export function handleGameUpdate(gameStateObject) {
-    console.log("Handling game update:", gameStateObject);
-    // Assume gameStateObject is already the correct structure (no deserialize needed here)
-    if (gameStateObject) {
-        // Create a GameState instance from the plain object received
-        // This ensures methods like getCurrentPlayerId are available
-        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
-        // Copy properties from the received object to the instance
-        Object.assign(gameState, gameStateObject);
-        // gameState.players should be copied by Object.assign if present in gameStateObject
-
-        renderGameBoard(); // Re-render the board with the new state
-
-        // Player info and game over checks are now handled in the network.js 'game-update' listener
-        // But we can add turn indication here:
-        if (!gameState || gameState.gameOver) {
-             console.log("Game update indicates game over or invalid state.");
-             // Game over message should be displayed via showGameOver called from network.js
-        } else if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
-             console.log("Game updated, now waiting for opponent's move.");
-             displayMessage("Waiting for opponent's move.", false);
-        } else {
-            console.log("Game updated, now it's your turn.");
-            displayMessage("Your turn!", false);
-        }
-
-        console.log("Game state updated and rendered.");
-    } else {
-        console.error("Failed to update game state from server data (gameStateObject is null/undefined).");
-        displayMessage("Error updating game state. Check console.", true);
+    if (!gameStateObject) {
+        console.error("Failed to update game state");
+        return;
     }
+
+    // Start turn transition if it's a new turn
+    const isNewTurn = gameState && 
+        gameState.currentPlayerIndex !== gameStateObject.currentPlayerIndex;
+    
+    if (isNewTurn) {
+        isTransitioning = true;
+        handleTurnTransition(gameStateObject);
+    } else {
+        updateGameState(gameStateObject);
+    }
+}
+
+// Add new function for turn transition
+function handleTurnTransition(newState) {
+    // Flash turn indicator
+    const turnIndicator = elements.turnIndicator;
+    turnIndicator.classList.add('transitioning');
+    
+    // Show who's turn is next
+    const nextPlayer = newState.getCurrentPlayerId() === currentPlayerId ? "Your" : "Opponent's";
+    turnIndicator.textContent = `${nextPlayer} turn...`;
+    
+    // Add transition delay
+    setTimeout(() => {
+        updateGameState(newState);
+        turnIndicator.classList.remove('transitioning');
+        isTransitioning = false;
+    }, TURN_TRANSITION_DELAY);
+}
+
+// Separate state update logic
+function updateGameState(newState) {
+    gameState = new GameState(newState.rows, newState.cols);
+    Object.assign(gameState, newState);
+
+    // Update UI elements
+    updateAvailableColors(gameState.lastUsedColor);
+    updateTurnIndicator();
+    renderGameBoard();
+    updatePlayerInfo(gameState.players, currentPlayerId);
+}
+
+// Add new function for turn indicator
+function updateTurnIndicator() {
+    const turnIndicator = elements.turnIndicator;
+    if (!turnIndicator || !gameState) return;
+
+    const isMyTurn = gameState.getCurrentPlayerId() === currentPlayerId;
+    turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
+    turnIndicator.textContent = isMyTurn ? "Your Turn!" : "Opponent's Turn";
 }
 
 // Helper to roughly center the view on the board
@@ -569,4 +584,32 @@ export function playSound(soundName) {
      } catch (error) {
          console.error(`General error playing sound ${soundName}:`, error);
      }
+}
+
+function initializeColorButtons() {
+    const colorOptions = document.querySelector('.color-options');
+    CONFIG.GAME_COLORS.forEach(color => {
+        const button = document.createElement('button');
+        button.className = 'color-button';
+        button.style.backgroundColor = color;
+        button.dataset.color = color;
+        button.addEventListener('click', handleColorSelection);
+        colorOptions.appendChild(button);
+    });
+}
+
+function updateAvailableColors(lastUsedColor) {
+    const buttons = document.querySelectorAll('.color-button');
+    buttons.forEach(button => {
+        button.classList.remove('disabled', 'last-used');
+        if (button.dataset.color === lastUsedColor) {
+            button.classList.add('disabled');
+        }
+    });
+
+    // Update last used color display
+    const lastUsedDisplay = document.getElementById('last-used-color');
+    if (lastUsedDisplay) {
+        lastUsedDisplay.style.backgroundColor = lastUsedColor;
+    }
 }

@@ -22,67 +22,93 @@ export class GameState {
         this.board = this.createInitialBoard(rows, cols);
         this.players = players || {};
         this.currentPlayerIndex = 0;
-        this.turnNumber = 1;
+        this.lastUsedColor = null; // Track the last color used
+        this.currentPlayerColor = null;  // Track current player's active color
         this.gameOver = false;
         this.winner = null;
     }
 
     createInitialBoard(rows, cols) {
+        // Initialize board with random colors from CONFIG.GAME_COLORS
         const board = {};
-        
-        // Initialize empty board
         for (let r = 0; r < rows; r++) {
             for (let q = 0; q < cols; q++) {
+                const randomColor = CONFIG.GAME_COLORS[
+                    Math.floor(Math.random() * CONFIG.GAME_COLORS.length)
+                ];
                 board[`${q},${r}`] = {
                     q, r,
                     owner: null,
-                    color: '#cccccc',
-                    captured: false
+                    color: randomColor,
+                    baseColor: randomColor // Original color before capture
                 };
             }
         }
 
-        // Set starting positions at opposite corners
-        // Player 1 starts at bottom-left (0, rows-1)
-        const p1Start = `0,${rows-1}`;
-        board[p1Start] = {
-            q: 0,
-            r: rows-1,
-            owner: 'player1',
-            color: '#F76C6C',
-            captured: true
-        };
-
-        // Player 2 starts at top-right (cols-1, 0)
-        const p2Start = `${cols-1},0`;
-        board[p2Start] = {
-            q: cols-1,
-            r: 0,
-            owner: 'player2',
-            color: '#374785',
-            captured: true
-        };
+        // Set initial positions
+        board[`0,${rows-1}`].owner = 'player1'; // Bottom left
+        board[`${cols-1},0`].owner = 'player2'; // Top right
 
         return board;
+    }
+
+    // New method: Get available colors for current turn
+    getAvailableColors() {
+        return CONFIG.GAME_COLORS.filter(color => color !== this.lastUsedColor);
+    }
+
+    // New method: Find capturable tiles for a color
+    findCapturableTiles(playerId, selectedColor) {
+        const capturable = new Set();
+        const checked = new Set();
+
+        // Start from player's territory
+        Object.entries(this.board)
+            .filter(([_, tile]) => tile.owner === playerId)
+            .forEach(([key, _]) => {
+                this.findAdjacentMatchingColor(key, selectedColor, capturable, checked);
+            });
+
+        return Array.from(capturable);
+    }
+
+    // Recursive function to find adjacent matching colors
+    findAdjacentMatchingColor(startKey, targetColor, capturable, checked) {
+        if (checked.has(startKey)) return;
+        checked.add(startKey);
+
+        const [q, r] = startKey.split(',').map(Number);
+        const neighbors = this.getNeighbors(q, r);
+
+        neighbors.forEach(neighbor => {
+            const key = `${neighbor.q},${neighbor.r}`;
+            const tile = this.board[key];
+            if (tile && tile.baseColor === targetColor && !tile.owner) {
+                capturable.add(key);
+                this.findAdjacentMatchingColor(key, targetColor, capturable, checked);
+            }
+        });
     }
 
     // Get valid moves for current player
     getValidMoves(playerId) {
         const validMoves = new Set();
+        const playerTerritory = this.territories.get(playerId);
         
-        // Check all owned cells for valid neighbors
-        Object.entries(this.board).forEach(([key, tile]) => {
-            if (tile.owner === playerId) {
-                // Get unclaimed neighbors
-                this.getNeighbors(tile.q, tile.r).forEach(neighbor => {
-                    const neighborKey = `${neighbor.q},${neighbor.r}`;
-                    const neighborTile = this.board[neighborKey];
-                    if (neighborTile && !neighborTile.owner) {
-                        validMoves.add(neighborKey);
-                    }
-                });
-            }
-        });
+        if (!playerTerritory) return [];
+
+        // Check all hexes adjacent to player's territory
+        for (const hex of playerTerritory) {
+            const [q, r] = hex.split(',').map(Number);
+            const neighbors = this.getNeighbors(q, r);
+            
+            neighbors.forEach(neighbor => {
+                const key = `${neighbor.q},${neighbor.r}`;
+                if (this.isValidPosition(neighbor.q, neighbor.r) && !this.board[key].owner) {
+                    validMoves.add(key);
+                }
+            });
+        }
 
         return Array.from(validMoves);
     }
@@ -99,58 +125,113 @@ export class GameState {
         return q >= 0 && q < this.cols && r >= 0 && r < this.rows;
     }
 
-    // Make a move
-    makeMove(q, r, playerId) {
-        const key = `${q},${r}`;
-        const tile = this.board[key];
-
+    // Single consolidated makeMove method
+    makeMove(playerId, selectedColor) {
         // Validate move
-        if (!tile || tile.owner || !this.isValidMove(q, r, playerId)) {
-            return false;
+        if (!this.isValidMove(playerId, selectedColor)) {
+            return {
+                success: false,
+                message: this.getInvalidMoveMessage(playerId, selectedColor)
+            };
         }
 
-        // Place the tile
-        tile.owner = playerId;
-        tile.color = this.players[playerId].color;
-        tile.captured = true;
+        // Track changes for efficient updates
+        const changes = {
+            captured: [],
+            territory: [],
+            scores: {}
+        };
 
-        // Update scores
+        // 1. Find capturable hexes
+        const capturedHexes = this.findCapturableTiles(playerId, selectedColor);
+        
+        // 2. Update captured hexes
+        capturedHexes.forEach(key => {
+            this.board[key].owner = playerId;
+            this.board[key].color = selectedColor;
+            changes.captured.push(key);
+        });
+
+        // 3. Update existing territory
+        Object.entries(this.board)
+            .filter(([_, tile]) => tile.owner === playerId)
+            .forEach(([key, tile]) => {
+                if (tile.color !== selectedColor) {
+                    tile.color = selectedColor;
+                    changes.territory.push(key);
+                }
+            });
+
+        // 4. Update game state
+        this.lastUsedColor = selectedColor;
+        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % Object.keys(this.players).length;
         this.updateScores();
 
-        // Switch turns
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % Object.keys(this.players).length;
-        this.turnNumber++;
-
-        // Check for game over
+        // 5. Check win condition
         this.checkGameOver();
 
-        return true;
+        // Record final scores
+        changes.scores = Object.fromEntries(
+            Object.entries(this.players).map(([id, p]) => [id, p.score])
+        );
+
+        return {
+            success: true,
+            changes,
+            gameOver: this.gameOver,
+            winner: this.winner
+        };
     }
 
-    // Check if a move is valid
-    isValidMove(q, r, playerId) {
-        // Must be adjacent to an owned tile
-        return this.getNeighbors(q, r).some(neighbor => {
-            const neighborKey = `${neighbor.q},${neighbor.r}`;
-            const neighborTile = this.board[neighborKey];
-            return neighborTile && neighborTile.owner === playerId;
+    isValidMove(playerId, selectedColor) {
+        return (
+            this.getCurrentPlayerId() === playerId &&
+            selectedColor !== this.lastUsedColor &&
+            this.findCapturableTiles(playerId, selectedColor).length > 0
+        );
+    }
+
+    getInvalidMoveMessage(playerId, selectedColor) {
+        if (this.getCurrentPlayerId() !== playerId) return "Not your turn";
+        if (selectedColor === this.lastUsedColor) return "Color was just used";
+        if (this.findCapturableTiles(playerId, selectedColor).length === 0) return "No captures possible";
+        return "Invalid move";
+    }
+
+    // New helper method to handle capture logic
+    performCapture(playerId, selectedColor, tilesToCapture) {
+        // Track which tiles need visual updating
+        const updatedTiles = new Set(tilesToCapture);
+
+        // First capture new tiles
+        tilesToCapture.forEach(key => {
+            this.board[key].owner = playerId;
+            this.board[key].color = selectedColor;
+            this.board[key].baseColor = this.board[key].color; // Store original color
         });
+
+        // Then update all existing territory to new color
+        Object.entries(this.board)
+            .filter(([_, tile]) => tile.owner === playerId)
+            .forEach(([key, tile]) => {
+                tile.color = selectedColor;
+                updatedTiles.add(key);
+            });
+
+        return Array.from(updatedTiles); // Return affected tiles for UI update
     }
 
     // Update player scores based on owned tiles
     updateScores() {
         // Reset scores
-        for (const playerId in this.players) {
-            this.players[playerId].score = 0;
-        }
-        // Recalculate scores
-        for (const key in this.board) {
-            const tile = this.board[key];
+        Object.values(this.players).forEach(player => player.score = 0);
+        
+        // Count owned tiles
+        Object.values(this.board).forEach(tile => {
             if (tile.owner && this.players[tile.owner]) {
                 this.players[tile.owner].score++;
             }
-        }
-        console.log("Scores updated:", this.players);
+        });
     }
 
     // Check if the game is over
