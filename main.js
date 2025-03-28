@@ -1,4 +1,4 @@
-import { connectToServer, disconnectFromServer, emitCreateChallenge, emitJoinChallenge } from './network.js';
+import { connectToServer, disconnectFromServer, emitCreateChallenge, emitJoinChallenge, checkUrlParameters } from './network.js';
 import {
     initializeUI,
     showSetupScreen,

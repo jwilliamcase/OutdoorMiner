@@ -387,6 +387,12 @@ export function checkUrlParameters() {
         const roomCodeInput = document.getElementById('room-code-input');
         if (roomCodeInput) {
             roomCodeInput.value = code;
+            // Also enable join button if name is filled
+            const playerNameInput = document.getElementById('player-name-input');
+            const joinButton = document.getElementById('join-challenge-button');
+            if (joinButton && playerNameInput) {
+                joinButton.disabled = !playerNameInput.value.trim();
+            }
         }
     }
 }
