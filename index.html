@@ -18,20 +18,27 @@
     <!-- Setup Container - Shown Initially -->
     <div id="setup-container" class="container">
         <h2>Welcome to Outdoor Miner</h2>
-        <div class="input-group">
-            <label for="player-name-input">Your Name:</label>
-            <input type="text" id="player-name-input" placeholder="Enter your name" required>
+        <div class="setup-form">
+            <div class="input-group">
+                <label for="player-name-input">Your Name</label>
+                <input type="text" id="player-name-input" placeholder="Enter your name" required>
+            </div>
+            
+            <div class="action-group">
+                <button id="create-challenge-button" class="primary-button">Create New Game</button>
+                <div class="separator">
+                    <span>or</span>
+                </div>
+                <div class="join-group">
+                    <input type="text" id="room-code-input" placeholder="Enter Room Code">
+                    <button id="join-challenge-button">Join Game</button>
+                </div>
+            </div>
+            
+            <div id="message-area" class="message-area"></div>
         </div>
-        <div class="button-group">
-            <!-- Local game button removed -->
-            <button id="create-challenge-button">Create Game</button>
-        </div>
-        <div class="join-group">
-            <input type="text" id="room-code-input" placeholder="Enter Room Code">
-            <button id="join-challenge-button">Join Game</button>
-        </div>
-        <p id="message-area" class="message-area"></p>
     </div>
+
     <!-- Main Game Elements - Hidden Initially -->
     <div id="score-container" style="display: none;">
          <!-- Score display structure needs review/fixing -->

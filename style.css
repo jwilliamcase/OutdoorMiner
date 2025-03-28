@@ -86,129 +86,156 @@ h1 {
 }
 
 
-/* Setup Container Styles */
+/* Setup Container Styles - Updated */
 #setup-container {
     background-color: rgba(255, 255, 255, 0.95);
-    padding: 30px 40px;
-    border-radius: 15px;
+    padding: 40px;
+    border-radius: 20px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
     text-align: center;
     border: 2px solid #A8D0E6;
     max-width: 500px;
     width: 90%;
     margin: 20px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
 }
 
 #setup-container h2 {
     color: #0F1A40;
-    margin-bottom: 25px;
-    font-size: 2rem;
+    margin-bottom: 30px;
+    font-size: 2.2rem;
+    font-weight: 600;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
 }
 
-#setup-container .input-group,
-#setup-container .button-group,
-#setup-container .join-group {
-    margin-bottom: 20px;
+.setup-form {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    width: 100%; /* Ensure group takes full width for centering */
+    gap: 25px;
+    width: 100%;
 }
 
-#setup-container label {
-    font-weight: bold;
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+}
+
+.input-group label {
+    font-weight: 600;
     color: #374785;
-    margin-bottom: 5px;
+    font-size: 1rem;
 }
 
-#setup-container input[type="text"] {
-    padding: 12px 15px;
+.input-group input {
+    padding: 12px 16px;
     border: 2px solid #A8D0E6;
-    border-radius: 8px;
-    text-align: center;
+    border-radius: 12px;
     font-size: 1rem;
     background-color: white;
     color: #24305E;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
-    width: 100%;
-    max-width: 300px;
-    margin: 5px 0;
 }
 
-#setup-container input[type="text"]:focus {
-    border-color: #F76C6C;
+.input-group input:focus {
+    border-color: #374785;
     outline: none;
-    box-shadow: 0 0 8px rgba(247, 108, 108, 0.5), inset 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 0 0 3px rgba(55, 71, 133, 0.2);
 }
 
-#setup-container .button-group {
+.action-group {
     display: flex;
-    flex-direction: row; /* Keep buttons in a row */
-    justify-content: center;
-    gap: 15px;
-    width: 100%;
-    margin: 10px 0;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 10px;
 }
 
-#setup-container button {
-    padding: 12px 25px;
-    background-image: linear-gradient(to bottom, #374785, #24305E);
-    color: white;
-    border: none;
-    border-radius: 25px; /* More rounded */
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    border-bottom: 3px solid #1a2244; /* Subtle 3D effect */
+.separator {
+    position: relative;
+    text-align: center;
+    margin: 15px 0;
 }
 
-#setup-container button:hover {
-    background-image: linear-gradient(to bottom, #4a5a9a, #374785);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+.separator::before,
+.separator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 30px);
+    height: 1px;
+    background-color: #A8D0E6;
 }
 
-#setup-container button:active {
-    transform: translateY(1px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+.separator::before {
+    left: 0;
 }
 
+.separator::after {
+    right: 0;
+}
 
-#setup-container .join-group {
+.separator span {
+    background-color: white;
+    padding: 0 15px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.join-group {
     display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
     gap: 10px;
+}
+
+.join-group input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #A8D0E6;
+    border-radius: 12px;
+    font-size: 1rem;
+}
+
+#create-challenge-button {
     width: 100%;
-    flex-wrap: wrap;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #374785, #24305E);
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-#setup-container .join-group input[type="text"] {
-    width: auto;
-    min-width: 150px;
+#create-challenge-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(55, 71, 133, 0.4);
 }
 
-#setup-container .message-area {
-    margin-top: 20px;
-    padding: 10px;
-    border-radius: 6px;
-    background-color: rgba(248, 233, 161, 0.8);
-    color: #24305E;
-    font-style: italic;
-    min-height: 20px; /* Ensure it has some height even when empty */
+#join-challenge-button {
+    padding: 12px 24px;
+    border: 2px solid #374785;
+    border-radius: 12px;
+    background: white;
+    color: #374785;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#join-challenge-button:hover {
+    background: #374785;
+    color: white;
+}
+
+.message-area {
+    padding: 12px;
+    border-radius: 12px;
+    background-color: rgba(248, 233, 161, 0.2);
     border: 1px solid #F8E9A1;
+    font-size: 0.9rem;
+    min-height: 20px;
 }
-
 
 #player-score {
     padding: 10px 15px;
