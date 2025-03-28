@@ -42,8 +42,14 @@ class EventManager {
     }
 
     dispatchEvent(type, data) {
+        if (!type) {
+            console.error("Attempted to dispatch event with undefined type", data);
+            return;
+        }
+
         this.logEvent(type, data);
         const handlers = this.listeners.get(type);
+        
         if (handlers) {
             handlers.forEach(handler => {
                 try {
@@ -52,6 +58,8 @@ class EventManager {
                     console.error(`Error in event handler for ${type}:`, error);
                 }
             });
+        } else {
+            console.warn(`No handlers registered for event type: ${type}`);
         }
     }
 
