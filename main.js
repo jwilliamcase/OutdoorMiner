@@ -12,15 +12,15 @@ let localPlayerId;
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded - START");
 
-    // Check for room code in URL
-    checkUrlParameters();
-
-    // Initialize UI elements and basic event listeners
+    // Initialize UI first
     if (!initializeUI()) {
         console.error("Failed to initialize UI - stopping initialization");
         displayMessage("Failed to initialize game interface", true);
         return;
     }
+
+    // Then check URL parameters
+    checkUrlParameters();
 
     // --- Get DOM elements for setup actions ---
     const createChallengeButton = document.getElementById('create-challenge-button');
@@ -91,8 +91,8 @@ async function handleCreateGame() {
 async function handleJoinGame() {
     const playerNameInput = document.getElementById('player-name-input');
     const roomCodeInput = document.getElementById('room-code-input');
-    const playerName = playerNameInput ? playerNameInput.value.trim() : 'Player';
-    const roomCode = roomCodeInput ? roomCodeInput.value.trim() : '';
+    const playerName = playerNameInput?.value.trim();
+    const roomCode = roomCodeInput?.value.trim();
 
     if (!playerName) {
         displayMessage("Please enter your name.", true);
@@ -104,16 +104,10 @@ async function handleJoinGame() {
         return;
     }
 
-    if (!CONFIG.SERVER_URL) {
-        displayMessage("Server URL not configured.", true);
-        return;
-    }
-
     console.log(`DEBUG: 'Join Game' button clicked for room: ${roomCode}`);
     displayMessage(`Joining game ${roomCode}...`);
 
     try {
-        // Use emitJoinChallenge instead of connectToServer
         emitJoinChallenge(playerName, roomCode);
     } catch (error) {
         console.error("Error joining game:", error);

@@ -345,36 +345,46 @@ export function emitCreateChallenge(playerName) {
 }
 
 export function emitJoinChallenge(playerName, roomCode) {
-    if (!playerName || !roomCode) {
+    if (!playerName?.trim() || !roomCode?.trim()) {
         displayMessage("Please enter both your name and the room code", true);
         return;
     }
 
-    if (!socketInstance || !socketInstance.connected) {
-        connectToServer('join', playerName, roomCode);
-        
-        socketInstance.once('connect', () => {
-            console.log(`Player ${playerName} joining room: ${roomCode}`);
+    try {
+        if (!socketInstance || !socketInstance.connected) {
+            connectToServer('join', playerName, roomCode);
+            
+            socketInstance.once('connect', () => {
+                console.log(`Player ${playerName} joining room: ${roomCode}`);
+                socketInstance.emit('join-challenge', { 
+                    playerName, 
+                    roomCode 
+                }, handleJoinResponse);
+            });
+        } else {
             socketInstance.emit('join-challenge', { 
                 playerName, 
                 roomCode 
             }, handleJoinResponse);
-        });
-    } else {
-        socketInstance.emit('join-challenge', { 
-            playerName, 
-            roomCode 
-        }, handleJoinResponse);
+        }
+    } catch (error) {
+        console.error("Error joining game:", error);
+        displayMessage("Failed to join game. Please try again.", true);
     }
 }
 
 function handleJoinResponse(response) {
+    console.log("Join response received:", response);
     if (response.success) {
         currentRoomId = response.roomCode;
         displayMessage("Successfully joined game!", false);
+        // Add game state initialization here
+        if (response.gameState) {
+            handleInitialState(response.gameState, response.players, socketInstance.id);
+        }
     } else {
         displayMessage(response.message || "Failed to join game", true);
-        showSetupScreen(); // Go back to setup if join fails
+        showSetupScreen();
     }
 }
 
@@ -385,14 +395,20 @@ export function checkUrlParameters() {
     if (code) {
         // Auto-fill room code input
         const roomCodeInput = document.getElementById('room-code-input');
-        if (roomCodeInput) {
+        const playerNameInput = document.getElementById('player-name-input');
+        const joinButton = document.getElementById('join-challenge-button');
+        
+        if (roomCodeInput && playerNameInput && joinButton) {
             roomCodeInput.value = code;
-            // Also enable join button if name is filled
-            const playerNameInput = document.getElementById('player-name-input');
-            const joinButton = document.getElementById('join-challenge-button');
-            if (joinButton && playerNameInput) {
-                joinButton.disabled = !playerNameInput.value.trim();
-            }
+            // Only enable join button if name is filled
+            playerNameInput.addEventListener('input', () => {
+                const hasName = playerNameInput.value.trim().length > 0;
+                joinButton.disabled = !hasName;
+                if (hasName) {
+                    // Auto-join when name is entered
+                    emitJoinChallenge(playerNameInput.value.trim(), code);
+                }
+            });
         }
     }
 }
