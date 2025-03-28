@@ -163,28 +163,27 @@ export function resizeGame() {
         return;
     }
 
-    // Calculate required canvas size based on board dimensions
-    const totalWidth = gameState.cols * BOARD.HORIZONTAL_SPACING + (BOARD.HEX_SIZE * 2);
-    const totalHeight = gameState.rows * BOARD.VERTICAL_SPACING + (BOARD.HEX_SIZE * 2);
+    // Calculate required board size with padding
+    const totalWidth = gameState.cols * BOARD.HORIZONTAL_SPACING + (BOARD.HEX_SIZE * 4);
+    const totalHeight = gameState.rows * BOARD.VERTICAL_SPACING + (BOARD.HEX_SIZE * 4);
 
-    // Get container dimensions
-    const containerRect = canvasContainer?.getBoundingClientRect() || {
-        width: window.innerWidth,
-        height: window.innerHeight * 0.8
-    };
+    // Get available space
+    const gameArea = document.getElementById('game-area');
+    const availableWidth = gameArea.clientWidth;
+    const availableHeight = window.innerHeight * 0.75; // Use 75% of viewport height
 
-    // Calculate scale to fit
-    const scaleWidth = containerRect.width / totalWidth;
-    const scaleHeight = containerRect.height / totalHeight;
-    const scale = Math.min(scaleWidth, scaleHeight, 1); // Don't scale up past 1
+    // Calculate scale to fit while maintaining aspect ratio
+    const scaleWidth = availableWidth / totalWidth;
+    const scaleHeight = availableHeight / totalHeight;
+    const scale = Math.min(scaleWidth, scaleHeight, 1);
 
     // Set canvas size
     canvas.width = totalWidth * scale;
     canvas.height = totalHeight * scale;
 
-    // Update style
-    canvas.style.width = `${canvas.width}px`;
-    canvas.style.height = `${canvas.height}px`;
+    // Ensure game area can accommodate the canvas
+    gameArea.style.minHeight = `${canvas.height}px`;
+    gameArea.style.minWidth = `${canvas.width}px`;
 
     console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
     
@@ -196,17 +195,17 @@ export function resizeGame() {
 export function centerOnPlayerStart() {
     if (!canvas || !gameState) return;
     
-    // Calculate total board size
+    // Calculate total board size with padding
     const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
     const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
     
-    // Calculate initial offset to center the board
+    // Center the board with extra padding
     cameraOffset.x = (canvas.width - boardWidth) / 2;
     cameraOffset.y = (canvas.height - boardHeight) / 2;
     
     // Add padding for the hex size
-    cameraOffset.x += BOARD.HEX_SIZE;
-    cameraOffset.y += BOARD.HEX_SIZE;
+    cameraOffset.x += BOARD.HEX_SIZE * 2;
+    cameraOffset.y += BOARD.HEX_SIZE * 2;
     
     renderGameBoard();
 }

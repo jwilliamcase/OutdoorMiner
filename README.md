@@ -12,52 +12,54 @@
 
 ### Active Issues 🔴
 1. Canvas/Board
-   - Canvas size not adapting to board dimensions
-   - Board positioning off-center, clipping at edges
-   - View not centering correctly on game start
-   - Game area container needs responsive sizing
+   - ✅ Fixed drawHexagon definition
+   - ✅ Added proper canvas scaling
+   - ⏳ Board still renders off-center
+   - ⏳ Game area container sizing needs work
 
 2. UI Elements
-   - Double score container (one visible, one hidden)
-   - Multiple message-area elements causing conflicts
-   - Connection status display unreliable
+   - ✅ Fixed score container hierarchy
+   - ✅ Added turn indicator logic
+   - ❌ Still have duplicate message-area elements
+   - ❌ Connection status display needs consolidation
 
 3. Event System
-   - eventManager reference missing in UIManager
-   - Missing EventTypes definitions
-   - Event binding sequence unclear
+   - ✅ Added eventManager imports
+   - ✅ Added EventTypes definitions
+   - ✅ Basic event binding working
+   - ⏳ Need to complete event flow testing
 
-### Orphaned Code 🗑️
-1. Duplicate Elements
-   - Two separate score-container divs
-   - Multiple message-area elements
-   - Redundant game status displays
+### Code Cleanup Needed 🧹
+1. HTML Structure
+   - ❌ Remove duplicate score-container div
+   - ❌ Clean up message-area elements
+   - ❌ Consolidate connection status elements
+   - ❌ Fix nested container structure
 
 2. Dead Code
-   - Unused powerup styles (can be removed)
-   - Local game mode remnants
-   - Unused audio elements
-   - Stale chat system code
+   - ❌ Remove powerup styles
+   - ❌ Clean up audio elements
+   - ❌ Remove local game remnants
+   - ❌ Update chat system
 
-### Next Steps ⏭️
-1. Immediate Fixes
-   - [ ] Fix canvas sizing logic
-   - [ ] Center board in viewport
-   - [ ] Remove duplicate score containers
-   - [ ] Clean up message area implementations
-   - [ ] Add eventManager imports
+### Next Priority Tasks ⚡
+1. Critical Fixes
+   - [ ] Fix board centering and clipping
+   - [ ] Consolidate all message displays
+   - [ ] Clean up HTML structure
+   - [ ] Test event system flow
 
-2. Technical Debt
-   - [ ] Remove powerup-related CSS
-   - [ ] Clean up unused audio elements
-   - [ ] Consolidate message displays
-   - [ ] Fix event system dependencies
+2. Polish
+   - [ ] Add loading states
+   - [ ] Improve error feedback
+   - [ ] Add turn transitions
+   - [ ] Fix mobile layout
 
-3. DOM Cleanup
-   - [ ] Remove duplicate IDs
-   - [ ] Consolidate status displays
-   - [ ] Fix container hierarchy
-   - [ ] Clean up unused elements
+3. Testing
+   - [ ] Verify board initialization
+   - [ ] Test player positions
+   - [ ] Validate move handling
+   - [ ] Check state updates
 
 ## Architecture Notes 📝
 
