@@ -14,12 +14,13 @@ export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, r
     const effectiveWidth = cols * 1.5 + 0.5; // Add 0.5 for last column
     const effectiveHeight = rows * Math.sqrt(3) + (Math.sqrt(3) / 2); // Add half hex for stagger
 
-    // Calculate size constraints with 5% padding
-    const maxWidth = (containerWidth * 0.95) / effectiveWidth;
-    const maxHeight = (containerHeight * 0.95) / effectiveHeight;
+    // Calculate size constraints with padding
+    const maxWidth = (containerWidth * 0.9) / effectiveWidth;
+    const maxHeight = (containerHeight * 0.9) / effectiveHeight;
 
-    // Return the smaller of the two sizes to ensure fit
-    return Math.min(maxWidth, maxHeight);
+    // Get base size and ensure it's not too small
+    const baseSize = Math.min(maxWidth, maxHeight);
+    return Math.max(baseSize, 20); // Minimum hex size of 20px
 };
 
 // Update BOARD with dynamic spacing getters

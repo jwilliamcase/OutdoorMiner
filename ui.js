@@ -131,8 +131,8 @@ export function showSetupScreen() {
 
 // Update showGameScreen to use uiManager
 export function showGameScreen() {
-    const gameContainer = uiManager.getElement('game.container');
-    const setupContainer = uiManager.getElement('setup.container');
+    const gameContainer = document.getElementById('game-container');
+    const setupContainer = document.getElementById('setup-container');
 
     if (!gameContainer || !setupContainer) {
         console.error("Required containers not found");
@@ -140,18 +140,23 @@ export function showGameScreen() {
     }
 
     setupContainer.style.display = 'none';
-    gameContainer.style.display = 'block';
+    gameContainer.style.display = 'flex';
+    
+    // Ensure UI elements are visible
+    document.getElementById('score-container').style.display = 'flex';
+    document.getElementById('color-selection').style.display = 'block';
+    
+    // Initialize color buttons if needed
+    initializeColorButtons();
 
     // Force a resize to ensure canvas is properly sized
     requestAnimationFrame(() => {
         resizeGame();
         if (gameState) {
             renderGameBoard();
-            updateAvailableColors(gameState.lastUsedColor); // Update color buttons state
+            updateAvailableColors(gameState.lastUsedColor);
         }
     });
-
-    console.log("showGameScreen - END");
 }
 
 // --- Rendering ---
@@ -162,7 +167,7 @@ export function resizeGame() {
 
     const gameArea = document.getElementById('game-area');
     const rect = gameArea.getBoundingClientRect();
-
+    
     // Calculate optimal hex size
     const hexSize = calculateOptimalHexSize(
         rect.width,
@@ -171,27 +176,35 @@ export function resizeGame() {
         gameState.rows
     );
 
-    // Calculate total board dimensions including stagger offset
-    const boardWidth = (gameState.cols * 1.5 + 0.5) * hexSize;
-    const boardHeight = (gameState.rows * Math.sqrt(3) + (Math.sqrt(3) / 2)) * hexSize;
+    // Store hex size and spacing
+    gameState.currentHexSize = hexSize;
+    const spacing = getHexSpacing(hexSize);
 
-    // Set canvas size to match calculated dimensions
+    // Calculate total board dimensions
+    const boardWidth = (gameState.cols * spacing.HORIZONTAL) + (2 * hexSize);
+    const boardHeight = (gameState.rows * spacing.VERTICAL) + (2 * hexSize);
+
+    // Set canvas size
     canvas.width = boardWidth;
     canvas.height = boardHeight;
 
-    // Update game state with new hex size
-    gameState.currentHexSize = hexSize;
-
-    // Store scale for consistent rendering
+    // Calculate and store scale
     gameState.currentScale = Math.min(
-        rect.width / boardWidth,
-        rect.height / boardHeight
+        (rect.width * 0.95) / boardWidth,
+        (rect.height * 0.95) / boardHeight,
+        1
     );
 
-    // Apply the scale to canvas style
+    // Update canvas display size
     canvas.style.width = `${boardWidth * gameState.currentScale}px`;
     canvas.style.height = `${boardHeight * gameState.currentScale}px`;
 
+    console.log(`Canvas resized: ${canvas.width}x${canvas.height}, Scale: ${gameState.currentScale}, HexSize: ${hexSize}`);
+    
+    // Show UI elements
+    document.getElementById('score-container').style.display = 'flex';
+    document.getElementById('color-selection').style.display = 'block';
+    
     renderGameBoard();
 }
 
@@ -256,22 +269,22 @@ export function renderGameBoard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
 
+    // Apply scaling
+    ctx.scale(gameState.currentScale, gameState.currentScale);
+
     // Calculate centering offsets
     const xOffset = gameState.currentHexSize;
     const yOffset = gameState.currentHexSize;
 
-    // Apply centering translation
+    // Apply translation for centering
     ctx.translate(xOffset, yOffset);
 
     // Draw all hexagons
     Object.entries(gameState.board).forEach(([key, tile]) => {
-        const { q, r } = tile;
         const spacing = getHexSpacing(gameState.currentHexSize);
+        const x = tile.q * spacing.HORIZONTAL;
+        const y = tile.r * spacing.VERTICAL + (tile.q % 2) * (spacing.VERTICAL / 2);
         
-        // Calculate hex position with stagger offset for odd columns
-        const x = q * spacing.HORIZONTAL;
-        const y = r * spacing.VERTICAL + (q % 2) * (spacing.VERTICAL / 2);
-
         drawHexagon(x, y, gameState.currentHexSize, tile.color, tile.owner !== null);
     });
 

@@ -1,14 +1,13 @@
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     margin: 0;
-    background-color: #0F1A40;
-    background-image: linear-gradient(135deg, #0F1A40 0%, #374785 100%);
-    color: #F8E9A1;
+    background-color: #111111;
+    color: #FF9966;
 }
 
 header {
@@ -19,9 +18,10 @@ header {
 
 h1 {
     font-size: 2.5rem;
-    color: #F8E9A1;
+    color: #FF9966;
     margin-bottom: 0;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 0 0 15px rgba(255, 153, 102, 0.3);
+    font-weight: 600;
 }
 
 #game-container {
@@ -88,12 +88,12 @@ h1 {
 
 /* Setup Container Styles - Updated */
 #setup-container {
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: rgba(17, 17, 17, 0.95);
     padding: 40px;
     border-radius: 20px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 8px 30px rgba(255, 153, 102, 0.1);
     text-align: center;
-    border: 2px solid #A8D0E6;
+    border: 2px solid #FF9966;
     max-width: 500px;
     width: 90%;
     margin: 20px auto;
@@ -122,25 +122,30 @@ h1 {
 }
 
 .input-group label {
-    font-weight: 600;
-    color: #374785;
+    font-weight: 500;
+    color: #FF9966;
     font-size: 1rem;
 }
 
 .input-group input {
     padding: 12px 16px;
-    border: 2px solid #A8D0E6;
+    border: 2px solid #FF9966;
     border-radius: 12px;
     font-size: 1rem;
-    background-color: white;
-    color: #24305E;
+    background-color: rgba(255, 153, 102, 0.1);
+    color: #FF9966;
     transition: all 0.3s ease;
 }
 
 .input-group input:focus {
-    border-color: #374785;
+    border-color: #FF9966;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(55, 71, 133, 0.2);
+    box-shadow: 0 0 0 3px rgba(255, 153, 102, 0.2);
+    background-color: rgba(255, 153, 102, 0.15);
+}
+
+.input-group input::placeholder {
+    color: rgba(255, 153, 102, 0.5);
 }
 
 .action-group {
@@ -154,6 +159,7 @@ h1 {
     position: relative;
     text-align: center;
     margin: 15px 0;
+    color: #FF9966;
 }
 
 .separator::before,
@@ -163,7 +169,7 @@ h1 {
     top: 50%;
     width: calc(50% - 30px);
     height: 1px;
-    background-color: #A8D0E6;
+    background-color: rgba(255, 153, 102, 0.3);
 }
 
 .separator::before {
@@ -175,9 +181,9 @@ h1 {
 }
 
 .separator span {
-    background-color: white;
+    background-color: #111111;
     padding: 0 15px;
-    color: #666;
+    color: #FF9966;
     font-size: 0.9rem;
 }
 
@@ -199,8 +205,8 @@ h1 {
     padding: 14px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(135deg, #374785, #24305E);
-    color: white;
+    background: linear-gradient(135deg, #FF9966, #FF7733);
+    color: #111111;
     font-weight: 600;
     font-size: 1.1rem;
     cursor: pointer;
@@ -209,23 +215,23 @@ h1 {
 
 #create-challenge-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(55, 71, 133, 0.4);
+    box-shadow: 0 5px 15px rgba(255, 153, 102, 0.3);
 }
 
 #join-challenge-button {
     padding: 12px 24px;
-    border: 2px solid #374785;
+    border: 2px solid #FF9966;
     border-radius: 12px;
-    background: white;
-    color: #374785;
+    background: transparent;
+    color: #FF9966;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 #join-challenge-button:hover {
-    background: #374785;
-    color: white;
+    background: #FF9966;
+    color: #111111;
 }
 
 .message-area {
