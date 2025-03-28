@@ -89,6 +89,13 @@ async function handleCreateGame() {
 }
 
 async function handleJoinGame() {
+    const joinButton = document.getElementById('join-challenge-button');
+    
+    // Prevent multiple clicks
+    if (joinButton.disabled) {
+        return;
+    }
+    
     const playerNameInput = document.getElementById('player-name-input');
     const roomCodeInput = document.getElementById('room-code-input');
     const playerName = playerNameInput?.value.trim();
@@ -100,12 +107,17 @@ async function handleJoinGame() {
     }
 
     try {
+        // Disable button during join attempt
+        joinButton.disabled = true;
         displayMessage(`Joining game ${roomCode}...`);
         await emitJoinChallenge(playerName, roomCode);
     } catch (error) {
         console.error("Error joining game:", error);
         displayMessage(`Failed to join game: ${error.message}`, true);
         showSetupScreen();
+    } finally {
+        // Re-enable button after attempt (success or failure)
+        joinButton.disabled = false;
     }
 }
 

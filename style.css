@@ -257,6 +257,26 @@ h1 {
     min-height: 20px;
 }
 
+.error-message {
+    padding: 12px;
+    border-radius: 12px;
+    background-color: rgba(247, 108, 108, 0.2);
+    border: 1px solid #F76C6C;
+    font-size: 0.9rem;
+    min-height: 20px;
+    color: #F76C6C;
+    font-weight: bold;
+}
+
+.info-message {
+    padding: 12px;
+    border-radius: 12px;
+    background-color: rgba(248, 233, 161, 0.2);
+    border: 1px solid #F8E9A1;
+    font-size: 0.9rem;
+    min-height: 20px;
+}
+
 #player-score {
     padding: 10px 15px;
     border: 2px solid #374785;

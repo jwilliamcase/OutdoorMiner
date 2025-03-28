@@ -310,6 +310,29 @@ export function updateConnectionStatus(isConnected, message = '') {
     connectionStatusElement.textContent = message || (isConnected ? 'Connected' : 'Disconnected');
 }
 
+// Update displayMessage to allow persistent errors
+export function displayMessage(message, isError = false, autoClear = !isError) {
+    if (!messageArea) return;
+    
+    // Clear any existing timeout
+    if (messageArea._timeoutId) {
+        clearTimeout(messageArea._timeoutId);
+        messageArea._timeoutId = null;
+    }
+
+    messageArea.textContent = message;
+    messageArea.className = isError ? 'error-message' : 'info-message';
+
+    if (autoClear) {
+        messageArea._timeoutId = setTimeout(() => {
+            if (messageArea.textContent === message) {
+                messageArea.textContent = '';
+                messageArea.className = '';
+            }
+        }, 5000);
+    }
+}
+
 // Display messages to the user
 export function displayMessage(message, isError = false) {
     if (!messageArea) return;

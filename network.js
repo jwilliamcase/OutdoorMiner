@@ -22,7 +22,7 @@ import { NetworkEvents, GameEvents } from './eventTypes.js';
 let socketInstance = null;
 let currentRoomId = null;
 let currentPlayerId = null; // Store player ID assigned by server
-
+let connectionInProgress = false;
 
 // Function to connect to the server
 /**
@@ -34,50 +34,73 @@ let currentPlayerId = null; // Store player ID assigned by server
 export function connectToServer(action, playerName, roomCode = '') {
     console.log(`connectToServer - START action: ${action}`);
     
+    // Prevent multiple connection attempts
+    if (connectionInProgress) {
+        console.log("Connection already in progress");
+        return Promise.reject(new Error("Connection in progress"));
+    }
+
+    connectionInProgress = true;
+    
     return new Promise((resolve, reject) => {
-        // Prevent multiple connection attempts
-        if (socketInstance?.connecting) {
-            console.log("Connection already in progress");
-            reject(new Error("Connection already in progress"));
-            return;
-        }
-
-        if (socketInstance?.connected) {
-            console.log("Already connected, disconnecting first");
-            socketInstance.disconnect();
-        }
-
         try {
+            if (socketInstance?.connected) {
+                socketInstance.disconnect();
+            }
+
             socketInstance = io(CONFIG.SERVER_URL, {
                 transports: ['websocket'],
                 reconnectionAttempts: 3,
                 timeout: 10000,
-                query: { playerName, action, roomCode },
-                autoConnect: false // Prevent auto-connection
+                autoConnect: false,
+                query: { 
+                    playerName: playerName.trim(),
+                    action,
+                    roomCode: roomCode.trim()
+                }
             });
 
-            // Setup all event handlers before connecting
-            socketInstance.once('connect', () => {
+            // Set up one-time handlers before connecting
+            const connectHandler = () => {
                 if (!socketInstance.id) {
-                    reject(new Error("No socket ID received"));
+                    cleanup("No socket ID received");
                     return;
                 }
                 console.log('Connected with ID:', socketInstance.id);
+                connectionInProgress = false;
                 updateConnectionStatus(true, `Connected as Player ${socketInstance.id.substring(0, 4)}`);
                 resolve(socketInstance.id);
-            });
+            };
 
-            socketInstance.once('connect_error', (error) => {
-                console.error("Connection error:", error);
-                reject(error);
-            });
+            const errorHandler = (error) => {
+                cleanup(error.message);
+            };
 
-            // Now manually connect
+            const cleanup = (error) => {
+                socketInstance.off('connect', connectHandler);
+                socketInstance.off('connect_error', errorHandler);
+                connectionInProgress = false;
+                if (error) {
+                    reject(new Error(error));
+                }
+            };
+
+            socketInstance.once('connect', connectHandler);
+            socketInstance.once('connect_error', errorHandler);
+
+            // Start connection
             socketInstance.connect();
             updateConnectionStatus(false, 'Connecting...');
 
+            // Add timeout
+            setTimeout(() => {
+                if (connectionInProgress) {
+                    cleanup("Connection timeout");
+                }
+            }, 10000);
+
         } catch (error) {
-            console.error("Socket setup failed:", error);
+            connectionInProgress = false;
             reject(error);
         }
     });
@@ -358,42 +381,39 @@ export function emitJoinChallenge(playerName, roomCode) {
 
     connectToServer('join', playerName, roomCode)
         .then(socketId => {
-            console.log(`Player ${playerName} joining room: ${roomCode} with ID: ${socketId}`);
-            socketInstance.emit('join-challenge', { 
-                playerName, 
-                roomCode,
-                socketId
-            }, handleJoinResponse);
+            return new Promise((resolve, reject) => {
+                const joinData = {
+                    playerName: playerName.trim(),
+                    roomCode: roomCode.trim(),
+                    socketId
+                };
+
+                socketInstance.emit('join-challenge', joinData, (response) => {
+                    console.log("Join response received:", response);
+                    if (response.success) {
+                        currentRoomId = response.roomCode;
+                        currentPlayerId = socketId;
+                        
+                        if (response.gameState) {
+                            handleInitialState(response.gameState, response.players, socketId);
+                            showGameScreen();
+                            displayMessage("Successfully joined game!", false);
+                            resolve(response);
+                        } else {
+                            reject(new Error("No game state received"));
+                        }
+                    } else {
+                        reject(new Error(response.message || "Failed to join game"));
+                    }
+                });
+            });
         })
         .catch(error => {
-            console.error("Connection failed:", error);
-            displayMessage("Failed to connect. Please try again.", true);
+            console.error("Join failed:", error);
+            displayMessage(error.message || "Failed to join game", true);
             showSetupScreen();
+            throw error;
         });
-}
-
-function handleJoinResponse(response) {
-    console.log("Join response received:", response);
-    
-    if (response.success) {
-        currentRoomId = response.roomCode;
-        currentPlayerId = socketInstance.id;
-        
-        if (response.gameState) {
-            // Initialize game with received state
-            handleInitialState(response.gameState, response.players, currentPlayerId);
-            showGameScreen();
-            displayMessage("Successfully joined game!", false);
-        } else {
-            console.error("No game state in successful join response");
-            displayMessage("Error joining game: No game state received", true);
-            showSetupScreen();
-        }
-    } else {
-        console.error("Join failed:", response.message);
-        displayMessage(response.message || "Failed to join game", true);
-        showSetupScreen();
-    }
 }
 
 // Add URL parameter check on load

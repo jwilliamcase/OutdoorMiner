@@ -43,14 +43,23 @@ class EventManager {
 
     dispatchEvent(type, data) {
         if (!type) {
-            console.error("Attempted to dispatch event with undefined type", data);
+            console.error("Attempted to dispatch event with undefined type", { data });
+            return;
+        }
+
+        const validTypes = Object.values(EventTypes).reduce((acc, group) => {
+            return acc.concat(Object.values(group));
+        }, []);
+
+        if (!validTypes.includes(type)) {
+            console.error(`Invalid event type: ${type}`);
             return;
         }
 
         this.logEvent(type, data);
         const handlers = this.listeners.get(type);
         
-        if (handlers) {
+        if (handlers?.size > 0) {
             handlers.forEach(handler => {
                 try {
                     handler(data);
@@ -59,7 +68,7 @@ class EventManager {
                 }
             });
         } else {
-            console.warn(`No handlers registered for event type: ${type}`);
+            console.debug(`No handlers registered for event type: ${type}`);
         }
     }
 
