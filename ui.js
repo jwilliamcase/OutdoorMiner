@@ -333,21 +333,6 @@ export function displayMessage(message, isError = false, autoClear = !isError) {
     }
 }
 
-// Display messages to the user
-export function displayMessage(message, isError = false) {
-    if (!messageArea) return;
-    messageArea.textContent = message;
-    messageArea.className = isError ? 'error' : 'info'; // Apply CSS class
-     // Clear message after a delay
-     setTimeout(() => {
-        if (messageArea.textContent === message) { // Only clear if message hasn't changed
-             messageArea.textContent = '';
-             messageArea.className = '';
-         }
-     }, 5000); // Clear after 5 seconds
-}
-
-
 // Update player information display (name, score)
 export function updatePlayerInfo(playersData, ownPlayerId) {
     console.log("Updating player info:", playersData, "My ID:", ownPlayerId);
