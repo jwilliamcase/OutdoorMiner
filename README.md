@@ -1,65 +1,69 @@
 # Outdoor Miner: Hex Territory Game
 
-## Core Game Mechanics
-- 16x16 hexagonal grid
-- 5 colors: Red (#F76C6C), Blue (#374785), Yellow (#F8E9A1), Green (#50C878), Purple (#9B59B6)
-- Players claim territory by selecting colors
-- All owned hexes update to selected color
-- Can't reuse opponent's last color
-- Game ends when board is filled
+## Game Overview
+A multiplayer territory capture game played on a hexagonal grid. Players compete to control territory by strategically selecting colors and expanding their influence.
+
+### Core Mechanics
+- **Board**: 16x16 hexagonal grid
+- **Players**: 2 players (online multiplayer)
+- **Colors**: 5 unique colors
+  - Red (#F76C6C)
+  - Blue (#374785)
+  - Yellow (#F8E9A1)
+  - Green (#50C878)
+  - Purple (#9B59B6)
+- **Gameplay Loop**:
+  1. Players start from opposite corners
+  2. Each turn: select a color to capture adjacent matching tiles
+  3. Captured tiles + owned territory change to selected color
+  4. Cannot use opponent's last-used color
+  5. Game ends when board is filled
+  6. Winner: Player with most territory
+
+### Technical Implementation
+- **Canvas-based rendering** with dynamic scaling
+- **WebSocket communication** for real-time gameplay
+- **Event-driven architecture** for game state management
+- **Responsive design** adapting to various screen sizes
 
 ## Current Status 🚦
 
+### Recent Progress ✅
+1. Board Rendering
+   - Added dynamic hex size calculation
+   - Improved board centering logic
+   - Implemented responsive scaling
+   - Fixed canvas positioning
+
+2. UI Improvements
+   - Consolidated container structure
+   - Enhanced score display
+   - Added turn indicators
+   - Improved game feedback
+
 ### Active Issues 🔴
 1. Canvas/Board
-   - ✅ Fixed drawHexagon definition
-   - ✅ Added proper canvas scaling
-   - ⏳ Board still renders off-center
-   - ⏳ Game area container sizing needs work
+   - Need better container scaling
+   - Board clipping on small screens
+   - Canvas resize handling needs work
 
 2. UI Elements
-   - ✅ Fixed score container hierarchy
-   - ✅ Added turn indicator logic
-   - ❌ Still have duplicate message-area elements
-   - ❌ Connection status display needs consolidation
+   - Score container still floating left
+   - Message area needs consolidation
+   - Player info display improvements needed
 
-3. Event System
-   - ✅ Added eventManager imports
-   - ✅ Added EventTypes definitions
-   - ✅ Basic event binding working
-   - ⏳ Need to complete event flow testing
+### Next Steps ⏭️
+1. High Priority
+   - [ ] Fix container scaling
+   - [ ] Implement proper board centering
+   - [ ] Add dynamic hex size adjustments
+   - [ ] Improve score container positioning
 
-### Code Cleanup Needed 🧹
-1. HTML Structure
-   - ❌ Remove duplicate score-container div
-   - ❌ Clean up message-area elements
-   - ❌ Consolidate connection status elements
-   - ❌ Fix nested container structure
-
-2. Dead Code
-   - ❌ Remove powerup styles
-   - ❌ Clean up audio elements
-   - ❌ Remove local game remnants
-   - ❌ Update chat system
-
-### Next Priority Tasks ⚡
-1. Critical Fixes
-   - [ ] Fix board centering and clipping
-   - [ ] Consolidate all message displays
-   - [ ] Clean up HTML structure
-   - [ ] Test event system flow
-
-2. Polish
-   - [ ] Add loading states
-   - [ ] Improve error feedback
-   - [ ] Add turn transitions
-   - [ ] Fix mobile layout
-
-3. Testing
-   - [ ] Verify board initialization
-   - [ ] Test player positions
-   - [ ] Validate move handling
-   - [ ] Check state updates
+2. Code Quality
+   - [ ] Consolidate duplicate elements
+   - [ ] Clean up event handling
+   - [ ] Remove unused styles
+   - [ ] Add error boundaries
 
 ## Architecture Notes 📝
 
