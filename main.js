@@ -94,24 +94,17 @@ async function handleJoinGame() {
     const playerName = playerNameInput?.value.trim();
     const roomCode = roomCodeInput?.value.trim();
 
-    if (!playerName) {
-        displayMessage("Please enter your name.", true);
+    if (!playerName || !roomCode) {
+        displayMessage("Please enter both your name and room code.", true);
         return;
     }
-    
-    if (!roomCode) {
-        displayMessage("Please enter a room code to join.", true);
-        return;
-    }
-
-    console.log(`DEBUG: 'Join Game' button clicked for room: ${roomCode}`);
-    displayMessage(`Joining game ${roomCode}...`);
 
     try {
-        emitJoinChallenge(playerName, roomCode);
+        displayMessage(`Joining game ${roomCode}...`);
+        await emitJoinChallenge(playerName, roomCode);
     } catch (error) {
         console.error("Error joining game:", error);
-        displayMessage(`Failed to join game: ${error}`, true);
+        displayMessage(`Failed to join game: ${error.message}`, true);
         showSetupScreen();
     }
 }

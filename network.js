@@ -12,7 +12,8 @@ import {
     showGameOver,
     playSound,
     updateGameCode, // Add this import
-    centerOnPlayerStart // Add this import
+    centerOnPlayerStart, // Add this import
+    showSetupScreen // Add this import
 } from './ui.js';
 
 import { eventManager, EventTypes } from './eventManager.js';
@@ -32,54 +33,51 @@ let currentPlayerId = null; // Store player ID assigned by server
  */
 export function connectToServer(action, playerName, roomCode = '') {
     console.log(`connectToServer - START action: ${action}`);
+    
+    return new Promise((resolve, reject) => {
+        if (socketInstance?.connected) {
+            socketInstance.disconnect();
+        }
 
-    if (!CONFIG.SERVER_URL) {
-        console.error("CONFIG.SERVER_URL is not defined. Cannot connect.");
-        displayMessage("Configuration error: Server URL not set.", true);
-        playSound('error'); // Keep error sound for config issues
-        return;
-    }
+        try {
+            socketInstance = io(CONFIG.SERVER_URL, {
+                transports: ['websocket'],
+                reconnectionAttempts: 3,
+                timeout: 10000,
+                query: { playerName, action, roomCode }
+            });
 
-    if (socketInstance && socketInstance.connected) {
-        console.log("Already connected, disconnecting first...");
-        socketInstance.disconnect();
-    }
+            updateConnectionStatus(false, 'Connecting...');
 
-    try {
-        socketInstance = io(CONFIG.SERVER_URL, {
-            transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            reconnectionAttempts: 3,
-            timeout: 10000, // Increase timeout
-            query: { playerName, action, roomCode } // Send player name on connection
-        });
-        console.log("Socket.IO client initialized, attempting connection...");
-        updateConnectionStatus(false, 'Connecting...'); // Update UI - Connecting
+            // Setup connection promise
+            const connectionPromise = new Promise((resolveConnection) => {
+                socketInstance.once('connect', () => {
+                    if (socketInstance.id) {
+                        console.log('Connected with ID:', socketInstance.id);
+                        updateConnectionStatus(true, `Connected as Player ${socketInstance.id.substring(0, 4)}`);
+                        resolveConnection(socketInstance.id);
+                    } else {
+                        reject(new Error('No socket ID assigned'));
+                    }
+                });
+            });
 
-        // Add connection timeout
-        const connectionTimeout = setTimeout(() => {
-            if (!socketInstance.connected) {
-                console.error("Connection attempt timed out");
-                displayMessage("Connection timed out. Server may be down.", true);
-                socketInstance.disconnect();
-            }
-        }, 10000);
+            // Add timeout
+            const timeoutPromise = new Promise((_, rejectTimeout) => {
+                setTimeout(() => {
+                    rejectTimeout(new Error('Connection timeout'));
+                }, 10000);
+            });
 
-        setupSocketEventListeners(); // Setup listeners after creating instance
+            // Race connection against timeout
+            Promise.race([connectionPromise, timeoutPromise])
+                .then(resolve)
+                .catch(reject);
 
-        // Clear timeout on successful connection
-        socketInstance.on('connect', () => {
-            clearTimeout(connectionTimeout);
-        });
-
-    } catch (error) {
-        console.error("Socket.IO connection failed:", error);
-        displayMessage("Connection failed. Is the server running?", true);
-        updateConnectionStatus(false, 'Connection Failed');
-        playSound('error');
-    }
-
+        } catch (error) {
+            reject(error);
+        }
+    });
 }
 
 // Centralized setup for socket event listeners
@@ -350,27 +348,19 @@ export function emitJoinChallenge(playerName, roomCode) {
         return;
     }
 
-    try {
-        if (!socketInstance || !socketInstance.connected) {
-            connectToServer('join', playerName, roomCode);
-            
-            socketInstance.once('connect', () => {
-                console.log(`Player ${playerName} joining room: ${roomCode}`);
-                socketInstance.emit('join-challenge', { 
-                    playerName, 
-                    roomCode 
-                }, handleJoinResponse);
-            });
-        } else {
+    connectToServer('join', playerName, roomCode)
+        .then(() => {
+            console.log(`Player ${playerName} joining room: ${roomCode}`);
             socketInstance.emit('join-challenge', { 
                 playerName, 
                 roomCode 
             }, handleJoinResponse);
-        }
-    } catch (error) {
-        console.error("Error joining game:", error);
-        displayMessage("Failed to join game. Please try again.", true);
-    }
+        })
+        .catch(error => {
+            console.error("Connection failed:", error);
+            displayMessage("Failed to connect. Please try again.", true);
+            showSetupScreen();
+        });
 }
 
 function handleJoinResponse(response) {
@@ -378,9 +368,9 @@ function handleJoinResponse(response) {
     if (response.success) {
         currentRoomId = response.roomCode;
         displayMessage("Successfully joined game!", false);
-        // Add game state initialization here
         if (response.gameState) {
             handleInitialState(response.gameState, response.players, socketInstance.id);
+            showGameScreen();
         }
     } else {
         displayMessage(response.message || "Failed to join game", true);
