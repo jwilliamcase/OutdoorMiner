@@ -28,29 +28,64 @@ A multiplayer territory capture game played on a hexagonal grid. Players compete
 
 ## Current Status 🚦
 
-### Recent Fixes 🔧
-1. Board Rendering
-   - Fixed duplicate canvas resize handlers
-   - Stabilized scaling calculations
-   - Removed duplicate color button initialization
-   - Added consistent padding for board layout
+### Active Issues 🔴
+1. Player 2 Connection Flow
+   - Room code not being sent to player 1
+   - Join process not completing
+   - Connection status unclear
 
-### Current Issues 🔴
-1. Canvas/Board
-   - Single black tile rendering instead of full board
-   - Color buttons showing duplicates
-   - Board scaling needs optimization
+2. Board Rendering
+   - Board showing as single black tile
+   - Color buttons duplicating
+
+### Debug Notes 🔧
+1. Player 1 (Host) Flow:
+   ✓ Creates game
+   ✓ Gets connected to server
+   ⨯ Never receives room code to share
+   ✓ Board initializes (but renders incorrectly)
+
+2. Player 2 Flow:
+   ✓ Enters name
+   ⨯ No room code to enter
+   ⨯ Join button sends empty room code
+   ⨯ Cannot connect to existing game
+
+### Immediate Fixes Needed 🚀
+1. Room Code Generation & Display
+   ```javascript
+   // In network.js - emitCreateChallenge
+   socketInstance.emit('create-challenge', playerName, (response) => {
+       if (response.success) {
+           currentRoomId = response.challengeCode;
+           // Add this line to show code to player 1
+           document.getElementById('game-id-display').textContent = response.challengeCode;
+           document.getElementById('challenge-info').style.display = 'block';
+       }
+   });
+   ```
+
+2. Join Flow Update
+   - Validate room code before sending
+   - Show clear error if code missing
+   - Display connection status during join
 
 ### Next Steps ⏭️
-1. Critical Fixes
-   - [ ] Debug board rendering in renderGameBoard()
-   - [ ] Clean up event listener initialization
-   - [ ] Implement proper board state management
+1. Fix Player Connection (Priority)
+   - [ ] Implement room code display
+   - [ ] Add room code validation
+   - [ ] Fix join game flow
+   - [ ] Add connection status feedback
 
-2. UI Cleanup
-   - [ ] Consolidate color button handling
-   - [ ] Improve scale calculations
+2. Board Rendering
+   - [ ] Fix hex grid initialization
+   - [ ] Resolve color button duplication
+   - [ ] Implement proper scaling
+
+3. UI Polish
    - [ ] Add loading states
+   - [ ] Improve error messages
+   - [ ] Show player status clearly
 
 ## Architecture Notes 📝
 

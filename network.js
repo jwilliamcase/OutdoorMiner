@@ -291,51 +291,25 @@ export function emitCreateChallenge(playerName) {
         connectToServer('create', playerName);
         
         socketInstance.once('connect', () => {
-            console.log(`Emitting create-challenge for player: ${playerName}`);
             socketInstance.emit('create-challenge', playerName, (response) => {
-                try {
-                    if (response.success) {
-                        currentRoomId = response.challengeCode;
-                        updateGameCode(response.challengeCode);
-                        
-                        // Initialize game state
-                        const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
-                        initialState.initializePlayerPositions(socketInstance.id, null);
-                        
-                        // Initialize UI with correct order
-                        handleInitialState(initialState, {
-                            [socketInstance.id]: {
-                                name: playerName,
-                                score: 1,
-                                playerNumber: 1
-                            }
-                        }, socketInstance.id);
-
-                        showGameScreen();
-                        centerOnPlayerStart(); // Now correctly imported
-                        
-                        displayMessage(`Challenge created! Code: ${response.challengeCode}`);
-                    }
-                } catch (error) {
-                    console.error("Error handling create challenge response:", error);
-                    displayMessage("Error creating game. Please try again.", true);
-                }
-            });
-        });
-    } else {
-        // Already connected case
-        socketInstance.emit('create-challenge', playerName, (response) => {
-            console.log("Create challenge response:", response);
-            try {
                 if (response.success) {
                     currentRoomId = response.challengeCode;
-                    updateGameCode(response.challengeCode);
                     
+                    // Show game code to host
+                    const gameIdDisplay = document.getElementById('game-id-display');
+                    if (gameIdDisplay) {
+                        gameIdDisplay.textContent = `Game Code: ${response.challengeCode}`;
+                        gameIdDisplay.style.display = 'block';
+                    }
+                    
+                    // Rest of initialization...
+                    updateGameCode(response.challengeCode);
+                        
                     // Initialize game state
                     const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
                     initialState.initializePlayerPositions(socketInstance.id, null);
                     
-                    // Initialize UI
+                    // Initialize UI with correct order
                     handleInitialState(initialState, {
                         [socketInstance.id]: {
                             name: playerName,
@@ -344,53 +318,47 @@ export function emitCreateChallenge(playerName) {
                         }
                     }, socketInstance.id);
 
-                    // Center view on player's starting position
-                    centerOnPlayerStart();
+                    showGameScreen();
+                    centerOnPlayerStart(); // Now correctly imported
                     
                     displayMessage(`Challenge created! Code: ${response.challengeCode}`);
                 }
-            } catch (error) {
-                console.error("Error handling create challenge response:", error);
-                displayMessage("Error creating game. Please try again.", true);
-            }
+            });
         });
     }
 }
 
-// Function to emit join challenge event, uses callback for response
 export function emitJoinChallenge(playerName, roomCode) {
+    if (!playerName || !roomCode) {
+        displayMessage("Please enter both your name and the room code", true);
+        return;
+    }
+
     if (!socketInstance || !socketInstance.connected) {
         connectToServer('join', playerName, roomCode);
         
         socketInstance.once('connect', () => {
-            console.log(`Emitting join-challenge for player: ${playerName} to room: ${roomCode}`);
-            socketInstance.emit('join-challenge', { playerName, roomCode }, (response) => {
-                console.log('join-challenge response:', response);
-                if (response.success) {
-                    currentRoomId = response.roomCode;
-                    updateGameCode(response.roomCode);
-                    displayMessage(`Joined room: ${response.roomCode}. Waiting for game to start...`, false);
-                    updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
-                } else {
-                    console.error('Failed to join challenge:', response.message);
-                    displayMessage(`Error joining challenge: ${response.message}`, true);
-                }
-            });
+            console.log(`Player ${playerName} joining room: ${roomCode}`);
+            socketInstance.emit('join-challenge', { 
+                playerName, 
+                roomCode 
+            }, handleJoinResponse);
         });
     } else {
-        console.log(`Emitting join-challenge for player: ${playerName} to room: ${roomCode}`);
-        socketInstance.emit('join-challenge', { playerName, roomCode }, (response) => {
-            console.log('join-challenge response:', response);
-            if (response.success) {
-                currentRoomId = response.roomCode;
-                updateGameCode(response.roomCode);
-                displayMessage(`Joined room: ${response.roomCode}. Waiting for game to start...`, false);
-                updateConnectionStatus(true, `Connected | Room: ${response.roomCode}`);
-            } else {
-                console.error('Failed to join challenge:', response.message);
-                displayMessage(`Error joining challenge: ${response.message}`, true);
-            }
-        });
+        socketInstance.emit('join-challenge', { 
+            playerName, 
+            roomCode 
+        }, handleJoinResponse);
+    }
+}
+
+function handleJoinResponse(response) {
+    if (response.success) {
+        currentRoomId = response.roomCode;
+        displayMessage("Successfully joined game!", false);
+    } else {
+        displayMessage(response.message || "Failed to join game", true);
+        showSetupScreen(); // Go back to setup if join fails
     }
 }
 
