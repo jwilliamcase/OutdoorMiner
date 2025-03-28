@@ -10,12 +10,16 @@ export const BOARD = {
 
 // Add responsive sizing helpers
 export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, rows) => {
-    // Calculate maximum possible hex size that will fit the grid
-    const maxHorizontalSize = (containerWidth * 0.9) / (cols * 1.5);
-    const maxVerticalSize = (containerHeight * 0.9) / (rows * Math.sqrt(3));
-    
-    // Use the smaller of the two to ensure board fits both dimensions
-    return Math.min(maxHorizontalSize, maxVerticalSize, BOARD.HEX_SIZE);
+    // Account for the staggered nature of hex grid
+    const effectiveWidth = cols * 1.5 + 0.5; // Add 0.5 for last column
+    const effectiveHeight = rows * Math.sqrt(3) + (Math.sqrt(3) / 2); // Add half hex for stagger
+
+    // Calculate size constraints with 5% padding
+    const maxWidth = (containerWidth * 0.95) / effectiveWidth;
+    const maxHeight = (containerHeight * 0.95) / effectiveHeight;
+
+    // Return the smaller of the two sizes to ensure fit
+    return Math.min(maxWidth, maxHeight);
 };
 
 // Update BOARD with dynamic spacing getters

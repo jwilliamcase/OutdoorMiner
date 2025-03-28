@@ -160,30 +160,38 @@ export function showGameScreen() {
 export function resizeGame() {
     if (!canvas || !gameState) return;
 
-    // Get container dimensions with padding
     const gameArea = document.getElementById('game-area');
     const rect = gameArea.getBoundingClientRect();
-    const availableWidth = rect.width - 40;  // 20px padding each side
-    const availableHeight = rect.height - 40;
 
-    // Calculate total board dimensions
-    const totalHexWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
-    const totalHexHeight = gameState.rows * BOARD.VERTICAL_SPACING;
+    // Calculate optimal hex size
+    const hexSize = calculateOptimalHexSize(
+        rect.width,
+        rect.height,
+        gameState.cols,
+        gameState.rows
+    );
 
-    // Calculate scale to fit
-    const scaleX = availableWidth / totalHexWidth;
-    const scaleY = availableHeight / totalHexHeight;
-    const scale = Math.min(scaleX, scaleY, 1);
+    // Calculate total board dimensions including stagger offset
+    const boardWidth = (gameState.cols * 1.5 + 0.5) * hexSize;
+    const boardHeight = (gameState.rows * Math.sqrt(3) + (Math.sqrt(3) / 2)) * hexSize;
 
-    // Set canvas dimensions
-    canvas.width = totalHexWidth * scale;
-    canvas.height = totalHexHeight * scale;
+    // Set canvas size to match calculated dimensions
+    canvas.width = boardWidth;
+    canvas.height = boardHeight;
 
-    // Store scale for rendering
-    gameState.currentScale = scale;
-    gameState.currentHexSize = BOARD.HEX_SIZE * scale;
+    // Update game state with new hex size
+    gameState.currentHexSize = hexSize;
 
-    console.log(`Canvas resized: ${canvas.width}x${canvas.height}, Scale: ${scale}`);
+    // Store scale for consistent rendering
+    gameState.currentScale = Math.min(
+        rect.width / boardWidth,
+        rect.height / boardHeight
+    );
+
+    // Apply the scale to canvas style
+    canvas.style.width = `${boardWidth * gameState.currentScale}px`;
+    canvas.style.height = `${boardHeight * gameState.currentScale}px`;
+
     renderGameBoard();
 }
 
@@ -248,17 +256,23 @@ export function renderGameBoard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
 
-    // Apply scale
-    ctx.scale(gameState.currentScale, gameState.currentScale);
+    // Calculate centering offsets
+    const xOffset = gameState.currentHexSize;
+    const yOffset = gameState.currentHexSize;
 
-    // Center the board
-    const offsetX = (canvas.width / gameState.currentScale - gameState.cols * BOARD.HORIZONTAL_SPACING) / 2;
-    const offsetY = (canvas.height / gameState.currentScale - gameState.rows * BOARD.VERTICAL_SPACING) / 2;
-    ctx.translate(offsetX, offsetY);
+    // Apply centering translation
+    ctx.translate(xOffset, yOffset);
 
-    // Render tiles
+    // Draw all hexagons
     Object.entries(gameState.board).forEach(([key, tile]) => {
-        drawHexagon(tile.q, tile.r, tile.color, tile.owner !== null);
+        const { q, r } = tile;
+        const spacing = getHexSpacing(gameState.currentHexSize);
+        
+        // Calculate hex position with stagger offset for odd columns
+        const x = q * spacing.HORIZONTAL;
+        const y = r * spacing.VERTICAL + (q % 2) * (spacing.VERTICAL / 2);
+
+        drawHexagon(x, y, gameState.currentHexSize, tile.color, tile.owner !== null);
     });
 
     ctx.restore();
