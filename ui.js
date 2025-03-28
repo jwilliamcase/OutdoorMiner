@@ -211,26 +211,53 @@ export function centerOnPlayerStart() {
     renderGameBoard();
 }
 
-// Draw the entire game board
+// Draw a single hexagon
+export function drawHexagon(q, r, color, isOwned = false) {
+    if (!ctx) return;
+
+    const center = getHexCenter(q, r);
+    const points = [];
+    
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i;
+        points.push({
+            x: center.x + BOARD.HEX_SIZE * Math.cos(angle),
+            y: center.y + BOARD.HEX_SIZE * Math.sin(angle)
+        });
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+    ctx.closePath();
+
+    // Fill with color
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Draw stronger border for owned territories
+    ctx.strokeStyle = isOwned ? '#000' : '#666';
+    ctx.lineWidth = isOwned ? 2 : 1;
+    ctx.stroke();
+}
+
+// Update renderGameBoard to use the exported drawHexagon
 export function renderGameBoard() {
     if (!ctx || !gameState) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    
-    // Apply camera transform
-    ctx.translate(cameraOffset.x, cameraOffset.y);
 
-    // Calculate board dimensions
+    // Calculate board dimensions using BOARD constants
     const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
     const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
 
-    // If player 2, flip the board
-    if (currentPlayerId === gameState.players[1]?.id) {
-        ctx.translate(boardWidth / 2, boardHeight / 2);
-        ctx.rotate(Math.PI);
-        ctx.translate(-boardWidth / 2, -boardHeight / 2);
-    }
+    // Center the board
+    const centerX = (canvas.width - boardWidth) / 2;
+    const centerY = (canvas.height - boardHeight) / 2;
+
+    // Apply camera transform with centering
+    ctx.translate(centerX + cameraOffset.x, centerY + cameraOffset.y);
 
     // Render tiles
     Object.entries(gameState.board).forEach(([key, tile]) => {
