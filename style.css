@@ -405,22 +405,21 @@ h1 {
 
 #game-area {
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     width: 100%;
-    max-width: 1100px;
-    min-height: 600px;
-    height: calc(100vh - 300px); /* Adjust based on your header/footer height */
+    height: 80vh;  /* Adjust height to be percentage of viewport */
     margin: 0 auto;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    overflow: hidden;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 #gameCanvas {
     display: block;
     background-color: transparent;
-    touch-action: none; /* Prevents scrolling on mobile */
+    touch-action: none;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* Remove powerup related styles */

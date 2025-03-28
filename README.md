@@ -8,101 +8,86 @@
 - Can't reuse opponent's last color
 - Game ends when board is filled
 
-## Current Sprint
+## Current Status 🚦
 
-### Recent Fixes ✅
-1. Board Display
-   - ✅ Centralized constants in constants.js
-   - ✅ Fixed HORIZONTAL_SPACING reference
-   - ✅ Added board rotation for Player 2
-   - ✅ Added consistent player view
+### Active Issues 🔴
+1. Canvas/Board
+   - Canvas size not adapting to board dimensions
+   - Board positioning off-center, clipping at edges
+   - View not centering correctly on game start
+   - Game area container needs responsive sizing
 
-2. Architecture
-   - ✅ Created central constants file
-   - ✅ Updated geometry calculations
-   - ✅ Fixed import/export structure
-   - ✅ Cleaned up UI manager
+2. UI Elements
+   - Double score container (one visible, one hidden)
+   - Multiple message-area elements causing conflicts
+   - Connection status display unreliable
 
-### Current Issues 🔄
-1. DOM Elements
-   - [ ] Missing setupContainer
-   - [ ] Connection status not found
-   - [ ] Element initialization timing
-   - [ ] Event binding sequence
+3. Event System
+   - eventManager reference missing in UIManager
+   - Missing EventTypes definitions
+   - Event binding sequence unclear
 
-2. Game Flow
-   - [ ] Player start position unclear
-   - [ ] Turn transition feedback
-   - [ ] Move validation feedback
-   - [ ] Score display updates
+### Orphaned Code 🗑️
+1. Duplicate Elements
+   - Two separate score-container divs
+   - Multiple message-area elements
+   - Redundant game status displays
 
-### Current Sprint Status
-
-1. DOM Structure ⏳
-   - ✅ Added missing containers
-   - ✅ Fixed element hierarchy
-   - ✅ Added connection status
-   - ⏳ Validating element initialization
-
-2. UI Updates ⏳
-   - ✅ Game container structure
-   - ✅ Setup screen layout
-   - ✅ Status indicators
-   - ⏳ Element caching
-
-3. Next Tasks
-   - [ ] Test element validation
-   - [ ] Add error boundaries
-   - [ ] Implement UI feedback
-   - [ ] Add loading states
+2. Dead Code
+   - Unused powerup styles (can be removed)
+   - Local game mode remnants
+   - Unused audio elements
+   - Stale chat system code
 
 ### Next Steps ⏭️
-1. DOM Structure
-   - Add missing containers
-   - Fix element hierarchy
-   - Add status elements
-   - Implement feedback UI
+1. Immediate Fixes
+   - [ ] Fix canvas sizing logic
+   - [ ] Center board in viewport
+   - [ ] Remove duplicate score containers
+   - [ ] Clean up message area implementations
+   - [ ] Add eventManager imports
 
-2. Game State
-   - Initialize board correctly
-   - Handle player positions
-   - Implement turn flow
-   - Add move validation
+2. Technical Debt
+   - [ ] Remove powerup-related CSS
+   - [ ] Clean up unused audio elements
+   - [ ] Consolidate message displays
+   - [ ] Fix event system dependencies
 
-### Current Debug Status
-1. Initialization Flow ⚠️
-   - ✅ Added setupEventListeners to UIManager
-   - ✅ Added initialization error boundaries
-   - ✅ Added fallback error display
-   - ⏳ Testing connection flow
+3. DOM Cleanup
+   - [ ] Remove duplicate IDs
+   - [ ] Consolidate status displays
+   - [ ] Fix container hierarchy
+   - [ ] Clean up unused elements
 
-2. Critical Fixes
-   - ✅ Fixed UIManager initialization
-   - ✅ Added proper event binding
-   - ✅ Added error recovery
-   - [ ] Test server connection
+## Architecture Notes 📝
 
-3. Next Steps
-   - [ ] Verify all DOM elements exist
-   - [ ] Test connection sequence
-   - [ ] Add connection retries
-   - [ ] Improve error messages
+### Component Structure
+- game-container
+  - game-header (scores + status)
+  - game-area (canvas)
+  - color-selection
+  - message-area
 
-## Technical Notes
-1. Constants
-   - Now using BOARD object for geometry
-   - COLORS object for game colors
-   - EVENTS for system events
-   - Consistent spacing calculations
+### Event Flow
+1. User Input → UIManager
+2. UIManager → EventManager
+3. EventManager → Game Logic
+4. Game Logic → Network
+5. Network → State Update
 
-2. View Management
-   - Player always sees from bottom-left
-   - Board rotates 180° for Player 2
-   - Coordinates transform automatically
-   - Click handling adjusted for rotation
+### Critical Paths
+1. Canvas Rendering
+   - Calculate size from board dimensions
+   - Center in viewport
+   - Apply proper scaling
+   - Handle window resize
 
-3. Testing Needs
-   - Board initialization
-   - Color distribution
-   - Player positioning
-   - View transformations
+2. UI State Management
+   - Single source of truth for status
+   - Consolidated message system
+   - Proper event propagation
+
+3. Event System
+   - Proper initialization order
+   - Clear event type definitions
+   - Consistent error handling

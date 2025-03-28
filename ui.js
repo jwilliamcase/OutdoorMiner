@@ -158,48 +158,57 @@ export function showGameScreen() {
 
 // Resize canvas and re-render
 export function resizeGame() {
-    if (!canvas) {
+    if (!canvas || !gameState) {
         console.warn("Canvas not ready for resize.");
         return;
     }
-    
-    // Set default dimensions if container is not available or has no dimensions
-    let width = 800;  // Default width
-    let height = 600; // Default height
-    
-    if (canvasContainer) {
-        // Get parent container dimensions
-        const containerRect = canvasContainer.getBoundingClientRect();
-        if (containerRect.width > 0 && containerRect.height > 0) {
-            width = containerRect.width;
-            height = containerRect.height;
-        }
-    }
 
-    // Set canvas dimensions
-    canvas.width = width;
-    canvas.height = height;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    // Calculate required canvas size based on board dimensions
+    const totalWidth = gameState.cols * BOARD.HORIZONTAL_SPACING + (BOARD.HEX_SIZE * 2);
+    const totalHeight = gameState.rows * BOARD.VERTICAL_SPACING + (BOARD.HEX_SIZE * 2);
+
+    // Get container dimensions
+    const containerRect = canvasContainer?.getBoundingClientRect() || {
+        width: window.innerWidth,
+        height: window.innerHeight * 0.8
+    };
+
+    // Calculate scale to fit
+    const scaleWidth = containerRect.width / totalWidth;
+    const scaleHeight = containerRect.height / totalHeight;
+    const scale = Math.min(scaleWidth, scaleHeight, 1); // Don't scale up past 1
+
+    // Set canvas size
+    canvas.width = totalWidth * scale;
+    canvas.height = totalHeight * scale;
+
+    // Update style
+    canvas.style.width = `${canvas.width}px`;
+    canvas.style.height = `${canvas.height}px`;
 
     console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
-
+    
     if (gameState) {
-        console.log("resizeGame triggered, re-rendering.");
-        renderGameBoard();
-    } else {
-        console.log("resizeGame triggered, but gameState not ready for rendering.");
-        // Draw placeholder
-        if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#eee';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#555';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText("Waiting for game to start...", canvas.width / 2, canvas.height / 2);
-        }
+        centerOnPlayerStart();
     }
+}
+
+export function centerOnPlayerStart() {
+    if (!canvas || !gameState) return;
+    
+    // Calculate total board size
+    const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
+    const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
+    
+    // Calculate initial offset to center the board
+    cameraOffset.x = (canvas.width - boardWidth) / 2;
+    cameraOffset.y = (canvas.height - boardHeight) / 2;
+    
+    // Add padding for the hex size
+    cameraOffset.x += BOARD.HEX_SIZE;
+    cameraOffset.y += BOARD.HEX_SIZE;
+    
+    renderGameBoard();
 }
 
 // Draw the entire game board
@@ -208,79 +217,27 @@ export function renderGameBoard() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
+    
+    // Apply camera transform
+    ctx.translate(cameraOffset.x, cameraOffset.y);
 
-    // Calculate board dimensions using BOARD constants
+    // Calculate board dimensions
     const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
     const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
 
-    // Center the board
-    const centerX = (canvas.width - boardWidth) / 2;
-    const centerY = (canvas.height - boardHeight) / 2;
-
-    // Apply camera offset
-    ctx.translate(centerX + cameraOffset.x, centerY + cameraOffset.y);
-
-    // If player 2, flip the board 180 degrees around its center
+    // If player 2, flip the board
     if (currentPlayerId === gameState.players[1]?.id) {
         ctx.translate(boardWidth / 2, boardHeight / 2);
         ctx.rotate(Math.PI);
         ctx.translate(-boardWidth / 2, -boardHeight / 2);
     }
 
-    // Render the board
+    // Render tiles
     Object.entries(gameState.board).forEach(([key, tile]) => {
         drawHexagon(tile.q, tile.r, tile.color, tile.owner !== null);
     });
 
     ctx.restore();
-}
-
-// Add new function to center view on player's starting position
-export function centerOnPlayerStart() {
-    if (!canvas || !gameState) return;
-    
-    // Calculate board dimensions
-    const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
-    const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
-    
-    // Calculate offsets to center the board with player at bottom-left
-    cameraOffset.x = (canvas.width - boardWidth) / 2;
-    cameraOffset.y = (canvas.height - boardHeight) / 2;
-    
-    // Adjust to show bottom-left corner
-    cameraOffset.y += boardHeight / 3; // Move board up to show more of bottom area
-    
-    renderGameBoard();
-}
-
-// Draw a single hexagon
-function drawHexagon(q, r, color, isOwned = false) {
-    if (!ctx) return;
-
-    const center = getHexCenter(q, r);
-    const points = [];
-    
-    for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        points.push({
-            x: center.x + BOARD.HEX_SIZE * Math.cos(angle),
-            y: center.y + BOARD.HEX_SIZE * Math.sin(angle)
-        });
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    points.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
-    ctx.closePath();
-
-    // Fill with color
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Draw stronger border for owned territories
-    ctx.strokeStyle = isOwned ? '#000' : '#666';
-    ctx.lineWidth = isOwned ? 2 : 1;
-    ctx.stroke();
 }
 
 // --- UI Updates ---
