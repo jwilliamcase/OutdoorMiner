@@ -12,6 +12,9 @@ let localPlayerId;
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded - START");
 
+    // Check for room code in URL
+    checkUrlParameters();
+
     // Initialize UI elements and basic event listeners
     if (!initializeUI()) {
         console.error("Failed to initialize UI - stopping initialization");

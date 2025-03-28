@@ -322,6 +322,22 @@ export function emitCreateChallenge(playerName) {
                     centerOnPlayerStart(); // Now correctly imported
                     
                     displayMessage(`Challenge created! Code: ${response.challengeCode}`);
+                    
+                    // Create and show shareable link
+                    const shareUrl = new URL(window.location.href);
+                    shareUrl.searchParams.set('code', response.challengeCode);
+                    
+                    const shareLink = document.querySelector('.share-link');
+                    if (shareLink) {
+                        shareLink.innerHTML = `
+                            Share link: 
+                            <span>${shareUrl.toString()}</span>
+                            <button onclick="navigator.clipboard.writeText('${shareUrl.toString()}')">
+                                Copy
+                            </button>
+                        `;
+                        shareLink.style.display = 'block';
+                    }
                 }
             });
         });
@@ -359,6 +375,19 @@ function handleJoinResponse(response) {
     } else {
         displayMessage(response.message || "Failed to join game", true);
         showSetupScreen(); // Go back to setup if join fails
+    }
+}
+
+// Add URL parameter check on load
+export function checkUrlParameters() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+        // Auto-fill room code input
+        const roomCodeInput = document.getElementById('room-code-input');
+        if (roomCodeInput) {
+            roomCodeInput.value = code;
+        }
     }
 }
 
