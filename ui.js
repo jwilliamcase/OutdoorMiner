@@ -329,7 +329,6 @@ export function displayMessage(message, isError = false) {
 export function updatePlayerInfo(playersData, ownPlayerId) {
     console.log("Updating player info:", playersData, "My ID:", ownPlayerId);
     
-    // Get DOM elements directly
     const player1Info = document.getElementById('player1-info');
     const player2Info = document.getElementById('player2-info');
     
@@ -338,14 +337,13 @@ export function updatePlayerInfo(playersData, ownPlayerId) {
         return;
     }
 
-    // Get players array
     const players = Object.entries(playersData);
     
     // Update player 1 info
     if (players.length > 0) {
         const [id, data] = players[0];
         const name = data.name || `Player ${id.substring(0, 4)}`;
-        player1Info.textContent = `${name}${id === ownPlayerId ? ' (You)' : ''}: ${data.score || 0}`;
+        player1Info.textContent = `${name}: ${data.score || 0}`;
         player1Info.style.color = data.color || '#000';
     }
     
@@ -353,7 +351,7 @@ export function updatePlayerInfo(playersData, ownPlayerId) {
     if (players.length > 1) {
         const [id, data] = players[1];
         const name = data.name || `Player ${id.substring(0, 4)}`;
-        player2Info.textContent = `${name}${id === ownPlayerId ? ' (You)' : ''}: ${data.score || 0}`;
+        player2Info.textContent = `${name}: ${data.score || 0}`;
         player2Info.style.color = data.color || '#000';
     }
 }

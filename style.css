@@ -30,12 +30,13 @@ h1 {
     align-items: center;
     width: fit-content;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;  /* Reduced from 20px */
     box-sizing: border-box;
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 12px;
     overflow: hidden;
     border: 2px solid #F76C6C;
+    max-height: 95vh;  /* Prevent overflow */
 }
 
 #score-container {
@@ -43,15 +44,23 @@ h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100%;
-    max-width: 800px;
-    margin: 0 auto 20px;
-    padding: 15px;
+    width: auto;      /* Changed from fixed width */
+    min-width: 200px;
+    margin: 0 auto 10px;  /* Reduced margin */
+    padding: 10px 20px;   /* Adjusted padding */
     background-color: rgba(255, 255, 255, 0.95);
     border-radius: 12px;
-    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     border: 2px solid #A8D0E6;
     z-index: 10;
+    gap: 20px;        /* Add gap between elements */
+}
+
+.player-info {
+    white-space: nowrap;  /* Prevent name wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;    /* Limit width of player info */
 }
 
 .player-name {
@@ -445,10 +454,9 @@ h1 {
     justify-content: center;
     align-items: center;
     width: 100%;
-    height: calc(100vh - 200px); /* Account for header and controls */
-    min-height: 400px;
-    margin: 0;
-    padding: 20px;
+    height: auto;     /* Changed from fixed height */
+    min-height: 200px;  /* Reduced from 400px */
+    margin: 10px 0;    /* Added margin instead of padding */
     box-sizing: border-box;
     overflow: hidden;
 }
