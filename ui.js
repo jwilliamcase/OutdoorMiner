@@ -1,4 +1,4 @@
-import { BOARD } from './constants.js';
+import { BOARD, calculateOptimalHexSize, getHexSpacing } from './constants.js';
 import { getHexCenter, worldToHex, GameState } from './gameLogic.js';
 import { sendTilePlacement, sendMessage } from './network.js'; // Import network functions
 import { uiManager } from './uiManager.js';
@@ -163,30 +163,48 @@ export function resizeGame() {
         return;
     }
 
-    // Calculate required board size with padding
-    const totalWidth = gameState.cols * BOARD.HORIZONTAL_SPACING + (BOARD.HEX_SIZE * 4);
-    const totalHeight = gameState.rows * BOARD.VERTICAL_SPACING + (BOARD.HEX_SIZE * 4);
-
-    // Get available space
+    // Get container dimensions
     const gameArea = document.getElementById('game-area');
-    const availableWidth = gameArea.clientWidth;
-    const availableHeight = window.innerHeight * 0.75; // Use 75% of viewport height
+    const containerRect = gameArea.getBoundingClientRect();
 
-    // Calculate scale to fit while maintaining aspect ratio
-    const scaleWidth = availableWidth / totalWidth;
-    const scaleHeight = availableHeight / totalHeight;
-    const scale = Math.min(scaleWidth, scaleHeight, 1);
+    // Calculate optimal hex size
+    const hexSize = calculateOptimalHexSize(
+        containerRect.width,
+        containerRect.height,
+        gameState.cols,
+        gameState.rows
+    );
 
-    // Set canvas size
-    canvas.width = totalWidth * scale;
-    canvas.height = totalHeight * scale;
-
-    // Ensure game area can accommodate the canvas
-    gameArea.style.minHeight = `${canvas.height}px`;
-    gameArea.style.minWidth = `${canvas.width}px`;
-
-    console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
+    // Get spacing based on new hex size
+    const spacing = getHexSpacing(hexSize);
     
+    // Calculate total board dimensions with padding
+    const totalWidth = (gameState.cols * spacing.HORIZONTAL) + (hexSize * 2);
+    const totalHeight = (gameState.rows * spacing.VERTICAL) + (hexSize * 2);
+
+    // Set canvas size to match board dimensions
+    canvas.width = totalWidth;
+    canvas.height = totalHeight;
+
+    // Scale canvas to fit container while maintaining aspect ratio
+    const scale = Math.min(
+        containerRect.width / totalWidth,
+        containerRect.height / totalHeight
+    );
+
+    canvas.style.width = `${totalWidth * scale}px`;
+    canvas.style.height = `${totalHeight * scale}px`;
+
+    // Update game area minimum dimensions
+    gameArea.style.minWidth = canvas.style.width;
+    gameArea.style.minHeight = canvas.style.height;
+
+    // Store current hex size for rendering
+    gameState.currentHexSize = hexSize;
+
+    console.log(`Canvas resized to: ${canvas.width}x${canvas.height}, Scale: ${scale}`);
+    
+    // Update board rendering
     if (gameState) {
         centerOnPlayerStart();
     }
@@ -212,16 +230,22 @@ export function centerOnPlayerStart() {
 
 // Draw a single hexagon
 export function drawHexagon(q, r, color, isOwned = false) {
-    if (!ctx) return;
+    if (!ctx || !gameState.currentHexSize) return;
 
-    const center = getHexCenter(q, r);
+    const hexSize = gameState.currentHexSize;
+    const spacing = getHexSpacing(hexSize);
+    const center = {
+        x: q * spacing.HORIZONTAL + hexSize,
+        y: r * spacing.VERTICAL + hexSize + (q % 2) * (spacing.VERTICAL / 2)
+    };
+
     const points = [];
     
     for (let i = 0; i < 6; i++) {
         const angle = (Math.PI / 3) * i;
         points.push({
-            x: center.x + BOARD.HEX_SIZE * Math.cos(angle),
-            y: center.y + BOARD.HEX_SIZE * Math.sin(angle)
+            x: center.x + hexSize * Math.cos(angle),
+            y: center.y + hexSize * Math.sin(angle)
         });
     }
 
