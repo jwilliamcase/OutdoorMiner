@@ -168,42 +168,33 @@ export function resizeGame() {
 
     const gameArea = document.getElementById('game-area');
     const rect = gameArea.getBoundingClientRect();
-    
-    // Use constants for padding percentage
-    const PADDING_PERCENT = 0.95;
-    
-    // Calculate optimal hex size
+
+    // Calculate base hex size
     const hexSize = calculateOptimalHexSize(
-        rect.width * PADDING_PERCENT,
-        rect.height * PADDING_PERCENT,
+        rect.width,
+        rect.height,
         gameState.cols,
         gameState.rows
     );
 
-    // Store hex size and spacing
-    gameState.currentHexSize = hexSize;
+    // Get spacing based on hex size
     const spacing = getHexSpacing(hexSize);
 
-    // Calculate total board dimensions with fixed padding
-    const boardWidth = (gameState.cols * spacing.HORIZONTAL) + (2 * hexSize);
-    const boardHeight = (gameState.rows * spacing.VERTICAL) + (2 * hexSize);
+    // Calculate board dimensions
+    const boardWidth = Math.ceil(gameState.cols * spacing.HORIZONTAL + hexSize);
+    const boardHeight = Math.ceil(
+        gameState.rows * spacing.VERTICAL + spacing.STAGGER_OFFSET + hexSize
+    );
 
-    // Update canvas size
+    // Set canvas dimensions
     canvas.width = boardWidth;
     canvas.height = boardHeight;
 
-    // Calculate scale just once
-    gameState.currentScale = Math.min(
-        (rect.width * PADDING_PERCENT) / boardWidth,
-        (rect.height * PADDING_PERCENT) / boardHeight
-    );
+    // Store sizes for rendering
+    gameState.currentHexSize = hexSize;
+    gameState.currentScale = 1; // Keep scale at 1 for consistent rendering
 
-    // Apply scale to canvas style
-    canvas.style.width = `${boardWidth * gameState.currentScale}px`;
-    canvas.style.height = `${boardHeight * gameState.currentScale}px`;
-
-    console.log(`Canvas resized: ${canvas.width}x${canvas.height}, Scale: ${gameState.currentScale}, HexSize: ${hexSize}`);
-    
+    console.log(`Resized canvas: ${boardWidth}x${boardHeight}, HexSize: ${hexSize}`);
     renderGameBoard();
 }
 
@@ -266,28 +257,44 @@ export function renderGameBoard() {
     if (!ctx || !gameState) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-
-    // Apply scaling
-    ctx.scale(gameState.currentScale, gameState.currentScale);
-
-    // Calculate centering offsets
-    const xOffset = gameState.currentHexSize;
-    const yOffset = gameState.currentHexSize;
-
-    // Apply translation for centering
-    ctx.translate(xOffset, yOffset);
+    
+    // Start with clean transform
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    
+    // Apply base translation for padding
+    ctx.translate(gameState.currentHexSize, gameState.currentHexSize);
 
     // Draw all hexagons
     Object.entries(gameState.board).forEach(([key, tile]) => {
         const spacing = getHexSpacing(gameState.currentHexSize);
         const x = tile.q * spacing.HORIZONTAL;
-        const y = tile.r * spacing.VERTICAL + (tile.q % 2) * (spacing.VERTICAL / 2);
-        
-        drawHexagon(x, y, gameState.currentHexSize, tile.color, tile.owner !== null);
+        const y = tile.r * spacing.VERTICAL + (tile.q % 2) * spacing.STAGGER_OFFSET;
+        drawHexTile(x, y, tile);
     });
+}
 
-    ctx.restore();
+function drawHexTile(x, y, tile) {
+    const size = gameState.currentHexSize;
+    ctx.beginPath();
+    
+    // Draw hexagon path
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i;
+        const px = x + size * Math.cos(angle);
+        const py = y + size * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+
+    // Fill
+    ctx.fillStyle = tile.color || '#ddd';
+    ctx.fill();
+
+    // Stroke
+    ctx.strokeStyle = tile.owner ? '#000' : '#666';
+    ctx.lineWidth = tile.owner ? 2 : 1;
+    ctx.stroke();
 }
 
 // --- UI Updates ---

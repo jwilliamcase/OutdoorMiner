@@ -10,23 +10,27 @@ export const BOARD = {
 
 // Add responsive sizing helpers
 export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, rows) => {
-    // Account for the staggered nature of hex grid
-    const effectiveWidth = cols * 1.5 + 0.5; // Add 0.5 for last column
-    const effectiveHeight = rows * Math.sqrt(3) + (Math.sqrt(3) / 2); // Add half hex for stagger
+    // Fixed hex size calculation for 16x16 board
+    const padding = 0.9; // 90% of container
+    const effectiveWidth = (cols * 1.5 + 0.5) * padding;
+    const effectiveHeight = (rows * Math.sqrt(3) + 1) * padding;
 
-    // Calculate size constraints with padding
-    const maxWidth = (containerWidth * 0.9) / effectiveWidth;
-    const maxHeight = (containerHeight * 0.9) / effectiveHeight;
-
-    // Get base size and ensure it's not too small
-    const baseSize = Math.min(maxWidth, maxHeight);
-    return Math.max(baseSize, 20); // Minimum hex size of 20px
+    // Calculate maximum size that fits
+    const maxWidth = containerWidth / effectiveWidth;
+    const maxHeight = containerHeight / effectiveHeight;
+    
+    // Get optimal size
+    const size = Math.min(maxWidth, maxHeight);
+    
+    // Ensure minimum size
+    return Math.max(size, 20);
 };
 
 // Update BOARD with dynamic spacing getters
 export const getHexSpacing = (hexSize) => ({
     VERTICAL: hexSize * Math.sqrt(3),
-    HORIZONTAL: hexSize * 1.5
+    HORIZONTAL: hexSize * 1.5,
+    STAGGER_OFFSET: hexSize * Math.sqrt(3) / 2
 });
 
 // Game Colors
