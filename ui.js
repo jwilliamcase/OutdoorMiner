@@ -139,17 +139,18 @@ export function showGameScreen() {
         return;
     }
 
+    // Clear any existing color buttons before showing screen
+    const colorOptions = document.querySelector('.color-options');
+    if (colorOptions) {
+        colorOptions.innerHTML = '';
+    }
+
     setupContainer.style.display = 'none';
     gameContainer.style.display = 'flex';
     
-    // Ensure UI elements are visible
-    document.getElementById('score-container').style.display = 'flex';
-    document.getElementById('color-selection').style.display = 'block';
-    
-    // Initialize color buttons if needed
+    // Single initialization of color buttons
     initializeColorButtons();
 
-    // Force a resize to ensure canvas is properly sized
     requestAnimationFrame(() => {
         resizeGame();
         if (gameState) {
@@ -161,17 +162,20 @@ export function showGameScreen() {
 
 // --- Rendering ---
 
-// Resize canvas and re-render
+// Consolidate resize handling
 export function resizeGame() {
     if (!canvas || !gameState) return;
 
     const gameArea = document.getElementById('game-area');
     const rect = gameArea.getBoundingClientRect();
     
+    // Use constants for padding percentage
+    const PADDING_PERCENT = 0.95;
+    
     // Calculate optimal hex size
     const hexSize = calculateOptimalHexSize(
-        rect.width,
-        rect.height,
+        rect.width * PADDING_PERCENT,
+        rect.height * PADDING_PERCENT,
         gameState.cols,
         gameState.rows
     );
@@ -180,30 +184,25 @@ export function resizeGame() {
     gameState.currentHexSize = hexSize;
     const spacing = getHexSpacing(hexSize);
 
-    // Calculate total board dimensions
+    // Calculate total board dimensions with fixed padding
     const boardWidth = (gameState.cols * spacing.HORIZONTAL) + (2 * hexSize);
     const boardHeight = (gameState.rows * spacing.VERTICAL) + (2 * hexSize);
 
-    // Set canvas size
+    // Update canvas size
     canvas.width = boardWidth;
     canvas.height = boardHeight;
 
-    // Calculate and store scale
+    // Calculate scale just once
     gameState.currentScale = Math.min(
-        (rect.width * 0.95) / boardWidth,
-        (rect.height * 0.95) / boardHeight,
-        1
+        (rect.width * PADDING_PERCENT) / boardWidth,
+        (rect.height * PADDING_PERCENT) / boardHeight
     );
 
-    // Update canvas display size
+    // Apply scale to canvas style
     canvas.style.width = `${boardWidth * gameState.currentScale}px`;
     canvas.style.height = `${boardHeight * gameState.currentScale}px`;
 
     console.log(`Canvas resized: ${canvas.width}x${canvas.height}, Scale: ${gameState.currentScale}, HexSize: ${hexSize}`);
-    
-    // Show UI elements
-    document.getElementById('score-container').style.display = 'flex';
-    document.getElementById('color-selection').style.display = 'block';
     
     renderGameBoard();
 }
