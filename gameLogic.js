@@ -441,7 +441,7 @@ export class GameState {
         return this.rotateCoordinatesForPlayer2(q, r);
     }
 
-    renderForPlayer(ctx, isPlayer2) {
+    renderForPlayer(renderFn, ctx, isPlayer2) {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         
         // Apply rotation for player 2
@@ -450,11 +450,11 @@ export class GameState {
             ctx.rotate(Math.PI);
         }
 
-        // Draw the board
+        // Draw the board using provided render function
         Object.entries(this.board).forEach(([coord, tile]) => {
             const [q, r] = coord.split(',').map(Number);
             const { x, y } = getHexCenter(q, r);
-            drawHexagon(ctx, x, y, tile.color, tile.owner !== null);
+            renderFn(ctx, x, y, tile.color, tile.owner !== null);
         });
 
         // Reset transformation

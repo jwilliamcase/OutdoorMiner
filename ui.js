@@ -216,24 +216,16 @@ export function centerOnPlayerStart() {
     renderGameBoard();
 }
 
-// Draw a single hexagon
-export function drawHexagon(q, r, color, isOwned = false) {
-    if (!ctx || !gameState.currentHexSize) return;
-
+// Move drawHexagon definition above where it's used
+function drawHexagon(ctx, x, y, color, isOwned = false) {
     const hexSize = gameState.currentHexSize;
-    const spacing = getHexSpacing(hexSize);
-    const center = {
-        x: q * spacing.HORIZONTAL + hexSize,
-        y: r * spacing.VERTICAL + hexSize + (q % 2) * (spacing.VERTICAL / 2)
-    };
-
     const points = [];
     
     for (let i = 0; i < 6; i++) {
         const angle = (Math.PI / 3) * i;
         points.push({
-            x: center.x + hexSize * Math.cos(angle),
-            y: center.y + hexSize * Math.sin(angle)
+            x: x + hexSize * Math.cos(angle),
+            y: y + hexSize * Math.sin(angle)
         });
     }
 
@@ -252,12 +244,12 @@ export function drawHexagon(q, r, color, isOwned = false) {
     ctx.stroke();
 }
 
-// Update renderGameBoard to use the exported drawHexagon
+// Update renderGameBoard to pass drawHexagon function
 export function renderGameBoard() {
     if (!ctx || !gameState) return;
 
     const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
-    gameState.renderForPlayer(ctx, isPlayer2);
+    gameState.renderForPlayer(drawHexagon, ctx, isPlayer2);
 }
 
 // --- UI Updates ---
