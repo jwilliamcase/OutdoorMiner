@@ -303,19 +303,16 @@ export function sendMessage(message) {
 }
 
 // Update move protocol
-export function sendTilePlacement(selectedColor) {
+export function sendTilePlacement(moveData) {
     if (!socketInstance?.connected || !currentRoomId || !currentPlayerId) {
         displayMessage("Connection error", true);
         return;
     }
 
-    socketInstance.emit('make-move', {
+    socketInstance.emit('place-tile', {
         roomCode: currentRoomId,
         playerId: currentPlayerId,
-        move: {
-            type: 'color-select',
-            color: selectedColor
-        }
+        move: moveData
     });
 }
 

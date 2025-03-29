@@ -178,26 +178,15 @@ class ServerGameState {
 
     // Update player scores based on current tile ownership
     updateScores() {
-        let p1Score = 0;
-        let p2Score = 0;
-        // Iterate through the tiles owned on the board
-        for (const owner of Object.values(this.boardState)) {
-            // Correctly increment score based on the owner of each tile
-            if (owner === 'P1') {
-                p1Score++;
-            } else if (owner === 'P2') {
-                p2Score++;
+        const scores = { P1: 0, P2: 0 };
+        Object.values(this.boardState).forEach(tile => {
+            if (tile.owner) {
+                scores[tile.owner]++;
             }
-        }
-        // Update scores in the players object
-        // Ensure player objects exist before assigning score
-        if (this.players.P1) {
-            this.players.P1.score = p1Score;
-        }
-        if (this.players.P2) {
-            this.players.P2.score = p2Score;
-        }
-        // console.log(`Scores updated: P1=${p1Score}, P2=${p2Score}`); // Optional: logging
+        });
+        this.players.P1.score = scores.P1;
+        this.players.P2.score = scores.P2;
+        return scores;
     }
 
     // Mark the game as ended and determine the winner
@@ -262,6 +251,39 @@ class ServerGameState {
         if (this.players.P1.socketId === socketId) return 'P1';
         if (this.players.P2.socketId === socketId) return 'P2';
         return null;
+    }
+
+    handleColorSelection(playerId, selectedColor) {
+        // Find all capturable tiles for this color
+        const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
+        
+        // Update ownership and color of captured tiles
+        capturedTiles.forEach(key => {
+            this.boardState[key].owner = playerId;
+            this.boardState[key].color = selectedColor;
+        });
+
+        // Update ownership territory color
+        Object.values(this.boardState)
+            .filter(tile => tile.owner === playerId)
+            .forEach(tile => {
+                tile.color = selectedColor;
+            });
+
+        // Update scores
+        this.updateScores();
+        
+        // Update last used color
+        this.lastUsedColor = selectedColor;
+
+        // Switch turns
+        this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+
+        return {
+            success: true,
+            capturedCount: capturedTiles.length,
+            newState: this.getSerializableState()
+        };
     }
 } // End of ServerGameState class
 
@@ -424,50 +446,46 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('place-tile', ({ q, r }, callback) => {
+    socket.on('place-tile', ({ roomCode, playerId, move }, callback) => {
         try {
             const playerInfo = playerSockets[socket.id];
-            // Validate player is tracked and associated with a game
             if (!playerInfo || !playerInfo.gameId) {
-                console.error(`'place-tile' error: No player/game info for socket ${socket.id}.`);
-                return callback({ success: false, message: 'Error: Player not associated with a game.' });
+                return callback({ success: false, message: 'Not in a game' });
             }
 
             const game = activeGames[playerInfo.gameId];
-            // Validate game instance exists
             if (!game) {
-                console.error(`'place-tile' error: Game ${playerInfo.gameId} not found for socket ${socket.id}. Cleaning up inconsistent player data.`);
-                // Player is tracked but game is missing - cleanup state
-                delete playerSockets[socket.id];
-                return callback({ success: false, message: 'Error: Game instance not found. Please try joining again.' });
+                return callback({ success: false, message: 'Game not found' });
             }
 
-            // Delegate move validation and state update to the ServerGameState instance
-            const result = game.placeTile(q, r, playerInfo.playerSymbol);
-            if (result.success) {
-                console.log(`Game ${game.gameId}: Tile placed by ${playerInfo.playerName} (${playerInfo.playerSymbol}) at (${q},${r}). Turn ${game.turnNumber}. Next: ${game.currentPlayer}`);
-                // Broadcast the updated game state to all players in the room
-                io.to(game.gameId).emit('game-update', result.newState);
-                // Acknowledge success to the sender
-                callback({ success: true });
-                // Log if the game just ended
-                if (result.newState.isOver) {
-                    console.log(`Game ${game.gameId} ended on this move. Winner: ${result.newState.winner}`);
-                    // Optional: Add post-game cleanup logic here or via setTimeout
+            // Handle color selection
+            if (move.type === 'color-select') {
+                const result = game.handleColorSelection(playerInfo.playerSymbol, move.color);
+                if (result.success) {
+                    // Broadcast the updated state to all players
+                    const message = {
+                        state: result.newState,
+                        lastMove: {
+                            player: playerInfo.playerSymbol,
+                            color: move.color,
+                            capturedTiles: result.capturedCount
+                        }
+                    };
+                    
+                    io.to(game.gameId).emit('game-update', message);
+                    callback({ success: true });
                 }
             } else {
-                // Move was invalid according to game logic
-                console.log(`Game ${game.gameId}: Invalid move by ${playerInfo.playerName} at (${q},${r}). Reason: ${result.reason}`);
-                // Send failure reason back to the sender
-                callback({ success: false, message: result.reason || 'Invalid move.' });
+                // Handle regular tile placement
+                const result = game.placeTile(move.q, move.r, playerInfo.playerSymbol);
+                // ...existing tile placement code...
             }
         } catch (error) {
-            console.error(`Error in 'place-tile' handler for ${socket.id}:`, error);
-            callback({ success: false, message: "Server error processing your move." });
+            console.error('Error handling move:', error);
+            callback({ success: false, message: 'Server error' });
         }
     });
 
-    // --- Chat Event Handler ---
     socket.on('chat-message', (message) => {
         try {
             message = String(message || '').trim(); // Basic sanitization

@@ -421,7 +421,11 @@ function handleColorSelection(event) {
         return;
     }
 
-    sendTilePlacement(selectedColor);
+    // Send the color selection to server instead of just color
+    sendTilePlacement({
+        type: 'color-select',
+        color: selectedColor
+    });
 }
 
 // --- Panning Handlers ---
@@ -557,8 +561,27 @@ function updateGameState(newState) {
     // Update UI elements
     updateAvailableColors(gameState.lastUsedColor);
     updateTurnIndicator();
+    updateScores(gameState.players);
     renderGameBoard();
-    updatePlayerInfo(gameState.players, currentPlayerId);
+}
+
+function updateScores(players) {
+    const p1Info = document.getElementById('player1-info');
+    const p2Info = document.getElementById('player2-info');
+    
+    if (p1Info && players.P1) {
+        p1Info.textContent = `${players.P1.name}: ${players.P1.score}`;
+    }
+    if (p2Info && players.P2) {
+        p2Info.textContent = `${players.P2.name}: ${players.P2.score}`;
+    }
+
+    // Optional: Animate score changes
+    if (players[gameState.currentPlayer]?.lastCaptured > 0) {
+        const scoreElement = gameState.currentPlayer === 'P1' ? p1Info : p2Info;
+        scoreElement.classList.add('score-update');
+        setTimeout(() => scoreElement.classList.remove('score-update'), 1000);
+    }
 }
 
 // Add new function for turn indicator
