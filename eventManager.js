@@ -42,27 +42,34 @@ class EventManager {
     }
 
     dispatchEvent(type, data) {
-        // Early validation of event type
+        // Early validation with better logging
         if (!type || typeof type !== 'string') {
-            console.error("Invalid event type:", type);
-            console.debug("Event data:", data);
+            console.error("Invalid event dispatch:", {
+                type,
+                data,
+                stack: new Error().stack
+            });
             return;
         }
 
-        // Get all valid event types
-        const validTypes = Object.values(EventTypes)
-            .reduce((acc, group) => ([
-                ...acc,
-                ...Object.values(group)
-            ]), []);
+        // Get all valid event types once
+        const validTypes = [
+            ...Object.values(EventTypes.GAME),
+            ...Object.values(EventTypes.NETWORK),
+            ...Object.values(EventTypes.UI)
+        ];
 
-        // Validate event type
+        // Validate event type with detailed logging
         if (!validTypes.includes(type)) {
-            console.warn(`Unknown event type: ${type}`);
-            console.debug("Valid types:", validTypes);
+            console.warn(`Unknown event type: ${type}`, {
+                data,
+                validTypes,
+                source: new Error().stack.split('\n')[2]
+            });
             return;
         }
 
+        // Process valid event
         this.logEvent(type, data);
         const handlers = this.listeners.get(type);
         
@@ -71,7 +78,11 @@ class EventManager {
                 try {
                     handler(data);
                 } catch (error) {
-                    console.error(`Error in event handler for ${type}:`, error);
+                    console.error(`Error in event handler for ${type}:`, {
+                        error,
+                        data,
+                        handler: handler.name || 'anonymous'
+                    });
                 }
             });
         }

@@ -6,14 +6,16 @@ import {
     displayMessage,
     showGameScreen,
     handleGameUpdate,
-    handleInitialState,
+    handleInitialState, 
+    handleTurnTransition,  // Add this import
     addChatMessage,
     updatePlayerInfo,
     showGameOver,
     playSound,
-    updateGameCode, // Add this import
-    centerOnPlayerStart, // Add this import
-    showSetupScreen // Add this import
+    updateGameCode, 
+    centerOnPlayerStart, 
+    showSetupScreen,
+    renderGameBoard // Add this import
 } from './ui.js';
 
 import { eventManager, EventTypes } from './eventManager.js';
@@ -22,6 +24,7 @@ import { NetworkEvents, GameEvents } from './eventTypes.js';
 let socketInstance = null;
 let currentRoomId = null;
 let currentPlayerId = null; // Store player ID assigned by server
+let currentGameState = null; // Add this line to track game state
 let connectionInProgress = false;
 
 // Function to connect to the server
@@ -198,17 +201,35 @@ function setupSocketEventListeners() {
             return;
         }
 
+        // Set player ID BEFORE any other operations
+        currentPlayerId = socketInstance.id;
         currentRoomId = data.roomCode;
-        displayMessage(`Game started in room ${data.roomCode}!`, false);
         
-        // Initialize game state before showing screen
+        console.log("Game initialization:", {
+            myId: currentPlayerId,
+            roomCode: currentRoomId,
+            currentPlayer: data.gameState.currentPlayer
+        });
+        
+        // Initialize game state with proper IDs
         if (handleInitialState(data.gameState, data.players, currentPlayerId)) {
-            console.log("Game state initialized, showing game screen");
-            showGameScreen(); // This should now work properly
+            showGameScreen();
             updatePlayerInfo(data.players, currentPlayerId);
         } else {
-            console.error("Failed to initialize game state");
-            displayMessage("Failed to start game", true);
+            displayMessage("Failed to initialize game", true);
+        }
+    });
+
+    socketInstance.on('opponent-disconnected', (data) => {
+        console.log('Opponent disconnected:', data);
+        if (data && data.playerSymbol) {
+            displayMessage(`Opponent (${data.playerName || 'Player ' + data.playerSymbol}) disconnected.`, true);
+            eventManager.dispatchEvent(UIEvents.OPPONENT_LEFT, {
+                playerSymbol: data.playerSymbol,
+                playerName: data.playerName
+            });
+        } else {
+            displayMessage("Opponent disconnected", true);
         }
     });
 
@@ -220,14 +241,30 @@ function setupSocketEventListeners() {
             lastMove: data.lastMove
         });
 
-        if (checkDuplicateInstance()) {
-            console.warn('Ignoring update for duplicate instance');
-            return;
-        }
-
         try {
-            handleGameUpdate(data.state);
-            playSound('move');
+            // Create new game state from received data
+            currentGameState = new GameState(
+                data.state.rows,
+                data.state.cols
+            );
+            
+            // Deep copy the board state
+            Object.entries(data.state.boardState).forEach(([key, tile]) => {
+                currentGameState.boardState[key] = { ...tile };
+            });
+            
+            // Copy other state properties
+            currentGameState.players = { ...data.state.players };
+            currentGameState.currentPlayer = data.state.currentPlayer;
+            currentGameState.lastUsedColor = data.state.lastUsedColor;
+
+            // Handle state transition
+            if (data.lastMove && data.state.currentPlayer !== data.lastMove.player) {
+                handleTurnTransition(data.state);
+            } else {
+                handleGameUpdate(data.state);
+            }
+            
         } catch (error) {
             console.error("Error handling game update:", error);
             displayMessage("Failed to update game state", true);
@@ -323,6 +360,10 @@ export function sendTilePlacement(moveData) {
         moveData
     });
 
+    // Disable color buttons during move processing
+    const colorButtons = document.querySelectorAll('.color-button');
+    colorButtons.forEach(button => button.disabled = true);
+
     socketInstance.emit('place-tile', {
         gameId: currentRoomId,
         playerId: currentPlayerId,
@@ -333,6 +374,12 @@ export function sendTilePlacement(moveData) {
         }
     }, (response) => {
         console.log('Server response:', response);
+        
+        // Re-enable buttons
+        colorButtons.forEach(button => 
+            button.disabled = button.dataset.color === moveData.color
+        );
+
         if (!response.success) {
             displayMessage(response.message || "Move failed", true);
         }

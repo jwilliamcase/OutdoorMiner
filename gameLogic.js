@@ -517,15 +517,17 @@ export class GameState {
             ctx.rotate(Math.PI);
         }
 
+        // Initialize board if needed
         if (!this.boardState || Object.keys(this.boardState).length === 0) {
-            console.warn('Creating new board state during render');
-            this.createInitialBoard(Date.now());
+            this.gameSeed = this.gameSeed || Date.now(); // Use existing seed or create new one
+            this.boardState = this.createInitialBoard(this.gameSeed);
         }
 
+        // Render board state
         Object.entries(this.boardState).forEach(([coord, tile]) => {
             if (tile && typeof tile.q !== 'undefined' && typeof tile.r !== 'undefined') {
                 const { x, y } = getHexCenter(tile.q, tile.r);
-                renderFn(ctx, x, y, tile.color, tile.owner !== null);
+                renderFn(ctx, x, y, tile.color, tile.owner !== null);  // Color passed here
             }
         });
 

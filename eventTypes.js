@@ -15,7 +15,9 @@ export const GameEvents = {
     TURN_START: 'game:turn_start',
     MOVE_MADE: 'game:move_made',
     TILE_CAPTURE: 'game:tile_capture',
-    STATE_CHANGE: 'game:state_change'
+    STATE_CHANGE: 'game:state_change',
+    CREATE_GAME: 'game:create_game',
+    JOIN_GAME: 'game:join_game'
 };
 
 export const NetworkEvents = {
@@ -36,5 +38,14 @@ export const UIEvents = {
     CREATE_GAME: 'ui:create_game',
     INIT: 'ui:init',
     JOIN_START: 'ui:join_start',
-    JOIN_COMPLETE: 'ui:join_complete'
+    JOIN_COMPLETE: 'ui:join_complete',
+    CREATE_CLICK: 'ui:create_click',
+    JOIN_CLICK: 'ui:join_click',
+    DISCONNECT: 'ui:disconnect',
+    OPPONENT_LEFT: 'ui:opponent_left',
+    BOARD_RENDER: 'ui:board_render',
+    TURN_CHANGE: 'ui:turn_change',
+    STATE_UPDATE: 'ui:state_update',
+    SCORE_UPDATE: 'ui:score_update',
+    BOARD_UPDATE: 'ui:board_update'
 };

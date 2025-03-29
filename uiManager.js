@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { eventManager, EventTypes } from './eventManager.js';
+import { GameEvents, UIEvents } from './eventTypes.js';  // Add this import
 
 class UIManager {
     constructor() {
@@ -89,18 +90,18 @@ class UIManager {
         try {
             const setupElements = this.elements.setup;
             
-            // Setup create button
+            // Update create button handler
             if (setupElements.createButton) {
                 setupElements.createButton.addEventListener('click', () => {
                     const playerName = setupElements.playerNameInput?.value || 'Player';
-                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { 
+                    eventManager.dispatchEvent(UIEvents.CREATE_CLICK, {  // Use proper event type
                         type: 'create',
                         playerName 
                     });
                 });
             }
 
-            // Setup join button with proper event structure
+            // Update join button handler
             if (setupElements.joinButton) {
                 setupElements.joinButton.addEventListener('click', () => {
                     const playerName = setupElements.playerNameInput?.value?.trim();
@@ -109,13 +110,13 @@ class UIManager {
                     console.log("Join button clicked:", { playerName, roomCode });
 
                     if (!playerName || !roomCode) {
-                        eventManager.dispatchEvent(EventTypes.UI.ERROR, {
+                        eventManager.dispatchEvent(UIEvents.ERROR, {
                             message: "Please enter both name and room code"
                         });
                         return;
                     }
 
-                    eventManager.dispatchEvent(EventTypes.UI.JOIN_GAME, {
+                    eventManager.dispatchEvent(UIEvents.JOIN_CLICK, {  // Use proper event type
                         type: 'join',
                         playerName,
                         roomCode

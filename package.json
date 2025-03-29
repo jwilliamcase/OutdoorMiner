@@ -5,7 +5,7 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "NODE_ENV=development nodemon server/server.js --watch server --watch *.js --verbose",
+    "dev": "nodemon --watch '**/*.js' --watch '**/*.html' --watch '**/*.css' --ignore 'node_modules/' --verbose server/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

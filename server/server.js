@@ -14,7 +14,9 @@ const PORT = process.env.PORT || 3000;
 // Create a function to get allowed origins that can be updated
 const getDefaultOrigins = () => [
     'https://jwilliamcase.github.io',
-    'https://jwilliamcase.github.io/OutdoorMiner'
+    'https://jwilliamcase.github.io/OutdoorMiner',
+    'http://localhost:3000',     // Add local development
+    'http://127.0.0.1:3000'     // Add local development IP
 ];
 
 let allowedOrigins = getDefaultOrigins();
@@ -23,12 +25,14 @@ let allowedOrigins = getDefaultOrigins();
 const corsMiddleware = cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps, curl)
-        if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        if (!origin || isDevelopment) {
+            callback(null, true);
+        } else if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
             callback(null, true);
         } else {
             console.warn(`Origin attempted: ${origin}`);
             console.warn(`Currently allowed origins:`, allowedOrigins);
-            callback(null, true); // Allow in development
+            callback(new Error('Not allowed by CORS'));
         }
     },
     methods: ['GET', 'POST'],
@@ -54,7 +58,7 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: isDevelopment ? true : allowedOrigins, // Allow all origins in development
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -344,11 +348,11 @@ class ServerGameState {
                 }
             });
 
-            // Update ALL tiles in the set to the new color
+            // THIS IS WHERE TILES ACTUALLY CHANGE COLOR:
             tilesToUpdate.forEach(key => {
                 if (this.boardState[key]) {
                     this.boardState[key].owner = playerId;
-                    this.boardState[key].color = selectedColor;
+                    this.boardState[key].color = selectedColor;  // Here's the color change
                 }
             });
 
@@ -521,13 +525,19 @@ io.on('connection', (socket) => {
                     P1: { 
                         name: challenge.hostPlayerName, 
                         socketId: challenge.hostSocketId,
-                        isCurrentTurn: gameState.currentPlayer === 'P1'
+                        isCurrentTurn: gameState.currentPlayer === 'P1',
+                        symbol: 'P1'  // Add explicit symbol
                     },
                     P2: { 
                         name: playerName, 
                         socketId: socket.id,
-                        isCurrentTurn: gameState.currentPlayer === 'P2'
+                        isCurrentTurn: gameState.currentPlayer === 'P2',
+                        symbol: 'P2'  // Add explicit symbol
                     }
+                },
+                currentTurn: {
+                    player: gameState.currentPlayer,
+                    canMove: true
                 }
             };
 
@@ -540,7 +550,8 @@ io.on('connection', (socket) => {
                 success: true,
                 gameId,
                 gameState: gameState.getSerializableState(),
-                players: gameStartData.players
+                players: gameStartData.players,
+                currentTurn: gameStartData.currentTurn  // Include in callback
             });
 
         } catch (error) {
@@ -569,16 +580,22 @@ io.on('connection', (socket) => {
                 return callback({ success: false, message: 'Game not found' });
             }
 
-            // Add color selection validation
+            // Validate it's player's turn and move is valid
+            if (game.currentPlayer !== playerInfo.playerSymbol) {
+                return callback({ success: false, message: 'Not your turn' });
+            }
+
             if (move.type === 'color-select') {
                 if (move.color === game.lastUsedColor) {
                     return callback({ success: false, message: 'Color was just used' });
                 }
 
+                // Process move atomically
                 const result = game.handleColorSelection(playerInfo.playerSymbol, move.color);
                 console.log('Color selection result:', result);
 
                 if (result.success) {
+                    // Send update to all players in room
                     io.to(game.gameId).emit('game-update', {
                         state: result.newState,
                         lastMove: {
@@ -587,11 +604,16 @@ io.on('connection', (socket) => {
                             capturedTiles: result.capturedCount
                         }
                     });
-                    return callback({ success: true });
+
+                    // Confirm success to moving player
+                    return callback({ 
+                        success: true,
+                        state: result.newState // Send state back to moving player
+                    });
                 }
             }
             
-            callback({ success: false, message: 'Invalid move type' });
+            callback({ success: false, message: 'Invalid move' });
         } catch (error) {
             console.error('Server error processing move:', error);
             callback({ success: false, message: 'Server error', error: error.message });

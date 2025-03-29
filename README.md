@@ -317,78 +317,64 @@ Currently deployed on Render:
 ## License
 ISC License
 
-## Current Issues & Questions
+## Current Technical Issues (February 2024)
 
-### State Management
-1. Turn Synchronization
+### Immediate Priorities
+1. Connection & State Management
    ```javascript
-   // Current issues in ui.js
-   - Both players see "Your Turn" indicator
-   - Color buttons enabled for both players
-   - Turn state not properly synced with server
+   // Current Issues
+   - CORS configuration needs fixing
+   - Socket connection management is scattered
+   - Turn state management needs centralization
+   - Game state sync needs single source of truth
    ```
 
-2. Game State Initialization
+2. Error Handling
    ```javascript
-   // network.js needs cleanup
-   - Multiple game state handlers
-   - Duplicate handleGameUpdate declarations
-   - Inconsistent state sharing between modules
+   // Missing Features
+   - Proper error boundaries
+   - User feedback for failures
+   - Network recovery procedures
+   - Validation feedback
    ```
 
-3. Move Validation
+3. Game Flow
    ```javascript
-   // Server/client validation mismatch
-   Server: Validates turn and move
-   Client: Only checks local state
-   Solution: Implement proper server authority
+   // Flow Problems
+   - Move validation incomplete
+   - Turn transitions unreliable
+   - State updates inconsistent
+   - Score calculation needs verification
    ```
 
-### Code Cleanup Needed
+### Known Bugs
 
-1. Network Module
+1. Connection Issues
    ```javascript
-   // network.js organization
-   - Remove duplicate handleGameUpdate
-   - Consolidate socket event handlers
-   - Add proper error boundaries
-   - Implement retry logic
+   // Socket Problems
+   - CORS warnings in development
+   - Reconnection handling incomplete
+   - Room cleanup timing issues
+   - Player disconnect recovery missing
    ```
 
-2. UI Module
+2. Game State
    ```javascript
-   // ui.js improvements
-   - Move DOM manipulation to uiManager
-   - Add proper state management
-   - Fix hex spacing and board centering
-   - Implement proper turn transitions
+   // State Management
+   - Multiple sources of truth
+   - Inconsistent state updates
+   - Turn state desyncs
+   - Score calculation race conditions
    ```
 
-3. Game Logic
+3. UI/UX Issues
    ```javascript
-   // gameLogic.js refactoring
-   - Separate board logic from game state
-   - Add proper move validation
-   - Implement proper coordinate system
-   - Fix hex overlap issues
+   // Visual & Interaction
+   - Color selection sometimes unresponsive
+   - Move feedback missing
+   - Board centering issues
+   - Error message display incomplete
    ```
-
-### Open Questions
-
-1. State Synchronization
-   - How to handle network latency?
-   - Should moves be queued?
-   - How to recover from desyncs?
-
-2. Turn Management
-   - Server or client authority?
-   - How to handle timeouts?
-   - What happens on disconnect?
-
-3. UI/UX
-   - How to show move validity?
-   - Should invalid moves be prevented?
-   - How to handle board orientation?
 
 ### Next Steps
 

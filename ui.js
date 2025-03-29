@@ -317,10 +317,46 @@ function drawHexagon(ctx, x, y, color, isOwned = false) {
 
 // Update renderGameBoard to pass drawHexagon function
 export function renderGameBoard() {
-    if (!ctx || !gameState) return;
+    if (!ctx || !gameState || !gameState.boardState) {
+        console.error('Cannot render: missing context or invalid game state', {
+            hasContext: !!ctx,
+            hasGameState: !!gameState,
+            hasBoardState: !!(gameState && gameState.boardState)
+        });
+        return;
+    }
 
-    const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
-    gameState.renderForPlayer(drawHexagon, ctx, isPlayer2);
+    try {
+        // Clear canvas first
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Save context state
+        ctx.save();
+        
+        // Apply camera offset
+        ctx.translate(cameraOffset.x, cameraOffset.y);
+
+        // Debug log before rendering
+        console.log("Rendering board state:", {
+            tileCount: Object.keys(gameState.boardState).length,
+            cameraOffset,
+            canvasSize: { width: canvas.width, height: canvas.height }
+        });
+
+        // Render each tile
+        Object.entries(gameState.boardState).forEach(([coord, tile]) => {
+            const [q, r] = coord.split(',').map(Number);
+            const pos = getHexCenter(q, r);
+            drawHexagon(ctx, pos.x, pos.y, tile.color, tile.owner !== null);
+        });
+
+        // Restore context
+        ctx.restore();
+
+    } catch (error) {
+        console.error('Error in renderGameBoard:', error);
+        console.error(error.stack);
+    }
 }
 
 // --- UI Updates ---
@@ -548,38 +584,47 @@ function handleMouseUp() {
 // Called by network module when initial game state is received
 // Expects gameStateObject to be a plain JS object from the server
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
-    console.log("Initial state debug:", {
-        gameState: gameStateObject,
-        players: playersData,
-        ownId: ownPlayerId,
-        currentPlayer: gameStateObject.currentPlayer
-    });
+    if (!ownPlayerId) {
+        console.error("Missing player ID during initialization", {
+            state: gameStateObject,
+            players: playersData,
+            ownId: ownPlayerId
+        });
+        return false;
+    }
 
     try {
+        // Set current player ID first
         currentPlayerId = ownPlayerId;
+        
+        // Initialize game state
         gameState = new GameState(
             gameStateObject.rows || CONFIG.BOARD_SIZE,
             gameStateObject.cols || CONFIG.BOARD_SIZE
         );
         
-        // Create board with server's seed
-        gameState.createInitialBoard(gameStateObject.gameSeed);
+        // Apply the state from server
         Object.assign(gameState, gameStateObject);
 
-        // Update UI elements
-        updatePlayerInfo(playersData, ownPlayerId);
-        updateTurnIndicator(gameState.currentPlayer);
-        updateAvailableColors(gameState.lastUsedColor);
+        // Determine player roles
+        const mySymbol = currentPlayerId === playersData.P1?.socketId ? 'P1' : 'P2';
+        const isMyTurn = gameState.currentPlayer === mySymbol;
 
-        requestAnimationFrame(() => {
-            resizeGame();
-            renderGameBoard();
-            centerOnPlayerStart();
+        console.log("Player initialization:", {
+            myId: currentPlayerId,
+            mySymbol,
+            currentPlayer: gameState.currentPlayer,
+            isMyTurn
         });
+
+        // Update UI with verified state
+        updatePlayerInfo(playersData, currentPlayerId);
+        updateTurnIndicator(gameState.currentPlayer, isMyTurn);
+        updateAvailableColors(gameState.lastUsedColor);
 
         return true;
     } catch (error) {
-        console.error("Error initializing game state:", error);
+        console.error("Error in state initialization:", error);
         return false;
     }
 }
@@ -604,54 +649,128 @@ export function handleGameUpdate(gameStateObject) {
 }
 
 // Add new function for turn transition
-function handleTurnTransition(newState) {
-    // Flash turn indicator
-    const turnIndicator = elements.turnIndicator;
-    turnIndicator.classList.add('transitioning');
+export function handleTurnTransition(newState) {
+    console.log("Handling turn transition:", newState);
     
-    // Show who's turn is next
-    const nextPlayer = newState.getCurrentPlayerId() === currentPlayerId ? "Your" : "Opponent's";
-    turnIndicator.textContent = `${nextPlayer} turn...`;
+    if (!newState || !newState.boardState) {
+        console.error("Invalid state received:", newState);
+        return;
+    }
+
+    try {
+        // Create new game state
+        gameState = new GameState(newState.rows, newState.cols);
+        
+        // Deep copy the entire state properly
+        gameState.boardState = {};
+        Object.entries(newState.boardState).forEach(([key, tile]) => {
+            gameState.boardState[key] = {
+                q: parseInt(key.split(',')[0]),
+                r: parseInt(key.split(',')[1]),
+                color: tile.color,
+                owner: tile.owner
+            };
+        });
+
+        // Copy other state properties
+        gameState.currentPlayer = newState.currentPlayer;
+        gameState.lastUsedColor = newState.lastUsedColor;
+        gameState.players = JSON.parse(JSON.stringify(newState.players)); // Deep copy players
+        gameState.currentHexSize = newState.currentHexSize || BOARD.HEX_SIZE;
+        gameState.rows = newState.rows;
+        gameState.cols = newState.cols;
+
+        // Debug logging
+        console.log("Board state after update:", {
+            tiles: Object.keys(gameState.boardState).length,
+            players: gameState.players,
+            currentPlayer: gameState.currentPlayer
+        });
+
+        // Update UI elements
+        const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
+        const isMyTurn = gameState.currentPlayer === mySymbol;
+        
+        // Ensure canvas is ready
+        if (!canvas || !ctx) {
+            console.error("Canvas not initialized");
+            return;
+        }
+
+        // Clear the canvas completely
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Update other UI elements
+        updateScores(gameState.players);
+        updateTurnIndicator(gameState.currentPlayer);
+        updateAvailableColors(newState.lastUsedColor);
+        
+        // Force a resize to ensure proper board setup
+        resizeGame();
+        
+        // Render with a slight delay to ensure state is fully updated
+        setTimeout(() => {
+            renderGameBoard();
+        }, 50);
+
+    } catch (error) {
+        console.error("Error in turn transition:", error);
+        console.error(error.stack);
+        displayMessage("Error updating game state", true);
+    }
+}
+
+function updateScores(players) {
+    if (!players) return;
+
+    const p1Info = document.getElementById('player1-info');
+    const p2Info = document.getElementById('player2-info');
     
-    // Add transition delay
-    setTimeout(() => {
-        updateGameState(newState);
-        turnIndicator.classList.remove('transitioning');
-        isTransitioning = false;
-    }, TURN_TRANSITION_DELAY);
+    if (p1Info && players.P1) {
+        p1Info.textContent = `${players.P1.name}: ${players.P1.score || 0}`;
+        p1Info.style.color = players.P1.color || '#000';
+        
+        // Add score animation if this player just captured tiles
+        if (players.P1.lastCaptured > 0) {
+            p1Info.classList.add('score-update');
+            setTimeout(() => p1Info.classList.remove('score-update'), 1000);
+        }
+    }
+    
+    if (p2Info && players.P2) {
+        p2Info.textContent = `${players.P2.name}: ${players.P2.score || 0}`;
+        p2Info.style.color = players.P2.color || '#000';
+        
+        // Add score animation if this player just captured tiles
+        if (players.P2.lastCaptured > 0) {
+            p2Info.classList.add('score-update');
+            setTimeout(() => p2Info.classList.remove('score-update'), 1000);
+        }
+    }
 }
 
 // Separate state update logic
 function updateGameState(newState) {
     if (!newState) return;
     
-    gameState = new GameState(newState.rows, newState.cols);
-    Object.assign(gameState, newState);
-    currentPlayerId = newState.currentPlayerId; // Make sure this is set
-
-    // Update UI elements
-    updateAvailableColors(gameState.lastUsedColor);
-    updateTurnIndicator(newState.currentPlayer);
-    updateScores(gameState.players);
-    renderGameBoard();
-}
-
-function updateScores(players) {
-    const p1Info = document.getElementById('player1-info');
-    const p2Info = document.getElementById('player2-info');
-    
-    if (p1Info && players.P1) {
-        p1Info.textContent = `${players.P1.name}: ${players.P1.score}`;
-    }
-    if (p2Info && players.P2) {
-        p2Info.textContent = `${players.P2.name}: ${players.P2.score}`;
-    }
-
-    // Optional: Animate score changes
-    if (players[gameState.currentPlayer]?.lastCaptured > 0) {
-        const scoreElement = gameState.currentPlayer === 'P1' ? p1Info : p2Info;
-        scoreElement.classList.add('score-update');
-        setTimeout(() => scoreElement.classList.remove('score-update'), 1000);
+    try {
+        // Update game state
+        gameState = new GameState(newState.rows, newState.cols);
+        Object.assign(gameState, newState);
+        
+        // Update UI elements safely
+        const turnIndicator = document.getElementById('turn-indicator');
+        if (turnIndicator) {
+            updateTurnIndicator(newState.currentPlayer);
+        }
+        
+        updateAvailableColors(gameState.lastUsedColor);
+        updateScores(gameState.players);
+        renderGameBoard();
+        
+    } catch (error) {
+        console.error('Error updating game state:', error);
+        displayMessage('Error updating game state', true);
     }
 }
 
@@ -740,11 +859,16 @@ function initializeColorButtons() {
 
 export function updateAvailableColors(lastUsedColor) {
     const buttons = document.querySelectorAll('.color-button');
+    if (!buttons.length || !gameState) return;
+
+    const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
+    const isMyTurn = gameState.currentPlayer === mySymbol;
+
     buttons.forEach(button => {
-        button.classList.remove('disabled', 'last-used');
-        if (button.dataset.color === lastUsedColor) {
-            button.classList.add('disabled');
-        }
+        const isLastUsed = button.dataset.color === lastUsedColor;
+        button.disabled = !isMyTurn || isLastUsed;
+        button.classList.toggle('disabled', !isMyTurn || isLastUsed);
+        // Keep button visible but show disabled state
+        button.style.opacity = (!isMyTurn || isLastUsed) ? '0.5' : '1';
     });
-    // Remove the last used color display update since we removed the element
 }
