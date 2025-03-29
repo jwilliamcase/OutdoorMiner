@@ -462,41 +462,41 @@ function handleMouseUp() {
 // Called by network module when initial game state is received
 // Expects gameStateObject to be a plain JS object from the server
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
-    console.log("Handling initial state:", gameStateObject);
-    console.log("Players data:", playersData);
-    console.log("Own ID:", ownPlayerId);
-
-    if (!gameStateObject || !playersData) {
-        console.error("Failed to initialize: Missing data", { gameStateObject, playersData });
-        return false;
-    }
+    console.log("Initial state debug:", {
+        gameState: gameStateObject,
+        players: playersData,
+        ownId: ownPlayerId
+    });
 
     try {
-        // Create new game state instance
-        gameState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
+        // Create new game state instance with explicit dimensions
+        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
         
-        // Copy state properties including board state
+        // Copy state properties
         Object.assign(gameState, gameStateObject);
-        
         currentPlayerId = ownPlayerId;
 
-        // Update UI elements
-        updatePlayerInfo(playersData, ownPlayerId);
+        // Determine which player symbol (P1/P2) belongs to this client
+        const mySymbol = ownPlayerId === gameState.players.P1.socketId ? 'P1' : 'P2';
+        const isMyTurn = gameState.currentPlayer === mySymbol;
+
+        console.log("Turn state:", {
+            mySymbol,
+            currentPlayer: gameState.currentPlayer,
+            isMyTurn
+        });
         
-        // Clear waiting message and update turn indicator
+        // Update turn indicator
         const turnIndicator = document.getElementById('turn-indicator');
         if (turnIndicator) {
-            // Determine if it's my turn based on player symbol (P1/P2) not socket ID
-            const mySymbol = ownPlayerId === playersData.P1?.socketId ? 'P1' : 'P2';
-            const isMyTurn = gameStateObject.currentPlayer === mySymbol;
-            
             turnIndicator.textContent = isMyTurn ? 
                 "Your Turn!" : 
                 "Opponent's Turn";
             turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
         }
 
-        // Force a redraw
+        // Update UI and render
+        updatePlayerInfo(playersData, ownPlayerId);
         requestAnimationFrame(() => {
             resizeGame();
             renderGameBoard();
@@ -505,7 +505,6 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         return true;
     } catch (error) {
         console.error("Error initializing game state:", error);
-        displayMessage("Error initializing game. Check console.", true);
         return false;
     }
 }

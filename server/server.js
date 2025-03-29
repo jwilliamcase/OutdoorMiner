@@ -231,16 +231,37 @@ class ServerGameState {
 
     // Prepare a state object suitable for sending to clients via Socket.IO
     getSerializableState() {
-        return {
+        // Add explicit player mapping to ensure consistent player identification
+        const gameState = {
             gameId: this.gameId,
-            players: this.players, // Contains names, socketIds, scores
+            players: {
+                P1: {
+                    ...this.players.P1,
+                    symbol: 'P1'
+                },
+                P2: {
+                    ...this.players.P2,
+                    symbol: 'P2'
+                }
+            },
             boardState: this.boardState,
             currentPlayer: this.currentPlayer,
             isOver: this.isOver,
             winner: this.winner,
             boardSize: this.boardSize,
-            turnNumber: this.turnNumber
+            rows: this.boardSize,
+            cols: this.boardSize,
+            turnNumber: this.turnNumber,
+            lastUsedColor: this.lastUsedColor
         };
+        return gameState;
+    }
+
+    // Add method to get player symbol from socket ID
+    getPlayerSymbolById(socketId) {
+        if (this.players.P1.socketId === socketId) return 'P1';
+        if (this.players.P2.socketId === socketId) return 'P2';
+        return null;
     }
 } // End of ServerGameState class
 
