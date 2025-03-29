@@ -75,14 +75,8 @@ class ServerGameState {
             P1: { name: player1Name, socketId: player1SocketId, score: 0 },
             P2: { name: player2Name, socketId: player2SocketId, score: 0 }
         };
-        // Randomly decide first player
-        this.currentPlayer = Math.random() < 0.5 ? 'P1' : 'P2';
-        this.boardState = this.initializeBoard(); // New method
-        this.isOver = false;
-        this.winner = null;
-        this.boardSize = 16; // Match client config
-        this.turnNumber = 0;
-
+        this.boardSize = 16; // Move this up before board initialization
+        
         // Initialize with same random seed for both players
         this.gameSeed = Date.now();
         this.boardState = this.initializeBoard(this.gameSeed);
@@ -90,6 +84,10 @@ class ServerGameState {
         // Random first player
         this.currentPlayer = Math.random() < 0.5 ? 'P1' : 'P2';
         console.log(`Game ${gameId} starting with ${this.currentPlayer} as first player`);
+        
+        this.isOver = false;
+        this.winner = null;
+        this.turnNumber = 0;
     }
 
     initializeBoard(seed) {
@@ -99,19 +97,27 @@ class ServerGameState {
         // Use seeded random for consistent generation
         const seededRandom = this.createSeededRandom(seed);
         
+        // First create all board positions
         for (let q = 0; q < this.boardSize; q++) {
             for (let r = 0; r < this.boardSize; r++) {
                 const colorIndex = Math.floor(seededRandom() * colors.length);
                 board[`${q},${r}`] = {
+                    q, r,
                     color: colors[colorIndex],
                     owner: null
                 };
             }
         }
 
-        // Set initial positions
-        board['0,15'].owner = 'P1'; // Bottom left for P1
-        board['15,0'].owner = 'P2'; // Top right for P2
+        // Then set initial positions - ensure these positions exist
+        if (board['0,15'] && board['15,0']) {
+            board['0,15'].owner = 'P1'; // Bottom left for P1
+            board['15,0'].owner = 'P2'; // Top right for P2
+            console.log('Initial positions set successfully');
+        } else {
+            console.error('Failed to set initial positions - coordinates not found in board');
+            console.log('Board keys:', Object.keys(board));
+        }
         
         return board;
     }
