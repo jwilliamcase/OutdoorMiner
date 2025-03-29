@@ -421,28 +421,43 @@ export function checkUrlParameters() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     if (code) {
-        // Auto-fill room code input
-        const roomCodeInput = document.getElementById('room-code-input');
-        const playerNameInput = document.getElementById('player-name-input');
-        const joinButton = document.getElementById('join-challenge-button');
-        const createButton = document.getElementById('create-challenge-button');
-        
-        if (roomCodeInput && playerNameInput && joinButton) {
-            roomCodeInput.value = code;
-            // Hide create button and show join UI more prominently
-            if (createButton) {
-                createButton.style.display = 'none';
-                document.querySelector('.separator')?.style.display = 'none';
+        // Auto-fill room code input and handle UI updates
+        const setupElements = {
+            roomCodeInput: document.getElementById('room-code-input'),
+            playerNameInput: document.getElementById('player-name-input'),
+            joinButton: document.getElementById('join-challenge-button'),
+            createButton: document.getElementById('create-challenge-button'),
+            separator: document.querySelector('.separator')
+        };
+
+        if (setupElements.roomCodeInput && setupElements.playerNameInput) {
+            // Fill in the room code
+            setupElements.roomCodeInput.value = code;
+            setupElements.roomCodeInput.readOnly = true;
+
+            // Hide create game UI if we're joining
+            if (setupElements.createButton) {
+                setupElements.createButton.style.display = 'none';
             }
+            if (setupElements.separator) {
+                setupElements.separator.style.display = 'none';
+            }
+
+            // Update join button state based on name input
+            const updateJoinButton = () => {
+                if (setupElements.joinButton) {
+                    setupElements.joinButton.disabled = !setupElements.playerNameInput.value.trim();
+                }
+            };
+
+            // Add name input listener
+            setupElements.playerNameInput.addEventListener('input', updateJoinButton);
             
-            // Only validate input, don't auto-join
-            playerNameInput.addEventListener('input', () => {
-                const hasName = playerNameInput.value.trim().length > 0;
-                joinButton.disabled = !hasName;
-            });
+            // Focus name input
+            setupElements.playerNameInput.focus();
             
-            // Move focus to name input
-            playerNameInput.focus();
+            // Initial button state
+            updateJoinButton();
         }
     }
 }
