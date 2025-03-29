@@ -5,7 +5,7 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server/server.js",
+    "dev": "NODE_ENV=development nodemon server/server.js --watch server --watch *.js --verbose",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -22,7 +22,8 @@
     "@babel/core": "^7.x",
     "@babel/preset-env": "^7.x",
     "jest": "^29.x",
-    "jest-environment-jsdom": "^29.x"
+    "jest-environment-jsdom": "^29.x",
+    "nodemon": "^3.0.0"
   },
   "engines": {
     "node": ">=16.0.0"

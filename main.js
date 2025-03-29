@@ -28,15 +28,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add input validation
     const joinButton = document.getElementById('join-challenge-button');
 
-    // Enable/disable join button based on inputs
-    function validateJoinInputs() {
+    // Fix join button validation
+    const validateJoinInputs = () => {
         const hasName = playerNameInput.value.trim().length > 0;
         const hasCode = roomCodeInput.value.trim().length > 0;
         joinButton.disabled = !(hasName && hasCode);
+    };
+
+    // Add input listeners
+    if (playerNameInput) {
+        playerNameInput.addEventListener('input', validateJoinInputs);
+    }
+    if (roomCodeInput) {
+        roomCodeInput.addEventListener('input', validateJoinInputs);
+        roomCodeInput.readOnly = false; // Ensure input is editable
     }
 
-    playerNameInput.addEventListener('input', validateJoinInputs);
-    roomCodeInput.addEventListener('input', validateJoinInputs);
+    // Initial validation
+    validateJoinInputs();
 
     // --- Add Event Listeners for Setup ---
     if (createChallengeButton) {

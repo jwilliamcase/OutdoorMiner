@@ -1,4 +1,7 @@
 import { BOARD, COLORS } from './constants.js';
+import { eventManager } from './eventManager.js';
+import { GameEvents } from './eventTypes.js';
+import { moveHistory } from './moveHistory.js';
 
 // Axial direction vectors for neighboring hexes
 const DIRECTIONS = [
@@ -10,42 +13,50 @@ const DIRECTIONS = [
     { q: 0, r: 1 }   // Southeast
 ];
 
-import { eventManager } from './eventManager.js';
-import { GameEvents } from './eventTypes.js';
-import { moveHistory } from './moveHistory.js';
-
 export class GameState {
     constructor(rows, cols, players) {
-        this.rows = rows;
-        this.cols = cols;
-        this.board = this.createInitialBoard(rows, cols);
+        this.rows = rows || CONFIG.BOARD_SIZE;
+        this.cols = cols || CONFIG.BOARD_SIZE;
         this.players = players || {};
         this.currentPlayerIndex = 0;
-        this.lastUsedColor = null; // Track the last color used
-        this.currentPlayerColor = null;  // Track current player's active color
+        this.lastUsedColor = null;
+        this.currentPlayerColor = null;
         this.gameOver = false;
         this.winner = null;
         this.stateHistory = [];
         this.maxHistoryLength = 10;
+        this.boardState = {}; // Initialize empty board state
     }
 
-    createInitialBoard(rows, cols) {
+    createInitialBoard(seed) {
         const board = {};
+        const colors = CONFIG.GAME_COLORS;
+        const seededRandom = this.createSeededRandom(seed);
         
-        // Fill board with random colors from game colors
-        for (let r = 0; r < rows; r++) {
-            for (let q = 0; q < cols; q++) {
-                const randomColor = CONFIG.GAME_COLORS[
-                    Math.floor(Math.random() * CONFIG.GAME_COLORS.length)
-                ];
+        // Create board with consistent random colors
+        for (let q = 0; q < this.cols; q++) {
+            for (let r = 0; r < this.rows; r++) {
+                const colorIndex = Math.floor(seededRandom() * colors.length);
                 board[`${q},${r}`] = {
                     q, r,
+                    color: colors[colorIndex],
                     owner: null,
-                    color: randomColor,
-                    baseColor: randomColor
+                    baseColor: colors[colorIndex]
                 };
             }
         }
+
+        // Set initial positions
+        if (board['0,15']) {
+            board['0,15'].owner = 'P1';  // Bottom left
+            board['0,15'].baseColor = board['0,15'].color;
+        }
+        if (board['15,0']) {
+            board['15,0'].owner = 'P2';  // Top right
+            board['15,0'].baseColor = board['15,0'].color;
+        }
+
+        this.boardState = board;
         return board;
     }
 
@@ -85,7 +96,7 @@ export class GameState {
         const checked = new Set();
 
         // Start from player's territory
-        Object.entries(this.board)
+        Object.entries(this.boardState)
             .filter(([_, tile]) => tile.owner === playerId)
             .forEach(([key, _]) => {
                 this.findAdjacentMatchingColor(key, selectedColor, capturable, checked);
@@ -104,7 +115,7 @@ export class GameState {
 
         neighbors.forEach(neighbor => {
             const key = `${neighbor.q},${neighbor.r}`;
-            const tile = this.board[key];
+            const tile = this.boardState[key];
             if (tile && tile.baseColor === targetColor && !tile.owner) {
                 capturable.add(key);
                 this.findAdjacentMatchingColor(key, targetColor, capturable, checked);
@@ -128,7 +139,7 @@ export class GameState {
                 const key = `${neighbor.q},${neighbor.r}`;
                 if (this.isValidPosition(neighbor.q, neighbor.r) && !this.board[key].owner) {
                     validMoves.add(key);
-                }
+                }   
             });
         }
 
@@ -300,7 +311,7 @@ export class GameState {
         Object.values(this.board).forEach(tile => {
             if (tile.owner && this.players[tile.owner]) {
                 this.players[tile.owner].score++;
-            }
+            }   
         });
     }
 
@@ -437,28 +448,38 @@ export class GameState {
     }
 
     renderForPlayer(renderFn, ctx, isPlayer2) {
+        if (!ctx) return;
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         
         if (isPlayer2) {
-            // Rotate view 180 degrees for player 2
             ctx.translate(ctx.canvas.width, ctx.canvas.height);
             ctx.rotate(Math.PI);
         }
 
-        // Draw each hex
+        if (!this.boardState || Object.keys(this.boardState).length === 0) {
+            console.warn('Creating new board state during render');
+            this.createInitialBoard(Date.now());
+        }
+
         Object.entries(this.boardState).forEach(([coord, tile]) => {
-            let { q, r } = tile;
-            const { x, y } = getHexCenter(q, r);
-            renderFn(ctx, x, y, tile.color, tile.owner !== null);
+            if (tile && typeof tile.q !== 'undefined' && typeof tile.r !== 'undefined') {
+                const { x, y } = getHexCenter(tile.q, tile.r);
+                renderFn(ctx, x, y, tile.color, tile.owner !== null);
+            }
         });
 
-        // Reset transformation
         if (isPlayer2) {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
         }
     }
-}
 
+    createSeededRandom(seed) {
+        return function() {
+            seed = (seed * 9301 + 49297) % 233280;
+            return seed / 233280;
+        };
+    }
+}
 
 // --- Hex Grid Geometry Functions ---
 
@@ -523,7 +544,6 @@ export function worldToHex(x, y) {
     // A more robust method for offset grids often involves checking the region within the hex.
     // See resources like Red Blob Games' Hexagonal Grids guide.
 }
-
 
 // Get the axial coordinates of the six neighbors of a hex cell
 export function getNeighbors(q, r) {

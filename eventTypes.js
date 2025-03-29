@@ -7,7 +7,11 @@ export const GameEvents = {
     GAME_OVER: 'game:game_over',
     JOIN_ATTEMPT: 'game:join_attempt',
     JOIN_SUCCESS: 'game:join_success',
-    JOIN_FAILURE: 'game:join_failure'
+    JOIN_FAILURE: 'game:join_failure',
+    GAME_START: 'game:start',
+    PLAYER_TURN: 'game:player_turn',
+    COLOR_SELECT: 'game:color_select',
+    INVALID_MOVE: 'game:invalid_move'
 };
 
 export const NetworkEvents = {

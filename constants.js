@@ -1,34 +1,38 @@
 // Game Board Constants
 export const BOARD = {
     SIZE: 16,
-    HEX_SIZE: 30,
-    HEX_HEIGHT: Math.sqrt(3) * 30,
-    HEX_WIDTH: 2 * 30,
-    VERTICAL_SPACING: Math.sqrt(3) * 30,
-    HORIZONTAL_SPACING: 2 * 30 * 0.75,
+    HEX_SIZE: 25, // Reduced from 30
+    get HEX_HEIGHT() { return Math.sqrt(3) * this.HEX_SIZE; },
+    get HEX_WIDTH() { return 2 * this.HEX_SIZE; },
+    // Adjust spacing to prevent overlap
+    get VERTICAL_SPACING() { return this.HEX_HEIGHT * 0.86; }, // Reduced from 0.866
+    get HORIZONTAL_SPACING() { return this.HEX_WIDTH * 0.74; }, // Reduced from 0.75
+    PADDING: 40 // Add padding for centering
 };
 
 // Add responsive sizing helpers
 export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, rows) => {
-    // Updated calculation to account for overlapping hexes
-    const padding = 0.95; // Increase from 0.9 to 0.95 for better space usage
+    // More conservative sizing - use 85% of container
+    const padding = 0.85;
     
-    // Account for hex overlap in width calculation
-    const effectiveWidth = (cols * 1.5) * padding; // Changed multiplier
+    // Account for hex overlap and margins
+    const effectiveWidth = (cols * 1.5) * padding;
     const effectiveHeight = (rows * Math.sqrt(3)) * padding;
 
+    // Calculate max size that will fit
     const maxWidth = containerWidth / effectiveWidth;
     const maxHeight = containerHeight / effectiveHeight;
     
-    const size = Math.min(maxWidth, maxHeight);
-    return Math.max(size, 25); // Increased minimum size from 20 to 25
+    // Use smaller size and enforce max size of 25
+    const size = Math.min(maxWidth, maxHeight, 25);
+    return Math.max(size, 15); // Set minimum size to 15
 };
 
-// Update BOARD with dynamic spacing getters
+// Fix spacing calculation
 export const getHexSpacing = (hexSize) => ({
-    VERTICAL: hexSize * Math.sqrt(3),
-    HORIZONTAL: hexSize * 1.732, // Changed from 1.5 to Math.sqrt(3) for perfect tiling
-    STAGGER_OFFSET: (hexSize * Math.sqrt(3)) / 2
+    VERTICAL: hexSize * Math.sqrt(3) * 0.86,    // Match the board constant
+    HORIZONTAL: hexSize * 1.48,                 // Adjusted for proper tiling
+    STAGGER_OFFSET: hexSize * Math.sqrt(3) / 2.1 // Slightly adjusted stagger
 });
 
 // Game Colors

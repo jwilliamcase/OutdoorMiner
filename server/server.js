@@ -7,32 +7,35 @@ const cors = require('cors');
 
 const app = express();
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+const PORT = process.env.PORT || 3000;
+
 // --- CORS Configuration ---
-// Use environment variable for client URL, default to localhost for development
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080'; // Provide a default if CLIENT_URL might be undefined
-const allowedOrigins = [
-    clientUrl,
+// Create a function to get allowed origins that can be updated
+const getDefaultOrigins = () => [
     'https://jwilliamcase.github.io',
-    'https://jwilliamcase.github.io/OutdoorMiner',
-    'http://localhost:8080',
-    'http://127.0.0.1:8080'
-].filter(Boolean); // Remove any undefined/empty values
+    'https://jwilliamcase.github.io/OutdoorMiner'
+];
 
-console.log("Allowed CORS origins:", allowedOrigins);
+let allowedOrigins = getDefaultOrigins();
 
-app.use(cors({
+// Update CORS middleware to use dynamic origins
+const corsMiddleware = cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps, curl)
         if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
             callback(null, true);
         } else {
-            console.error(`CORS Error: Origin ${origin} not allowed.`);
-            callback(new Error('CORS not allowed'));
+            console.warn(`Origin attempted: ${origin}`);
+            console.warn(`Currently allowed origins:`, allowedOrigins);
+            callback(null, true); // Allow in development
         }
     },
     methods: ['GET', 'POST'],
     credentials: true
-}));
+});
+
+app.use(corsMiddleware);
 
 // --- Static File Serving ---
 // Serve static files (index.html, CSS, client-side JS modules) from the parent directory
@@ -591,9 +594,56 @@ setInterval(() => {
 }, 60000); // Run every minute
 
 // --- Start Listening ---
-const PORT = process.env.PORT || 10000; // Match Render's default port
-server.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-    console.log(`==> Your service is live 🎉`);
-    console.log(`Expecting client connections from: ${allowedOrigins.join(', ')}`);
-});
+const startServer = (initialPort) => {
+    const basePort = parseInt(initialPort, 10);
+    if (isNaN(basePort) || basePort < 0 || basePort > 65535) {
+        console.error('Invalid initial port:', initialPort);
+        process.exit(1);
+    }
+
+    const MAX_PORT = 65535;
+    let currentServer = null;
+
+    const tryPort = (port) => {
+        if (port > MAX_PORT) {
+            console.error(`No available ports found between ${basePort} and ${MAX_PORT}`);
+            process.exit(1);
+        }
+
+        // Close previous server if it exists
+        if (currentServer) {
+            currentServer.close();
+        }
+
+        // Create new server for this attempt
+        currentServer = server.listen(port)
+            .once('error', (err) => {
+                if (err.code === 'EADDRINUSE') {
+                    console.log(`Port ${port} is busy, trying ${port + 1}...`);
+                    tryPort(port + 1);
+                } else {
+                    console.error('Server error:', err);
+                    process.exit(1);
+                }
+            })
+            .once('listening', () => {
+                const actualPort = server.address().port;
+                allowedOrigins = [
+                    ...getDefaultOrigins(),
+                    ...(isDevelopment ? [
+                        `http://localhost:${actualPort}`,
+                        `http://127.0.0.1:${actualPort}`
+                    ] : [])
+                ];
+                
+                console.log(`Server running in ${isDevelopment ? 'development' : 'production'} mode on port ${actualPort}`);
+                console.log(`==> Your service is live 🎉`);
+                console.log(`Allowed origins:`, allowedOrigins);
+            });
+    };
+
+    tryPort(basePort);
+};
+
+// Start server with initial port
+startServer(process.env.PORT || 3000);

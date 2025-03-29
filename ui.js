@@ -106,8 +106,25 @@ function setupColorButtons() {
 
 // Add new function to update game code display
 export function updateGameCode(code) {
-    if (elements.currentGameCode) {
-        elements.currentGameCode.textContent = code || '-';
+    const shareLink = document.querySelector('.share-link');
+    const fullUrl = `${window.location.origin}${window.location.pathname}?code=${code}`;
+    
+    if (!shareLink) {
+        const shareDiv = document.createElement('div');
+        shareDiv.className = 'share-link';
+        shareDiv.innerHTML = `
+            <span>Share Code: ${code}</span>
+            <input type="text" value="${fullUrl}" readonly onclick="this.select()">
+            <button onclick="navigator.clipboard.writeText('${fullUrl}')">Copy URL</button>
+        `;
+        document.body.appendChild(shareDiv);
+    } else {
+        shareLink.innerHTML = `
+            <span>Share Code: ${code}</span>
+            <input type="text" value="${fullUrl}" readonly onclick="this.select()">
+            <button onclick="navigator.clipboard.writeText('${fullUrl}')">Copy URL</button>
+        `;
+        shareLink.style.display = 'flex';
     }
 }
 
@@ -127,6 +144,12 @@ export function showSetupScreen() {
     if (player1Info) player1Info.textContent = "Player 1: -";
     if (player2Info) player2Info.textContent = "Player 2: -";
     console.log("showSetupScreen - END");
+
+    // Make room code input editable when showing setup screen
+    const roomCodeInput = document.getElementById('room-code-input');
+    if (roomCodeInput) {
+        roomCodeInput.readOnly = false;
+    }
 }
 
 // Update showGameScreen to use uiManager
@@ -151,6 +174,12 @@ export function showGameScreen() {
     // Single initialization of color buttons
     initializeColorButtons();
 
+    // Make sure share link is visible when game screen shows
+    const shareLink = document.querySelector('.share-link');
+    if (shareLink) {
+        shareLink.style.display = 'flex';
+    }
+
     requestAnimationFrame(() => {
         resizeGame();
         if (gameState) {
@@ -167,9 +196,24 @@ export function resizeGame() {
     if (!canvas || !gameState) return;
 
     const gameArea = document.getElementById('game-area');
+    if (!gameArea) return;
+
+    // Get the actual visible area
+    const viewportHeight = window.innerHeight;
+    const headerHeight = document.querySelector('header')?.offsetHeight || 0;
+    const scoreHeight = document.getElementById('score-container')?.offsetHeight || 0;
+    const colorSelectionHeight = document.getElementById('color-selection')?.offsetHeight || 0;
+    
+    // Calculate available height
+    const availableHeight = viewportHeight - headerHeight - scoreHeight - colorSelectionHeight - 40; // 40px for margins
+    
+    // Set game area max height
+    gameArea.style.maxHeight = `${availableHeight}px`;
+    
+    // Get actual available space
     const rect = gameArea.getBoundingClientRect();
 
-    // Calculate base hex size
+    // Calculate optimal hex size
     const hexSize = calculateOptimalHexSize(
         rect.width,
         rect.height,
@@ -186,16 +230,31 @@ export function resizeGame() {
         gameState.rows * spacing.VERTICAL + spacing.STAGGER_OFFSET + hexSize
     );
 
-    // Set canvas dimensions
-    canvas.width = boardWidth;
-    canvas.height = boardHeight;
+    // Set canvas dimensions with padding
+    canvas.width = boardWidth + (hexSize * 2); // Add padding
+    canvas.height = boardHeight + (hexSize * 2); // Add padding
 
     // Store sizes for rendering
     gameState.currentHexSize = hexSize;
-    gameState.currentScale = 1; // Keep scale at 1 for consistent rendering
+    gameState.currentScale = 1;
 
-    console.log(`Resized canvas: ${boardWidth}x${boardHeight}, HexSize: ${hexSize}`);
+    console.log(`Resized canvas: ${canvas.width}x${canvas.height}, HexSize: ${hexSize}`);
+
+    // Center the board
+    centerGameBoard();
     renderGameBoard();
+}
+
+function centerGameBoard() {
+    if (!gameState || !canvas) return;
+
+    // Calculate the offset to center the board
+    const offsetX = (canvas.width - (gameState.cols * BOARD.HORIZONTAL_SPACING)) / 2;
+    const offsetY = (canvas.height - (gameState.rows * BOARD.VERTICAL_SPACING)) / 2;
+
+    // Update camera offset
+    cameraOffset.x = offsetX;
+    cameraOffset.y = offsetY;
 }
 
 export function centerOnPlayerStart() {
@@ -410,21 +469,30 @@ function handleColorSelection(event) {
         return;
     }
 
-    if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
+    // Get current player symbol from game state
+    const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
+    
+    if (gameState.currentPlayer !== mySymbol) {
         displayMessage("Not your turn!", true);
         return;
     }
 
     const selectedColor = event.target.dataset.color;
     if (selectedColor === gameState.lastUsedColor) {
-        displayMessage("This color was just used by your opponent!", true);
+        displayMessage("This color was just used!", true);
         return;
     }
 
-    // Send the color selection to server instead of just color
+    console.log("Sending color selection:", {
+        type: 'color-select',
+        color: selectedColor,
+        player: mySymbol
+    });
+
     sendTilePlacement({
         type: 'color-select',
-        color: selectedColor
+        color: selectedColor,
+        player: mySymbol
     });
 }
 
@@ -469,46 +537,32 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     console.log("Initial state debug:", {
         gameState: gameStateObject,
         players: playersData,
-        ownId: ownPlayerId
+        ownId: ownPlayerId,
+        currentPlayer: gameStateObject.currentPlayer
     });
 
     try {
-        // Create new game state instance with explicit dimensions
-        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
-        
-        // Copy state properties
-        Object.assign(gameState, gameStateObject);
         currentPlayerId = ownPlayerId;
-
-        // Update available colors immediately
-        updateAvailableColors(gameStateObject.lastUsedColor);
-
-        // Determine which player symbol (P1/P2) belongs to this client
-        const mySymbol = ownPlayerId === gameState.players.P1.socketId ? 'P1' : 'P2';
-        const isMyTurn = gameState.currentPlayer === mySymbol;
-
-        console.log("Turn state:", {
-            mySymbol,
-            currentPlayer: gameState.currentPlayer,
-            isMyTurn
-        });
+        gameState = new GameState(
+            gameStateObject.rows || CONFIG.BOARD_SIZE,
+            gameStateObject.cols || CONFIG.BOARD_SIZE
+        );
         
-        // Update turn indicator
-        const turnIndicator = document.getElementById('turn-indicator');
-        if (turnIndicator) {
-            turnIndicator.textContent = isMyTurn ? 
-                "Your Turn!" : 
-                "Opponent's Turn";
-            turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
-        }
+        // Create board with server's seed
+        gameState.createInitialBoard(gameStateObject.gameSeed);
+        Object.assign(gameState, gameStateObject);
 
-        // Update UI and render
+        // Update UI elements
         updatePlayerInfo(playersData, ownPlayerId);
+        updateTurnIndicator(gameState.currentPlayer);
+        updateAvailableColors(gameState.lastUsedColor);
+
         requestAnimationFrame(() => {
             resizeGame();
             renderGameBoard();
+            centerOnPlayerStart();
         });
-        
+
         return true;
     } catch (error) {
         console.error("Error initializing game state:", error);
@@ -555,12 +609,15 @@ function handleTurnTransition(newState) {
 
 // Separate state update logic
 function updateGameState(newState) {
+    if (!newState) return;
+    
     gameState = new GameState(newState.rows, newState.cols);
     Object.assign(gameState, newState);
+    currentPlayerId = newState.currentPlayerId; // Make sure this is set
 
     // Update UI elements
     updateAvailableColors(gameState.lastUsedColor);
-    updateTurnIndicator();
+    updateTurnIndicator(newState.currentPlayer);
     updateScores(gameState.players);
     renderGameBoard();
 }
@@ -585,16 +642,31 @@ function updateScores(players) {
 }
 
 // Add new function for turn indicator
-function updateTurnIndicator() {
-    const turnIndicator = elements.turnIndicator;
+function updateTurnIndicator(currentPlayer) {
+    const turnIndicator = document.getElementById('turn-indicator');
     if (!turnIndicator || !gameState) return;
 
-    // Get my player symbol based on socket ID
     const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
-    const isMyTurn = gameState.currentPlayer === mySymbol;
+    const isMyTurn = currentPlayer === mySymbol;
+
+    console.log('Turn Update:', {
+        currentPlayer,
+        mySymbol,
+        isMyTurn,
+        p1Id: gameState.players.P1?.socketId,
+        p2Id: gameState.players.P2?.socketId
+    });
 
     turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
     turnIndicator.textContent = isMyTurn ? "Your Turn!" : "Opponent's Turn";
+    turnIndicator.style.display = 'block';
+
+    // Update color button states
+    const colorButtons = document.querySelectorAll('.color-button');
+    colorButtons.forEach(button => {
+        button.disabled = !isMyTurn;
+        button.style.opacity = isMyTurn ? '1' : '0.5';
+    });
 }
 
 // Helper to roughly center the view on the board
@@ -634,6 +706,9 @@ export function playSound(soundName) {
 
 function initializeColorButtons() {
     const colorOptions = document.querySelector('.color-options');
+    if (!colorOptions) return;
+    
+    colorOptions.innerHTML = ''; // Clear existing buttons
     CONFIG.GAME_COLORS.forEach(color => {
         const button = document.createElement('button');
         button.className = 'color-button';

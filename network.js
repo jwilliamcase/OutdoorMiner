@@ -304,15 +304,44 @@ export function sendMessage(message) {
 
 // Update move protocol
 export function sendTilePlacement(moveData) {
-    if (!socketInstance?.connected || !currentRoomId || !currentPlayerId) {
-        displayMessage("Connection error", true);
+    if (!socketInstance?.connected) {
+        console.error("Not connected to server");
         return;
     }
 
-    socketInstance.emit('place-tile', {
-        roomCode: currentRoomId,
-        playerId: currentPlayerId,
+    // Get room code from game state
+    const gameState = window.gameState?.getSerializableState();
+    if (!gameState?.gameId) {
+        console.error("No game ID found");
+        return;
+    }
+
+    console.log("Sending move:", {
+        gameId: gameState.gameId,
+        playerId: socketInstance.id,
         move: moveData
+    });
+
+    socketInstance.emit('place-tile', {
+        gameId: gameState.gameId,
+        playerId: socketInstance.id,
+        move: moveData
+    }, (response) => {
+        console.log("Server move response:", response);
+        if (!response.success) {
+            displayMessage(response.message || "Move failed", true);
+        }
+    });
+}
+
+// Add socket event listener for game updates
+function setupGameEvents(socket) {
+    socket.on('game-update', (data) => {
+        console.log("Received game update:", data);
+        if (data.state) {
+            handleGameUpdate(data.state);
+            playSound('move');
+        }
     });
 }
 
@@ -325,60 +354,38 @@ export function emitCreateChallenge(playerName) {
                 
                 socketInstance.emit('create-challenge', playerName, (response) => {
                     if (response.success) {
-                        currentRoomId = response.challengeCode;
-                        
-                        // Create shareable URL
-                        const shareUrl = new URL(window.location.href);
-                        shareUrl.searchParams.set('code', response.challengeCode);
-                        
-                        // Show share link with copy functionality
-                        const shareLink = document.querySelector('.share-link');
-                        if (shareLink) {
-                            shareLink.innerHTML = `
-                                Share link: 
-                                <input type="text" value="${shareUrl.toString()}" readonly onclick="this.select()"/>
-                                <button onclick="copyShareLink(this, '${shareUrl.toString()}')">
-                                    Copy Link
-                                </button>
-                            `;
-                            shareLink.style.display = 'flex';
-                            
-                            // Add copy function to window scope
-                            window.copyShareLink = async (button, url) => {
-                                try {
-                                    await navigator.clipboard.writeText(url);
-                                    button.classList.add('copied');
-                                    button.textContent = 'Copied!';
-                                    setTimeout(() => {
-                                        button.classList.remove('copied');
-                                        button.textContent = 'Copy Link';
-                                    }, 2000);
-                                } catch (err) {
-                                    console.error('Failed to copy:', err);
-                                    button.textContent = 'Failed to copy';
-                                    setTimeout(() => {
-                                        button.textContent = 'Copy Link';
-                                    }, 2000);
+                        // Create initial game state
+                        const initialState = {
+                            rows: CONFIG.BOARD_SIZE,
+                            cols: CONFIG.BOARD_SIZE,
+                            boardState: {},  // Will be initialized by GameState
+                            players: {
+                                P1: { 
+                                    socketId: socketId, 
+                                    name: playerName,
+                                    score: 0
                                 }
-                            };
-                        }
+                            },
+                            currentPlayer: 'P1',
+                            lastUsedColor: null,
+                            gameSeed: Date.now()
+                        };
 
-                        // Rest of the initialization...
-                        const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
-                        initialState.initializePlayerPositions(socketId, null);
-                        
-                        handleInitialState(initialState, {
-                            [socketId]: {
-                                name: playerName,
-                                score: 1,
-                                playerNumber: 1
+                        // Handle initial state with proper player data
+                        const playerData = {
+                            [socketId]: { 
+                                name: playerName, 
+                                playerNumber: 1,
+                                score: 0
                             }
-                        }, socketId);
+                        };
 
-                        showGameScreen();
-                        centerOnPlayerStart();
-                        
-                        displayMessage(`Challenge created! Share code: ${response.challengeCode}`);
+                        if (handleInitialState(initialState, playerData, socketId)) {
+                            showGameScreen();
+                            centerOnPlayerStart();
+                            displayMessage(`Challenge created! Share code: ${response.challengeCode}`);
+                            updateGameCode(response.challengeCode);
+                        }
                     }
                 });
             });
