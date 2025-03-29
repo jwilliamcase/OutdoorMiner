@@ -371,15 +371,22 @@ export function emitCreateChallenge(playerName) {
 export function emitJoinChallenge(playerName, roomCode) {
     console.log('Join attempt:', { playerName, roomCode });
     
-    // Validate inputs before attempting connection
-    if (!playerName?.trim() || !roomCode?.trim()) {
-        const error = new Error("Please enter both name and room code");
+    // Fix: Validate inputs are strings
+    if (typeof playerName !== 'string' || typeof roomCode !== 'string') {
+        const error = new Error("Invalid input types");
         displayMessage(error.message, true);
         return Promise.reject(error);
     }
 
+    // Now safe to trim
     const cleanPlayerName = playerName.trim();
-    const cleanRoomCode = roomCode.trim().toUpperCase();
+    const cleanRoomCode = roomCode.trim();
+
+    if (!cleanPlayerName || !cleanRoomCode) {
+        const error = new Error("Please enter both name and room code");
+        displayMessage(error.message, true);
+        return Promise.reject(error);
+    }
 
     return new Promise((resolve, reject) => {
         // First connect to server

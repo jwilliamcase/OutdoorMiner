@@ -1,10 +1,7 @@
 import { connectToServer, disconnectFromServer, emitCreateChallenge, emitJoinChallenge, checkUrlParameters } from './network.js';
-import {
-    initializeUI,
-    showSetupScreen,
-    displayMessage
-} from './ui.js';
+import { initializeUI, showSetupScreen, displayMessage } from './ui.js';
 import { CONFIG } from './config.js';
+import { eventManager, EventTypes } from './eventManager.js'; // Add this import
 
 let currentGameState;
 let localPlayerId;
@@ -54,6 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Join Challenge button not found");
     }
 
+    // Add event listener for join game events
+    eventManager.addEventListener(EventTypes.UI.JOIN_GAME, (data) => {
+        if (!data || typeof data !== 'object') {
+            console.error('Invalid join data:', data);
+            return;
+        }
+        handleJoinGame(data.playerName, data.roomCode);
+    });
+
     // Show the initial screen
     showSetupScreen();
 
@@ -88,16 +94,15 @@ async function handleCreateGame() {
     }
 }
 
-// Add event listener for join game events
-eventManager.addEventListener(EventTypes.UI.JOIN_GAME, (data) => {
-    handleJoinGame(data.playerName, data.roomCode);
-});
-
 // Update join game handler
 async function handleJoinGame(playerName, roomCode) {
     const joinButton = document.getElementById('join-challenge-button');
     
     try {
+        if (!playerName || !roomCode) {
+            throw new Error("Name and room code are required");
+        }
+
         // Disable button and show loading state
         if (joinButton) joinButton.disabled = true;
         displayMessage("Connecting...");

@@ -113,10 +113,10 @@ class UIManager {
                         return;
                     }
 
-                    // Use JOIN_GAME event type specifically
+                    // Fix: Use proper event structure
                     eventManager.dispatchEvent(EventTypes.UI.JOIN_GAME, {
-                        playerName,
-                        roomCode
+                        playerName: playerName,
+                        roomCode: roomCode
                     });
                 });
             }
