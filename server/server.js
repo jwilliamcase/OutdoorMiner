@@ -451,15 +451,31 @@ io.on('connection', (socket) => {
 
     socket.on('place-tile', ({ gameId, playerId, move }, callback) => {
         try {
+            // Add debug logging
+            console.log('Received move:', {
+                gameId, playerId, move,
+                socketId: socket.id,
+                playerInfo: playerSockets[socket.id]
+            });
+
             const playerInfo = playerSockets[socket.id];
             if (!playerInfo || !playerInfo.gameId) {
+                console.log('Move rejected: Player not in game', { socketId: socket.id });
                 return callback({ success: false, message: 'Not in a game' });
             }
 
             const game = activeGames[playerInfo.gameId];
             if (!game) {
+                console.log('Move rejected: Game not found', { gameId: playerInfo.gameId });
                 return callback({ success: false, message: 'Game not found' });
             }
+
+            // Add more detailed turn validation logging
+            console.log('Turn validation:', {
+                currentPlayer: game.currentPlayer,
+                playerSymbol: playerInfo.playerSymbol,
+                move: move
+            });
 
             // Validate turn
             if (game.currentPlayer !== playerInfo.playerSymbol) {
@@ -470,16 +486,24 @@ io.on('connection', (socket) => {
                 return callback({ success: false, message: 'Not your turn' });
             }
 
-            // Handle color selection
+            // Handle color selection with better logging
             if (move.type === 'color-select') {
                 console.log('Processing color selection:', {
                     player: playerInfo.playerSymbol,
                     color: move.color,
-                    currentTurn: game.currentPlayer
+                    currentTurn: game.currentPlayer,
+                    lastUsedColor: game.lastUsedColor
                 });
 
                 const result = game.handleColorSelection(playerInfo.playerSymbol, move.color);
                 if (result.success) {
+                    // Log the state change
+                    console.log('Color selection successful:', {
+                        player: playerInfo.playerSymbol,
+                        capturedCount: result.capturedCount,
+                        newCurrentPlayer: result.newState.currentPlayer
+                    });
+
                     // Broadcast the updated state to all players
                     io.to(game.gameId).emit('game-update', {
                         state: result.newState,
@@ -491,6 +515,7 @@ io.on('connection', (socket) => {
                     });
                     callback({ success: true });
                 } else {
+                    console.log('Color selection failed:', result);
                     callback({ success: false, message: result.message });
                 }
             }

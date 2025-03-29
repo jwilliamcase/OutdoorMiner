@@ -316,22 +316,24 @@ export function sendTilePlacement(moveData) {
         return;
     }
 
-    const currentGame = currentRoomId;
+    const gameId = currentRoomId; // Use currentRoomId directly
     console.log('Sending move:', {
-        gameId: currentGame,
+        gameId,
         playerId: currentPlayerId,
-        moveData
+        moveData,
+        currentRoom: currentRoomId
     });
 
     socketInstance.emit('place-tile', {
-        gameId: currentGame,
+        gameId,
         playerId: currentPlayerId,
         move: {
             type: 'color-select',
             color: moveData.color,
-            player: currentPlayerId
+            player: moveData.player
         }
     }, (response) => {
+        console.log('Server response:', response);
         if (!response.success) {
             displayMessage(response.message || "Move failed", true);
         }

@@ -512,6 +512,62 @@ export class GameState {
     }
 }
 
+class ServerGameState {
+    // ...existing code...
+
+    isValidMove(playerId, selectedColor) {
+        console.log('Validating move:', {
+            playerId,
+            selectedColor,
+            currentPlayer: this.currentPlayer,
+            lastUsedColor: this.lastUsedColor
+        });
+
+        return (
+            playerId === this.currentPlayer &&  // Correct player's turn
+            selectedColor !== this.lastUsedColor // Not using last used color
+        );
+    }
+
+    handleColorSelection(playerId, selectedColor) {
+        console.log('Processing color selection:', {
+            playerId,
+            selectedColor,
+            currentState: {
+                currentPlayer: this.currentPlayer,
+                lastUsedColor: this.lastUsedColor
+            }
+        });
+
+        // Validate move
+        if (!this.isValidMove(playerId, selectedColor)) {
+            return {
+                success: false,
+                message: 'Invalid move'
+            };
+        }
+
+        // Find capturable tiles
+        const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
+        
+        // Update board state
+        this.boardState = this.updateBoardState(playerId, selectedColor, capturedTiles);
+        
+        // Switch turns and update last used color
+        this.lastUsedColor = selectedColor;
+        this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+
+        // Update scores
+        this.updateScores();
+
+        return {
+            success: true,
+            capturedTiles: capturedTiles,
+            newState: this.getSerializableState()
+        };
+    }
+}
+
 // --- Hex Grid Geometry Functions ---
 
 // Get the pixel coordinates of the center of a hex cell
