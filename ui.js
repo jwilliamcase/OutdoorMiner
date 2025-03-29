@@ -476,6 +476,9 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         Object.assign(gameState, gameStateObject);
         currentPlayerId = ownPlayerId;
 
+        // Update available colors immediately
+        updateAvailableColors(gameStateObject.lastUsedColor);
+
         // Determine which player symbol (P1/P2) belongs to this client
         const mySymbol = ownPlayerId === gameState.players.P1.socketId ? 'P1' : 'P2';
         const isMyTurn = gameState.currentPlayer === mySymbol;
@@ -618,7 +621,7 @@ function initializeColorButtons() {
     });
 }
 
-function updateAvailableColors(lastUsedColor) {
+export function updateAvailableColors(lastUsedColor) {
     const buttons = document.querySelectorAll('.color-button');
     buttons.forEach(button => {
         button.classList.remove('disabled', 'last-used');
@@ -626,10 +629,5 @@ function updateAvailableColors(lastUsedColor) {
             button.classList.add('disabled');
         }
     });
-
-    // Update last used color display
-    const lastUsedDisplay = document.getElementById('last-used-color');
-    if (lastUsedDisplay) {
-        lastUsedDisplay.style.backgroundColor = lastUsedColor;
-    }
+    // Remove the last used color display update since we removed the element
 }

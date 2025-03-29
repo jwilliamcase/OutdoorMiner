@@ -27,7 +27,7 @@ export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, r
 // Update BOARD with dynamic spacing getters
 export const getHexSpacing = (hexSize) => ({
     VERTICAL: hexSize * Math.sqrt(3),
-    HORIZONTAL: hexSize * 1.5, // This ensures proper overlap
+    HORIZONTAL: hexSize * 1.732, // Changed from 1.5 to Math.sqrt(3) for perfect tiling
     STAGGER_OFFSET: (hexSize * Math.sqrt(3)) / 2
 });
 

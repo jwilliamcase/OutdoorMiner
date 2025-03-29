@@ -29,14 +29,14 @@ h1 {
     flex-direction: column;
     align-items: center;
     width: fit-content;
+    min-width: min-content;
     margin: 0 auto;
-    padding: 10px;  /* Reduced from 20px */
+    padding: 10px;
     box-sizing: border-box;
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 12px;
-    overflow: hidden;
     border: 2px solid #F76C6C;
-    max-height: 95vh;  /* Prevent overflow */
+    overflow: visible;
 }
 
 #score-container {
@@ -474,21 +474,19 @@ h1 {
     justify-content: center;
     align-items: center;
     width: 100%;
-    height: auto;     /* Changed from fixed height */
-    min-height: 200px;  /* Reduced from 400px */
-    margin: 10px 0;    /* Added margin instead of padding */
+    height: auto;
+    min-height: 200px;
+    margin: 10px 0;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
 }
 
 #gameCanvas {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    max-width: 100%;
-    max-height: 100%;
+    position: relative;
     display: block;
+    max-width: none;
+    max-height: none;
+    margin: 0 auto;
 }
 
 /* Remove powerup related styles */

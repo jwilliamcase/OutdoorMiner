@@ -93,11 +93,9 @@ class ServerGameState {
     initializeBoard(seed) {
         const board = {};
         const colors = ['#F76C6C', '#374785', '#F8E9A1', '#50C878', '#9B59B6'];
-        
-        // Use seeded random for consistent generation
         const seededRandom = this.createSeededRandom(seed);
         
-        // First create all board positions
+        // Create board with consistent random colors
         for (let q = 0; q < this.boardSize; q++) {
             for (let r = 0; r < this.boardSize; r++) {
                 const colorIndex = Math.floor(seededRandom() * colors.length);
@@ -109,16 +107,15 @@ class ServerGameState {
             }
         }
 
-        // Then set initial positions - ensure these positions exist
-        if (board['0,15'] && board['15,0']) {
-            board['0,15'].owner = 'P1'; // Bottom left for P1
-            board['15,0'].owner = 'P2'; // Top right for P2
-            console.log('Initial positions set successfully');
-        } else {
-            console.error('Failed to set initial positions - coordinates not found in board');
-            console.log('Board keys:', Object.keys(board));
-        }
+        // Set initial positions consistently for both players
+        board['0,15'].owner = 'P1';  // Bottom left
+        board['15,0'].owner = 'P2';  // Top right
         
+        // Set initial colors
+        const p1Color = board['0,15'].color;
+        const p2Color = board['15,0'].color;
+        this.lastUsedColor = p2Color; // P1 starts, can't use P2's color
+
         return board;
     }
 
@@ -252,7 +249,10 @@ class ServerGameState {
             rows: this.boardSize,
             cols: this.boardSize,
             turnNumber: this.turnNumber,
-            lastUsedColor: this.lastUsedColor
+            lastUsedColor: this.lastUsedColor,
+            initialP1Position: '0,15',
+            initialP2Position: '15,0',
+            gameSeed: this.gameSeed // Send seed to ensure consistent board generation
         };
         return gameState;
     }

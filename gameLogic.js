@@ -429,30 +429,25 @@ export class GameState {
     }
 
     rotateCoordinatesForPlayer2(q, r) {
-        // For a 16x16 board, rotate coordinates 180 degrees
+        // Rotate 180 degrees for player 2's view
         return {
-            q: this.cols - 1 - q,
-            r: this.rows - 1 - r
+            q: this.boardSize - 1 - q,
+            r: this.boardSize - 1 - r
         };
-    }
-
-    getTransformedCoordinates(q, r, isPlayer2) {
-        if (!isPlayer2) return { q, r };
-        return this.rotateCoordinatesForPlayer2(q, r);
     }
 
     renderForPlayer(renderFn, ctx, isPlayer2) {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         
-        // Apply rotation for player 2
         if (isPlayer2) {
+            // Rotate view 180 degrees for player 2
             ctx.translate(ctx.canvas.width, ctx.canvas.height);
             ctx.rotate(Math.PI);
         }
 
-        // Draw the board using provided render function
-        Object.entries(this.board).forEach(([coord, tile]) => {
-            const [q, r] = coord.split(',').map(Number);
+        // Draw each hex
+        Object.entries(this.boardState).forEach(([coord, tile]) => {
+            let { q, r } = tile;
             const { x, y } = getHexCenter(q, r);
             renderFn(ctx, x, y, tile.color, tile.owner !== null);
         });
