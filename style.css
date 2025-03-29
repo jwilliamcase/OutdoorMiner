@@ -1063,3 +1063,21 @@ footer {
     color: #111111;
     cursor: pointer;
 }
+
+/* Add styles for join-only mode */
+.join-mode .action-group {
+    flex-direction: column;
+    gap: 15px;
+}
+
+.join-mode .join-group {
+    border: 2px solid #FF9966;
+    padding: 20px;
+    border-radius: 12px;
+    background: rgba(255, 153, 102, 0.1);
+}
+
+.join-mode #player-name-input {
+    font-size: 1.2rem;
+    padding: 15px;
+}

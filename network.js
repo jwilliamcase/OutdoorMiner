@@ -425,18 +425,24 @@ export function checkUrlParameters() {
         const roomCodeInput = document.getElementById('room-code-input');
         const playerNameInput = document.getElementById('player-name-input');
         const joinButton = document.getElementById('join-challenge-button');
+        const createButton = document.getElementById('create-challenge-button');
         
         if (roomCodeInput && playerNameInput && joinButton) {
             roomCodeInput.value = code;
-            // Only enable join button if name is filled
+            // Hide create button and show join UI more prominently
+            if (createButton) {
+                createButton.style.display = 'none';
+                document.querySelector('.separator')?.style.display = 'none';
+            }
+            
+            // Only validate input, don't auto-join
             playerNameInput.addEventListener('input', () => {
                 const hasName = playerNameInput.value.trim().length > 0;
                 joinButton.disabled = !hasName;
-                if (hasName) {
-                    // Auto-join when name is entered
-                    emitJoinChallenge(playerNameInput.value.trim(), code);
-                }
             });
+            
+            // Move focus to name input
+            playerNameInput.focus();
         }
     }
 }
