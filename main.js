@@ -115,13 +115,6 @@ async function handleJoinGame() {
     }
 }
 
-// Remove old event listener and keep direct DOM event
-if (joinChallengeButton) {
-    joinChallengeButton.addEventListener('click', handleJoinGame);
-} else {
-    console.error("Join Challenge button not found");
-}
-
 // Cleanup on window unload
 window.addEventListener('beforeunload', () => {
     disconnectFromServer();

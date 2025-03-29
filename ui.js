@@ -502,7 +502,9 @@ function handleMouseUp() {
 // Called by network module when initial game state is received
 // Expects gameStateObject to be a plain JS object from the server
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
-    console.log("Handling initial state:", gameStateObject, "Players:", playersData, "My ID:", ownPlayerId);
+    console.log("Handling initial state:", gameStateObject);
+    console.log("Players data:", playersData);
+    console.log("Own ID:", ownPlayerId);
     
     if (!gameStateObject) {
         console.error("Failed to initialize: No game state provided");
@@ -510,28 +512,28 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     }
 
     try {
-        // Create new game state instance with correct dimensions
-        gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
+        // Create new game state instance
+        gameState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
         
-        // Ensure the board is properly copied
-        gameState.board = gameStateObject.board || {};
-        gameState.players = playersData || {};
+        // Copy state properties
+        Object.assign(gameState, {
+            ...gameStateObject,
+            players: playersData || {}
+        });
+        
         currentPlayerId = ownPlayerId;
 
         console.log("Game state initialized:", gameState);
         
-        // Show game screen and set up display
-        showGameScreen();
-        centerCamera();
+        // Update UI elements
+        updatePlayerInfo(playersData, currentPlayerId);
         
-        // Force a redraw after a short delay to ensure DOM is ready
+        // Force a redraw
         setTimeout(() => {
             resizeGame();
             renderGameBoard();
-            updatePlayerInfo(gameState.players, currentPlayerId);
         }, 100);
         
-        console.log("Initial game state processed successfully");
         return true;
     } catch (error) {
         console.error("Error initializing game state:", error);

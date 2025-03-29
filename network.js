@@ -322,59 +322,45 @@ export function sendTilePlacement(selectedColor) {
 // Function to emit create challenge event, uses callback for response
 export function emitCreateChallenge(playerName) {
     if (!socketInstance || !socketInstance.connected) {
-        connectToServer('create', playerName);
-        
-        socketInstance.once('connect', () => {
-            socketInstance.emit('create-challenge', playerName, (response) => {
-                if (response.success) {
-                    currentRoomId = response.challengeCode;
-                    
-                    // Show game code to host
-                    const gameIdDisplay = document.getElementById('game-id-display');
-                    if (gameIdDisplay) {
-                        gameIdDisplay.textContent = `Game Code: ${response.challengeCode}`;
-                        gameIdDisplay.style.display = 'block';
-                    }
-                    
-                    // Rest of initialization...
-                    updateGameCode(response.challengeCode);
+        connectToServer('create', playerName)
+            .then(socketId => {
+                // Call setupSocketEventListeners after connection
+                setupSocketEventListeners();
+                
+                socketInstance.emit('create-challenge', playerName, (response) => {
+                    if (response.success) {
+                        currentRoomId = response.challengeCode;
                         
-                    // Initialize game state
-                    const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
-                    initialState.initializePlayerPositions(socketInstance.id, null);
-                    
-                    // Initialize UI with correct order
-                    handleInitialState(initialState, {
-                        [socketInstance.id]: {
-                            name: playerName,
-                            score: 1,
-                            playerNumber: 1
+                        // Show game code to host
+                        const gameIdDisplay = document.getElementById('game-id-display');
+                        if (gameIdDisplay) {
+                            gameIdDisplay.textContent = `Game Code: ${response.challengeCode}`;
+                            gameIdDisplay.style.display = 'block';
                         }
-                    }, socketInstance.id);
+                        
+                        // Update UI with game code
+                        updateGameCode(response.challengeCode);
+                            
+                        // Initialize game state
+                        const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
+                        initialState.initializePlayerPositions(socketId, null);
+                        
+                        // Initialize UI with correct order
+                        handleInitialState(initialState, {
+                            [socketId]: {
+                                name: playerName,
+                                score: 1,
+                                playerNumber: 1
+                            }
+                        }, socketId);
 
-                    showGameScreen();
-                    centerOnPlayerStart(); // Now correctly imported
-                    
-                    displayMessage(`Challenge created! Code: ${response.challengeCode}`);
-                    
-                    // Create and show shareable link
-                    const shareUrl = new URL(window.location.href);
-                    shareUrl.searchParams.set('code', response.challengeCode);
-                    
-                    const shareLink = document.querySelector('.share-link');
-                    if (shareLink) {
-                        shareLink.innerHTML = `
-                            Share link: 
-                            <span>${shareUrl.toString()}</span>
-                            <button onclick="navigator.clipboard.writeText('${shareUrl.toString()}')">
-                                Copy
-                            </button>
-                        `;
-                        shareLink.style.display = 'block';
+                        showGameScreen();
+                        centerOnPlayerStart();
+                        
+                        displayMessage(`Challenge created! Code: ${response.challengeCode}`);
                     }
-                }
+                });
             });
-        });
     }
 }
 
@@ -395,7 +381,6 @@ export function emitJoinChallenge(playerName, roomCode) {
     console.log('[Join] Cleaned data:', { cleanPlayerName, cleanRoomCode });
 
     return new Promise((resolve, reject) => {
-        // First connect to server
         connectToServer('join', cleanPlayerName, cleanRoomCode)
             .then(socketId => {
                 console.log('[Join] Connected with socket ID:', socketId);
@@ -404,7 +389,10 @@ export function emitJoinChallenge(playerName, roomCode) {
                     throw new Error("No socket connection");
                 }
 
-                console.log('[Join] Emitting join-challenge event');
+                // Call setupSocketEventListeners before emitting join
+                setupSocketEventListeners();
+
+                console.log('[Join] Emitting join data');
                 socketInstance.emit('join-challenge', {
                     challengeCode: cleanRoomCode,
                     playerName: cleanPlayerName
@@ -416,7 +404,10 @@ export function emitJoinChallenge(playerName, roomCode) {
                         currentPlayerId = socketId;
                         
                         if (response.gameState) {
-                            handleInitialState(response.gameState, response.players, socketId);
+                            handleInitialState(response.gameState, {
+                                [response.gameState.players.P1.socketId]: response.gameState.players.P1,
+                                [response.gameState.players.P2.socketId]: response.gameState.players.P2
+                            }, socketId);
                             showGameScreen();
                             displayMessage("Successfully joined game!", false);
                             resolve(response);
