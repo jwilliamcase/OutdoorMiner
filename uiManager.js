@@ -113,7 +113,9 @@ class UIManager {
                         return;
                     }
 
-                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, 'join', {
+                    // Fix: Use proper event type and data structure
+                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, {
+                        action: 'join',
                         playerName,
                         roomCode
                     });

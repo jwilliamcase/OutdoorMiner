@@ -369,9 +369,9 @@ export function emitCreateChallenge(playerName) {
 }
 
 export function emitJoinChallenge(playerName, roomCode) {
-    // Validate inputs before attempting connection
+    // Move validation to the start
     if (!playerName?.trim() || !roomCode?.trim()) {
-        const error = new Error("Please enter both your name and room code");
+        const error = new Error("Please enter both name and room code");
         displayMessage(error.message, true);
         return Promise.reject(error);
     }
@@ -399,28 +399,34 @@ export function emitJoinChallenge(playerName, roomCode) {
 
                 console.log("Sending join data:", joinData);
 
-                socketInstance.emit('join-challenge', joinData, (response) => {
-                    console.log("Join response:", response);
-                    
-                    if (response.success) {
-                        currentRoomId = response.roomCode;
-                        currentPlayerId = socketId;
+                return new Promise((resolveJoin, rejectJoin) => {
+                    socketInstance.emit('join-challenge', joinData, response => {
+                        console.log("Join response:", response);
                         
-                        if (response.gameState) {
-                            handleInitialState(response.gameState, response.players, socketId);
-                            showGameScreen();
-                            displayMessage("Successfully joined game!", false);
-                            resolve(response);
-                        } else {
-                            reject(new Error("No game state received"));
+                        if (!response) {
+                            rejectJoin(new Error("No response from server"));
+                            return;
                         }
-                    } else {
-                        const errorMessage = response.message || "Failed to join game";
-                        displayMessage(errorMessage, true);
-                        reject(new Error(errorMessage));
-                    }
+                        
+                        if (response.success) {
+                            currentRoomId = response.roomCode;
+                            currentPlayerId = socketId;
+                            
+                            if (response.gameState) {
+                                handleInitialState(response.gameState, response.players, socketId);
+                                showGameScreen();
+                                displayMessage("Successfully joined game!", false);
+                                resolveJoin(response);
+                            } else {
+                                rejectJoin(new Error("No game state received"));
+                            }
+                        } else {
+                            rejectJoin(new Error(response.message || "Failed to join game"));
+                        }
+                    });
                 });
             })
+            .then(resolve)
             .catch(error => {
                 console.error("Join failed:", error);
                 displayMessage(error.message || "Failed to join game", true);
