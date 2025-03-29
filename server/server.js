@@ -181,15 +181,29 @@ class ServerGameState {
 
     // Update player scores based on current tile ownership
     updateScores() {
-        const scores = { P1: 0, P2: 0 };
+        // Reset scores before counting
+        this.players.P1.score = 0;
+        this.players.P2.score = 0;
+        
+        // Count all owned tiles in board state
         Object.values(this.boardState).forEach(tile => {
-            if (tile.owner) {
-                scores[tile.owner]++;
+            if (tile.owner === 'P1') {
+                this.players.P1.score++;
+            } else if (tile.owner === 'P2') {
+                this.players.P2.score++;
             }
         });
-        this.players.P1.score = scores.P1;
-        this.players.P2.score = scores.P2;
-        return scores;
+
+        // Log score update
+        console.log('Scores updated:', {
+            P1: this.players.P1.score,
+            P2: this.players.P2.score
+        });
+
+        return {
+            P1: this.players.P1.score,
+            P2: this.players.P2.score
+        };
     }
 
     // Mark the game as ended and determine the winner
@@ -256,37 +270,123 @@ class ServerGameState {
         return null;
     }
 
-    handleColorSelection(playerId, selectedColor) {
-        // Find all capturable tiles for this color
-        const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
-        
-        // Update ownership and color of captured tiles
-        capturedTiles.forEach(key => {
-            this.boardState[key].owner = playerId;
-            this.boardState[key].color = selectedColor;
+    findCapturableTiles(playerId, selectedColor) {
+        console.log('Finding capturable tiles:', {
+            playerId,
+            selectedColor,
+            boardSize: this.boardSize
         });
 
-        // Update ownership territory color
-        Object.values(this.boardState)
-            .filter(tile => tile.owner === playerId)
-            .forEach(tile => {
-                tile.color = selectedColor;
+        const capturable = new Set();
+        const checked = new Set();
+
+        // Find all tiles owned by this player
+        Object.entries(this.boardState)
+            .filter(([_, tile]) => tile.owner === playerId)
+            .forEach(([key, _]) => {
+                this.findAdjacentMatchingColor(key, selectedColor, capturable, checked);
             });
 
-        // Update scores
-        this.updateScores();
+        return Array.from(capturable);
+    }
+
+    findAdjacentMatchingColor(startKey, targetColor, capturable, checked) {
+        if (checked.has(startKey)) return;
+        checked.add(startKey);
+
+        // Get coordinates
+        const [q, r] = startKey.split(',').map(Number);
         
-        // Update last used color
-        this.lastUsedColor = selectedColor;
+        // Check all 6 neighbors
+        const directions = [
+            {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
+            {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
+        ];
 
-        // Switch turns
-        this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+        directions.forEach(dir => {
+            const nq = q + dir.q;
+            const nr = r + dir.r;
+            const neighborKey = `${nq},${nr}`;
 
-        return {
-            success: true,
-            capturedCount: capturedTiles.length,
-            newState: this.getSerializableState()
-        };
+            // Check if neighbor is within board bounds
+            if (nq >= 0 && nq < this.boardSize && nr >= 0 && nr < this.boardSize) {
+                const tile = this.boardState[neighborKey];
+                if (tile && tile.color === targetColor && !tile.owner) {
+                    capturable.add(neighborKey);
+                    this.findAdjacentMatchingColor(neighborKey, targetColor, capturable, checked);
+                }
+            }
+        });
+    }
+
+    handleColorSelection(playerId, selectedColor) {
+        console.log('Processing color selection:', {
+            playerId,
+            selectedColor,
+            currentState: {
+                currentPlayer: this.currentPlayer,
+                lastUsedColor: this.lastUsedColor
+            }
+        });
+
+        try {
+            // First find all capturable tiles
+            const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
+            console.log('Found capturable tiles:', capturedTiles);
+
+            // Track all tiles that need updating
+            const tilesToUpdate = new Set([...capturedTiles]);
+
+            // Add all existing owned tiles to the update set
+            Object.entries(this.boardState).forEach(([key, tile]) => {
+                if (tile.owner === playerId) {
+                    tilesToUpdate.add(key);
+                }
+            });
+
+            // Update ALL tiles in the set to the new color
+            tilesToUpdate.forEach(key => {
+                if (this.boardState[key]) {
+                    this.boardState[key].owner = playerId;
+                    this.boardState[key].color = selectedColor;
+                }
+            });
+
+            // Update scores AFTER tiles are captured
+            const newScores = this.updateScores();
+
+            // Log the capture results
+            console.log('Move results:', {
+                player: playerId,
+                newCaptured: capturedTiles.length,
+                totalScore: newScores[playerId],
+                allTilesUpdated: tilesToUpdate.size
+            });
+
+            // Update scores and turn state
+            this.updateScores();
+            this.lastUsedColor = selectedColor;
+            this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+
+            console.log('Move completed successfully:', {
+                capturedCount: capturedTiles.length,
+                totalUpdated: tilesToUpdate.size,
+                newCurrentPlayer: this.currentPlayer
+            });
+
+            return {
+                success: true,
+                capturedCount: capturedTiles.length,
+                updatedTiles: Array.from(tilesToUpdate),
+                newState: this.getSerializableState()
+            };
+        } catch (error) {
+            console.error('Error in handleColorSelection:', error);
+            return {
+                success: false,
+                message: 'Internal server error processing move'
+            };
+        }
     }
 } // End of ServerGameState class
 
