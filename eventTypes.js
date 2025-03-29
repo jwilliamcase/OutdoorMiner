@@ -22,5 +22,6 @@ export const UIEvents = {
     STATE_CHANGE: 'ui:state_change',
     ERROR: 'ui:error',
     JOIN_GAME: 'ui:join_game',
-    CREATE_GAME: 'ui:create_game'
+    CREATE_GAME: 'ui:create_game',
+    INIT: 'ui:init'
 };

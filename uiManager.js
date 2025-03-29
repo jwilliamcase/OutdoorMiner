@@ -113,13 +113,10 @@ class UIManager {
                         return;
                     }
 
-                    // Fix: Use proper event type for join
-                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, {
-                        type: 'join',
-                        data: {
-                            playerName,
-                            roomCode
-                        }
+                    // Use JOIN_GAME event type specifically
+                    eventManager.dispatchEvent(EventTypes.UI.JOIN_GAME, {
+                        playerName,
+                        roomCode
                     });
                 });
             }

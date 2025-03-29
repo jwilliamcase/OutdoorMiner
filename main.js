@@ -88,27 +88,28 @@ async function handleCreateGame() {
     }
 }
 
-async function handleJoinGame() {
+// Add event listener for join game events
+eventManager.addEventListener(EventTypes.UI.JOIN_GAME, (data) => {
+    handleJoinGame(data.playerName, data.roomCode);
+});
+
+// Update join game handler
+async function handleJoinGame(playerName, roomCode) {
     const joinButton = document.getElementById('join-challenge-button');
-    const playerNameInput = document.getElementById('player-name-input');
-    const roomCodeInput = document.getElementById('room-code-input');
     
     try {
         // Disable button and show loading state
-        joinButton.disabled = true;
+        if (joinButton) joinButton.disabled = true;
         displayMessage("Connecting...");
         
-        await emitJoinChallenge(
-            playerNameInput?.value?.trim(),
-            roomCodeInput?.value?.trim()
-        );
+        await emitJoinChallenge(playerName, roomCode);
     } catch (error) {
         console.error("Join game error:", error);
         displayMessage(error.message || "Failed to join game", true);
         showSetupScreen();
     } finally {
         // Re-enable button
-        joinButton.disabled = false;
+        if (joinButton) joinButton.disabled = false;
     }
 }
 

@@ -378,37 +378,41 @@ export function emitJoinChallenge(playerName, roomCode) {
         return Promise.reject(error);
     }
 
-    // Clean and normalize inputs
-    const joinData = {
-        playerName: playerName.trim(),
-        roomCode: roomCode.trim().toUpperCase(),
-        action: 'join'
-    };
-
-    console.log('Prepared join data:', joinData);
+    const cleanPlayerName = playerName.trim();
+    const cleanRoomCode = roomCode.trim().toUpperCase();
 
     return new Promise((resolve, reject) => {
         // First connect to server
-        connectToServer('join', joinData.playerName, joinData.roomCode)
+        connectToServer('join', cleanPlayerName, cleanRoomCode)
             .then(socketId => {
                 if (!socketInstance) {
                     throw new Error("No socket connection");
                 }
 
-                // Then emit join event with complete data
-                socketInstance.emit('join-challenge', {
-                    playerName: joinData.playerName,
-                    roomCode: joinData.roomCode,
-                    socketId
-                }, (response) => {
+                const joinData = {
+                    challengeCode: cleanRoomCode,  // Match server's expected field name
+                    playerName: cleanPlayerName,
+                    socketId: socketId
+                };
+
+                console.log('Emitting join data:', joinData);
+
+                // Emit join event with properly structured data
+                socketInstance.emit('join-challenge', joinData, (response) => {
                     console.log('Server join response:', response);
                     
                     if (response.success) {
-                        currentRoomId = joinData.roomCode;
+                        currentRoomId = cleanRoomCode;
                         currentPlayerId = socketId;
-                        handleInitialState(response.gameState, response.players, socketId);
-                        showGameScreen();
-                        resolve(response);
+                        
+                        if (response.gameState) {
+                            handleInitialState(response.gameState, response.players, socketId);
+                            showGameScreen();
+                            displayMessage("Successfully joined game!", false);
+                            resolve(response);
+                        } else {
+                            reject(new Error("No game state received"));
+                        }
                     } else {
                         const error = new Error(response.message || "Failed to join game");
                         displayMessage(error.message, true);
