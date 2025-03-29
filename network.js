@@ -369,19 +369,18 @@ export function emitCreateChallenge(playerName) {
 }
 
 export function emitJoinChallenge(playerName, roomCode) {
+    // Validate inputs before attempting connection
     if (!playerName?.trim() || !roomCode?.trim()) {
-        displayMessage("Please enter both your name and the room code", true);
-        return;
+        const error = new Error("Please enter both your name and room code");
+        displayMessage(error.message, true);
+        return Promise.reject(error);  // Return rejected promise instead of void
     }
 
-    // Prevent multiple join attempts
-    if (socketInstance?.connected) {
-        socketInstance.disconnect();
-    }
-
-    connectToServer('join', playerName, roomCode)
-        .then(socketId => {
-            return new Promise((resolve, reject) => {
+    // Handle connection and join as a single promise chain
+    return new Promise((resolve, reject) => {
+        connectToServer('join', playerName, roomCode)
+            .then(socketId => {
+                console.log(`Attempting to join with ID: ${socketId}`);
                 const joinData = {
                     playerName: playerName.trim(),
                     roomCode: roomCode.trim(),
@@ -406,14 +405,14 @@ export function emitJoinChallenge(playerName, roomCode) {
                         reject(new Error(response.message || "Failed to join game"));
                     }
                 });
+            })
+            .catch(error => {
+                console.error("Join failed:", error);
+                displayMessage(error.message || "Failed to join game", true);
+                showSetupScreen();
+                reject(error);  // Propagate error up
             });
-        })
-        .catch(error => {
-            console.error("Join failed:", error);
-            displayMessage(error.message || "Failed to join game", true);
-            showSetupScreen();
-            throw error;
-        });
+    });
 }
 
 // Add URL parameter check on load

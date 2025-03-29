@@ -42,17 +42,22 @@ class EventManager {
     }
 
     dispatchEvent(type, data) {
-        if (!type) {
-            console.error("Attempted to dispatch event with undefined type", { data });
+        // Early validation of event type
+        if (!type || typeof type !== 'string') {
+            console.error("Invalid event type:", { type, data });
             return;
         }
 
-        const validTypes = Object.values(EventTypes).reduce((acc, group) => {
-            return acc.concat(Object.values(group));
-        }, []);
+        // Get all valid event types
+        const validTypes = Object.values(EventTypes)
+            .reduce((acc, group) => ([
+                ...acc,
+                ...Object.values(group)
+            ]), []);
 
+        // Validate event type
         if (!validTypes.includes(type)) {
-            console.error(`Invalid event type: ${type}`);
+            console.warn(`Unregistered event type: ${type}`);
             return;
         }
 

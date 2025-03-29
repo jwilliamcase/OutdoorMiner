@@ -90,33 +90,24 @@ async function handleCreateGame() {
 
 async function handleJoinGame() {
     const joinButton = document.getElementById('join-challenge-button');
-    
-    // Prevent multiple clicks
-    if (joinButton.disabled) {
-        return;
-    }
-    
     const playerNameInput = document.getElementById('player-name-input');
     const roomCodeInput = document.getElementById('room-code-input');
-    const playerName = playerNameInput?.value.trim();
-    const roomCode = roomCodeInput?.value.trim();
-
-    if (!playerName || !roomCode) {
-        displayMessage("Please enter both your name and room code.", true);
-        return;
-    }
-
+    
     try {
-        // Disable button during join attempt
+        // Disable button and show loading state
         joinButton.disabled = true;
-        displayMessage(`Joining game ${roomCode}...`);
-        await emitJoinChallenge(playerName, roomCode);
+        displayMessage("Connecting...");
+        
+        await emitJoinChallenge(
+            playerNameInput?.value?.trim(),
+            roomCodeInput?.value?.trim()
+        );
     } catch (error) {
-        console.error("Error joining game:", error);
-        displayMessage(`Failed to join game: ${error.message}`, true);
+        console.error("Join game error:", error);
+        displayMessage(error.message || "Failed to join game", true);
         showSetupScreen();
     } finally {
-        // Re-enable button after attempt (success or failure)
+        // Re-enable button
         joinButton.disabled = false;
     }
 }
