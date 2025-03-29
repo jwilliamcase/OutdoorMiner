@@ -311,26 +311,24 @@ export function sendMessage(message) {
 
 // Update move protocol
 export function sendTilePlacement(moveData) {
-    if (!socketInstance?.connected) {
-        console.error("Not connected to server");
+    if (!socketInstance?.connected || !currentRoomId) {
+        console.error("Not connected or no active game");
         return;
     }
 
-    const gameId = currentRoomId; // Use currentRoomId directly
-    console.log('Sending move:', {
-        gameId,
+    console.log('Attempting move:', {
+        currentRoom: currentRoomId,
         playerId: currentPlayerId,
-        moveData,
-        currentRoom: currentRoomId
+        moveData
     });
 
     socketInstance.emit('place-tile', {
-        gameId,
+        gameId: currentRoomId,
         playerId: currentPlayerId,
         move: {
             type: 'color-select',
             color: moveData.color,
-            player: moveData.player
+            player: moveData.player || currentPlayerId
         }
     }, (response) => {
         console.log('Server response:', response);

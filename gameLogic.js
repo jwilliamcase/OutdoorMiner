@@ -510,6 +510,49 @@ export class GameState {
             return seed / 233280;
         };
     }
+
+    handleColorSelection(playerId, selectedColor) {
+        console.log('Processing color selection:', {
+            playerId,
+            selectedColor,
+            currentPlayer: this.currentPlayer,
+            lastUsedColor: this.lastUsedColor
+        });
+
+        // Get all capturable tiles
+        const tilesToCapture = this.findCapturableTiles(playerId, selectedColor);
+        console.log('Tiles to capture:', tilesToCapture);
+
+        // Update both captured tiles and existing territory
+        const updatedTiles = new Set([...tilesToCapture]);
+
+        // Update captured tiles
+        tilesToCapture.forEach(key => {
+            if (this.boardState[key]) {
+                this.boardState[key].owner = playerId;
+                this.boardState[key].color = selectedColor;
+            }
+        });
+
+        // Update existing territory
+        Object.entries(this.boardState).forEach(([key, tile]) => {
+            if (tile.owner === playerId) {
+                tile.color = selectedColor;
+                updatedTiles.add(key);
+            }
+        });
+
+        // Update game state
+        this.lastUsedColor = selectedColor;
+        this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+
+        // Return updated state
+        return {
+            success: true,
+            capturedTiles: Array.from(updatedTiles),
+            newState: this.getSerializableState()
+        };
+    }
 }
 
 class ServerGameState {

@@ -451,60 +451,34 @@ io.on('connection', (socket) => {
 
     socket.on('place-tile', ({ gameId, playerId, move }, callback) => {
         try {
-            // Add debug logging
-            console.log('Received move:', {
-                gameId, playerId, move,
-                socketId: socket.id,
-                playerInfo: playerSockets[socket.id]
+            console.log('Server received move:', {
+                gameId,
+                playerId,
+                move,
+                currentGame: activeGames[gameId],
+                playerInfo: playerSockets[playerId]
             });
 
             const playerInfo = playerSockets[socket.id];
             if (!playerInfo || !playerInfo.gameId) {
-                console.log('Move rejected: Player not in game', { socketId: socket.id });
                 return callback({ success: false, message: 'Not in a game' });
             }
 
             const game = activeGames[playerInfo.gameId];
             if (!game) {
-                console.log('Move rejected: Game not found', { gameId: playerInfo.gameId });
                 return callback({ success: false, message: 'Game not found' });
             }
 
-            // Add more detailed turn validation logging
-            console.log('Turn validation:', {
-                currentPlayer: game.currentPlayer,
-                playerSymbol: playerInfo.playerSymbol,
-                move: move
-            });
-
-            // Validate turn
-            if (game.currentPlayer !== playerInfo.playerSymbol) {
-                console.log('Turn validation failed:', {
-                    expected: game.currentPlayer,
-                    actual: playerInfo.playerSymbol
-                });
-                return callback({ success: false, message: 'Not your turn' });
-            }
-
-            // Handle color selection with better logging
+            // Add color selection validation
             if (move.type === 'color-select') {
-                console.log('Processing color selection:', {
-                    player: playerInfo.playerSymbol,
-                    color: move.color,
-                    currentTurn: game.currentPlayer,
-                    lastUsedColor: game.lastUsedColor
-                });
+                if (move.color === game.lastUsedColor) {
+                    return callback({ success: false, message: 'Color was just used' });
+                }
 
                 const result = game.handleColorSelection(playerInfo.playerSymbol, move.color);
-                if (result.success) {
-                    // Log the state change
-                    console.log('Color selection successful:', {
-                        player: playerInfo.playerSymbol,
-                        capturedCount: result.capturedCount,
-                        newCurrentPlayer: result.newState.currentPlayer
-                    });
+                console.log('Color selection result:', result);
 
-                    // Broadcast the updated state to all players
+                if (result.success) {
                     io.to(game.gameId).emit('game-update', {
                         state: result.newState,
                         lastMove: {
@@ -513,15 +487,14 @@ io.on('connection', (socket) => {
                             capturedTiles: result.capturedCount
                         }
                     });
-                    callback({ success: true });
-                } else {
-                    console.log('Color selection failed:', result);
-                    callback({ success: false, message: result.message });
+                    return callback({ success: true });
                 }
             }
+            
+            callback({ success: false, message: 'Invalid move type' });
         } catch (error) {
-            console.error('Error handling move:', error);
-            callback({ success: false, message: 'Server error' });
+            console.error('Server error processing move:', error);
+            callback({ success: false, message: 'Server error', error: error.message });
         }
     });
 
