@@ -371,10 +371,15 @@ export function emitCreateChallenge(playerName) {
 export function emitJoinChallenge(playerName, roomCode) {
     // Validate inputs before attempting connection
     if (!playerName?.trim() || !roomCode?.trim()) {
-        displayMessage("Please enter both your name and room code", true);
-        return Promise.reject(new Error("Missing required fields"));
+        const error = new Error("Please enter both your name and room code");
+        displayMessage(error.message, true);
+        return Promise.reject(error);
     }
 
+    const cleanPlayerName = playerName.trim();
+    const cleanRoomCode = roomCode.trim();
+
+    // Handle connection and join as a single promise chain
     return new Promise((resolve, reject) => {
         // Reset any existing connection
         if (socketInstance?.connected) {
@@ -382,15 +387,19 @@ export function emitJoinChallenge(playerName, roomCode) {
             connectionInProgress = false;
         }
 
-        connectToServer('join', playerName.trim(), roomCode.trim())
+        connectToServer('join', cleanPlayerName, cleanRoomCode)
             .then(socketId => {
-                console.log(`Connected with ID: ${socketId}, attempting to join room: ${roomCode}`);
+                console.log(`Connected with ID: ${socketId}, attempting to join room: ${cleanRoomCode}`);
                 
-                socketInstance.emit('join-challenge', {
-                    playerName: playerName.trim(),
-                    roomCode: roomCode.trim(),
+                const joinData = {
+                    playerName: cleanPlayerName,
+                    roomCode: cleanRoomCode,
                     socketId
-                }, (response) => {
+                };
+
+                console.log("Sending join data:", joinData);
+
+                socketInstance.emit('join-challenge', joinData, (response) => {
                     console.log("Join response:", response);
                     
                     if (response.success) {
@@ -406,7 +415,9 @@ export function emitJoinChallenge(playerName, roomCode) {
                             reject(new Error("No game state received"));
                         }
                     } else {
-                        reject(new Error(response.message || "Failed to join game"));
+                        const errorMessage = response.message || "Failed to join game";
+                        displayMessage(errorMessage, true);
+                        reject(new Error(errorMessage));
                     }
                 });
             })

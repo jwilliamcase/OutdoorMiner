@@ -44,7 +44,8 @@ class EventManager {
     dispatchEvent(type, data) {
         // Early validation of event type
         if (!type || typeof type !== 'string') {
-            console.error("Invalid event type:", { type, data });
+            console.error("Invalid event type:", type);
+            console.debug("Event data:", data);
             return;
         }
 
@@ -57,7 +58,8 @@ class EventManager {
 
         // Validate event type
         if (!validTypes.includes(type)) {
-            console.warn(`Unregistered event type: ${type}`);
+            console.warn(`Unknown event type: ${type}`);
+            console.debug("Valid types:", validTypes);
             return;
         }
 
@@ -72,8 +74,6 @@ class EventManager {
                     console.error(`Error in event handler for ${type}:`, error);
                 }
             });
-        } else {
-            console.debug(`No handlers registered for event type: ${type}`);
         }
     }
 

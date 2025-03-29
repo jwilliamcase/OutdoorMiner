@@ -113,8 +113,7 @@ class UIManager {
                         return;
                     }
 
-                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { 
-                        type: 'join',
+                    eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, 'join', {
                         playerName,
                         roomCode
                     });
