@@ -22,13 +22,20 @@ A multiplayer territory capture game played on a hexagonal grid. Players compete
   - Yellow (#F8E9A1)
   - Green (#50C878)
   - Purple (#9B59B6)
-- **Gameplay Loop**:
-  1. Players start from opposite corners
-  2. Each turn: select a color to capture adjacent matching tiles
-  3. Captured tiles + owned territory change to selected color
-  4. Cannot use opponent's last-used color
-  5. Game ends when board is filled
-  6. Winner: Player with most territory
+- **Capture Mechanics**:
+  1. Start from player's territory
+  2. When selecting a color:
+     - Capture ALL adjacent unclaimed tiles of that color
+     - PLUS any connected tiles of the same color (chain reaction)
+     - Can capture tiles far from territory through color chains
+     - All captured tiles become part of player's territory
+  3. Territory Conversion:
+     - All owned tiles change to selected color
+     - New captures also change to selected color
+  4. Strategic Element:
+     - Look for "veins" of same-colored tiles
+     - Can rapidly expand territory through chain captures
+     - Block opponent's potential chain captures
 
 ### Technical Implementation
 

@@ -92,33 +92,63 @@ export class GameState {
 
     // New method: Find capturable tiles for a color
     findCapturableTiles(playerId, selectedColor) {
+        console.log('Finding capturable tiles:', {
+            playerId,
+            selectedColor,
+            boardSize: this.boardSize
+        });
+
         const capturable = new Set();
         const checked = new Set();
 
-        // Start from player's territory
+        // Step 1: Find all starting points (player's current territory)
         Object.entries(this.boardState)
             .filter(([_, tile]) => tile.owner === playerId)
             .forEach(([key, _]) => {
-                this.findAdjacentMatchingColor(key, selectedColor, capturable, checked);
+                this.findConnectedColorChain(key, selectedColor, capturable, checked);
             });
 
         return Array.from(capturable);
     }
 
-    // Recursive function to find adjacent matching colors
-    findAdjacentMatchingColor(startKey, targetColor, capturable, checked) {
+    findConnectedColorChain(startKey, targetColor, capturable, checked) {
         if (checked.has(startKey)) return;
         checked.add(startKey);
 
         const [q, r] = startKey.split(',').map(Number);
-        const neighbors = this.getNeighbors(q, r);
+        
+        // Define the six adjacent hex directions
+        const directions = [
+            {q: 1, r: 0},   // East
+            {q: 1, r: -1},  // Northeast
+            {q: 0, r: -1},  // Northwest
+            {q: -1, r: 0},  // West
+            {q: -1, r: 1},  // Southwest
+            {q: 0, r: 1}    // Southeast
+        ];
 
-        neighbors.forEach(neighbor => {
-            const key = `${neighbor.q},${neighbor.r}`;
-            const tile = this.boardState[key];
-            if (tile && tile.baseColor === targetColor && !tile.owner) {
-                capturable.add(key);
-                this.findAdjacentMatchingColor(key, targetColor, capturable, checked);
+        // Check each neighboring hex
+        directions.forEach(dir => {
+            const nq = q + dir.q;
+            const nr = r + dir.r;
+            const neighborKey = `${nq},${nr}`;
+
+            // Validate position is within board bounds
+            if (nq >= 0 && nq < this.boardSize && nr >= 0 && nr < this.boardSize) {
+                const neighborTile = this.boardState[neighborKey];
+                
+                // If the neighbor matches our target color and isn't owned
+                if (neighborTile && 
+                    neighborTile.color === targetColor && 
+                    !neighborTile.owner) {
+                    
+                    // Add to capture set
+                    capturable.add(neighborKey);
+                    
+                    // Recursively check this tile's neighbors
+                    // This is what creates the chain reaction effect
+                    this.findConnectedColorChain(neighborKey, targetColor, capturable, checked);
+                }
             }
         });
     }
@@ -519,39 +549,43 @@ export class GameState {
             lastUsedColor: this.lastUsedColor
         });
 
-        // Get all capturable tiles
-        const tilesToCapture = this.findCapturableTiles(playerId, selectedColor);
-        console.log('Tiles to capture:', tilesToCapture);
+        try {
+            // Find all capturable tiles including chains
+            const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
+            
+            // Track all tiles that need updating (both captured and existing territory)
+            const tilesToUpdate = new Set([...capturedTiles]);
 
-        // Update both captured tiles and existing territory
-        const updatedTiles = new Set([...tilesToCapture]);
+            // Add existing territory to the update set
+            Object.entries(this.boardState).forEach(([key, tile]) => {
+                if (tile.owner === playerId) {
+                    tilesToUpdate.add(key);
+                }
+            });
 
-        // Update captured tiles
-        tilesToCapture.forEach(key => {
-            if (this.boardState[key]) {
-                this.boardState[key].owner = playerId;
-                this.boardState[key].color = selectedColor;
-            }
-        });
+            // Update ALL tiles to new color
+            tilesToUpdate.forEach(key => {
+                if (this.boardState[key]) {
+                    this.boardState[key].owner = playerId;
+                    this.boardState[key].color = selectedColor;
+                }
+            });
 
-        // Update existing territory
-        Object.entries(this.boardState).forEach(([key, tile]) => {
-            if (tile.owner === playerId) {
-                tile.color = selectedColor;
-                updatedTiles.add(key);
-            }
-        });
+            // Log capture results
+            console.log('Capture complete:', {
+                capturedCount: capturedTiles.length,
+                totalUpdated: tilesToUpdate.size
+            });
 
-        // Update game state
-        this.lastUsedColor = selectedColor;
-        this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
-
-        // Return updated state
-        return {
-            success: true,
-            capturedTiles: Array.from(updatedTiles),
-            newState: this.getSerializableState()
-        };
+            return {
+                success: true,
+                capturedTiles: Array.from(capturedTiles),
+                updatedTiles: Array.from(tilesToUpdate)
+            };
+        } catch (error) {
+            console.error('Error in handleColorSelection:', error);
+            return { success: false, message: 'Error processing move' };
+        }
     }
 }
 
