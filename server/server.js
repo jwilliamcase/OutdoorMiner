@@ -449,7 +449,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('place-tile', ({ roomCode, playerId, move }, callback) => {
+    socket.on('place-tile', ({ gameId, playerId, move }, callback) => {
         try {
             const playerInfo = playerSockets[socket.id];
             if (!playerInfo || !playerInfo.gameId) {
@@ -461,27 +461,38 @@ io.on('connection', (socket) => {
                 return callback({ success: false, message: 'Game not found' });
             }
 
+            // Validate turn
+            if (game.currentPlayer !== playerInfo.playerSymbol) {
+                console.log('Turn validation failed:', {
+                    expected: game.currentPlayer,
+                    actual: playerInfo.playerSymbol
+                });
+                return callback({ success: false, message: 'Not your turn' });
+            }
+
             // Handle color selection
             if (move.type === 'color-select') {
+                console.log('Processing color selection:', {
+                    player: playerInfo.playerSymbol,
+                    color: move.color,
+                    currentTurn: game.currentPlayer
+                });
+
                 const result = game.handleColorSelection(playerInfo.playerSymbol, move.color);
                 if (result.success) {
                     // Broadcast the updated state to all players
-                    const message = {
+                    io.to(game.gameId).emit('game-update', {
                         state: result.newState,
                         lastMove: {
                             player: playerInfo.playerSymbol,
                             color: move.color,
                             capturedTiles: result.capturedCount
                         }
-                    };
-                    
-                    io.to(game.gameId).emit('game-update', message);
+                    });
                     callback({ success: true });
+                } else {
+                    callback({ success: false, message: result.message });
                 }
-            } else {
-                // Handle regular tile placement
-                const result = game.placeTile(move.q, move.r, playerInfo.playerSymbol);
-                // ...existing tile placement code...
             }
         } catch (error) {
             console.error('Error handling move:', error);

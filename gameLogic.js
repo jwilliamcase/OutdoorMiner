@@ -160,51 +160,82 @@ export class GameState {
 
     // Single consolidated makeMove method
     makeMove(playerId, selectedColor) {
-        // Validate move first
-        const validationResult = this.validateMove(playerId, selectedColor);
-        if (!validationResult.valid) {
-            eventManager.dispatchEvent(GameEvents.MOVE, {
-                success: false,
-                error: validationResult.reason
-            });
-            return false;
-        }
-
-        // Track changes for efficient updates
-        const changes = {
-            captured: [],
-            territory: [],
-            scores: {}
-        };
-
-        // Find and apply captures
-        const capturedTiles = this.findCapturableTiles(playerId, selectedColor);
-        
-        // Record move before applying
-        const moveRecord = {
+        console.log('Processing move:', {
             playerId,
             selectedColor,
-            boardState: this.serialize(),
-            turnNumber: this.turnNumber
-        };
-
-        // Apply changes and emit events
-        const result = this.applyMoveChanges(playerId, selectedColor, capturedTiles, changes);
-
-        if (result.success) {
-            // Add to history if successful
-            moveHistory.addMove(moveRecord);
-        }
-
-        // Emit completed move event
-        eventManager.dispatchEvent(GameEvents.MOVE, {
-            success: true,
-            changes,
-            gameOver: this.gameOver,
-            winner: this.winner
+            currentPlayer: this.currentPlayer,
+            board: this.boardState
         });
 
-        return result;
+        // Get owned tiles for current player
+        const ownedTiles = Object.entries(this.boardState)
+            .filter(([_, tile]) => tile.owner === playerId)
+            .map(([key]) => key);
+
+        console.log('Current owned tiles:', ownedTiles);
+
+        // Find capturable tiles
+        const tilesToCapture = this.findCapturableTiles(ownedTiles, selectedColor);
+        console.log('Tiles to capture:', tilesToCapture);
+
+        // Update board state
+        [...tilesToCapture, ...ownedTiles].forEach(key => {
+            this.boardState[key].owner = playerId;
+            this.boardState[key].color = selectedColor;
+        });
+
+        // Update game state
+        this.lastUsedColor = selectedColor;
+        this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
+
+        return {
+            success: true,
+            capturedTiles: tilesToCapture,
+            newState: this.getSerializableState()
+        };
+    }
+
+    findCapturableTiles(startingTiles, selectedColor) {
+        const capturable = new Set();
+        const checked = new Set();
+
+        // For each owned tile
+        startingTiles.forEach(startKey => {
+            const [q, r] = startKey.split(',').map(Number);
+            
+            // Get neighbors
+            const neighbors = this.getNeighbors(q, r);
+            
+            // Check each neighbor
+            neighbors.forEach(({q: nq, r: nr}) => {
+                const neighborKey = `${nq},${nr}`;
+                const tile = this.boardState[neighborKey];
+                
+                // If tile exists, isn't owned, and matches color
+                if (tile && !tile.owner && tile.color === selectedColor) {
+                    capturable.add(neighborKey);
+                    this.findMatchingNeighbors(nq, nr, selectedColor, capturable, checked);
+                }
+            });
+        });
+
+        return Array.from(capturable);
+    }
+
+    findMatchingNeighbors(q, r, color, capturable, checked) {
+        const key = `${q},${r}`;
+        if (checked.has(key)) return;
+        checked.add(key);
+
+        const neighbors = this.getNeighbors(q, r);
+        neighbors.forEach(({q: nq, r: nr}) => {
+            const neighborKey = `${nq},${nr}`;
+            const tile = this.boardState[neighborKey];
+            if (tile && !tile.owner && tile.color === color && !capturable.has(neighborKey)) {
+                capturable.add(neighborKey);
+                this.findMatchingNeighbors(nq, nr, color, capturable, checked);
+            }
+        });
     }
 
     validateMove(playerId, selectedColor) {

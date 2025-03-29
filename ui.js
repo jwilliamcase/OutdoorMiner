@@ -248,13 +248,25 @@ export function resizeGame() {
 function centerGameBoard() {
     if (!gameState || !canvas) return;
 
-    // Calculate the offset to center the board
-    const offsetX = (canvas.width - (gameState.cols * BOARD.HORIZONTAL_SPACING)) / 2;
-    const offsetY = (canvas.height - (gameState.rows * BOARD.VERTICAL_SPACING)) / 2;
-
-    // Update camera offset
-    cameraOffset.x = offsetX;
-    cameraOffset.y = offsetY;
+    const spacing = getHexSpacing(gameState.currentHexSize);
+    
+    // Calculate total board dimensions
+    const boardWidth = (gameState.cols * spacing.HORIZONTAL);
+    const boardHeight = (gameState.rows * spacing.VERTICAL);
+    
+    // Calculate centering offsets
+    cameraOffset.x = (canvas.width - boardWidth) / 2;
+    cameraOffset.y = (canvas.height - boardHeight) / 2;
+    
+    // Add padding
+    cameraOffset.x += BOARD.PADDING;
+    cameraOffset.y += BOARD.PADDING;
+    
+    console.log('Board centered:', {
+        canvasSize: { w: canvas.width, h: canvas.height },
+        boardSize: { w: boardWidth, h: boardHeight },
+        offset: cameraOffset
+    });
 }
 
 export function centerOnPlayerStart() {
@@ -469,9 +481,16 @@ function handleColorSelection(event) {
         return;
     }
 
-    // Get current player symbol from game state
     const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
     
+    console.log('Color selection attempt:', {
+        currentPlayer: gameState.currentPlayer,
+        mySymbol,
+        myId: currentPlayerId,
+        p1Id: gameState.players.P1?.socketId,
+        p2Id: gameState.players.P2?.socketId
+    });
+
     if (gameState.currentPlayer !== mySymbol) {
         displayMessage("Not your turn!", true);
         return;
@@ -483,12 +502,7 @@ function handleColorSelection(event) {
         return;
     }
 
-    console.log("Sending color selection:", {
-        type: 'color-select',
-        color: selectedColor,
-        player: mySymbol
-    });
-
+    // Send the move to server
     sendTilePlacement({
         type: 'color-select',
         color: selectedColor,
@@ -644,28 +658,33 @@ function updateScores(players) {
 // Add new function for turn indicator
 function updateTurnIndicator(currentPlayer) {
     const turnIndicator = document.getElementById('turn-indicator');
-    if (!turnIndicator || !gameState) return;
+    if (!turnIndicator || !gameState?.players) return;
 
-    const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
-    const isMyTurn = currentPlayer === mySymbol;
+    // Get player symbols based on socket IDs
+    const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 
+                     currentPlayerId === gameState.players.P2?.socketId ? 'P2' : null;
 
-    console.log('Turn Update:', {
+    console.log('Turn Update Debug:', {
         currentPlayer,
         mySymbol,
-        isMyTurn,
+        currentPlayerId,
         p1Id: gameState.players.P1?.socketId,
-        p2Id: gameState.players.P2?.socketId
+        p2Id: gameState.players.P2?.socketId,
+        isMyTurn: currentPlayer === mySymbol
     });
 
+    // Only show "Your Turn" if it's actually this player's turn
+    const isMyTurn = currentPlayer === mySymbol;
     turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
     turnIndicator.textContent = isMyTurn ? "Your Turn!" : "Opponent's Turn";
-    turnIndicator.style.display = 'block';
 
-    // Update color button states
+    // Update color buttons based on whose turn it is
     const colorButtons = document.querySelectorAll('.color-button');
     colorButtons.forEach(button => {
-        button.disabled = !isMyTurn;
-        button.style.opacity = isMyTurn ? '1' : '0.5';
+        const isLastUsedColor = button.dataset.color === gameState.lastUsedColor;
+        button.disabled = !isMyTurn || isLastUsedColor;
+        button.style.opacity = (!isMyTurn || isLastUsedColor) ? '0.5' : '1';
+        button.classList.toggle('disabled', !isMyTurn || isLastUsedColor);
     });
 }
 

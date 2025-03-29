@@ -54,10 +54,12 @@ export function connectToServer(action, playerName, roomCode = '') {
             }
 
             // Log query parameters being sent
+            const browserInstanceId = Date.now() + Math.random().toString(36).substring(2);
             const query = {
                 playerName: playerName.trim(),
                 action,
-                roomCode: roomCode.trim()
+                roomCode: roomCode.trim(),
+                browserInstanceId // Add this to differentiate instances
             };
             console.log("[Connection] Socket query params:", query);
 
@@ -68,6 +70,9 @@ export function connectToServer(action, playerName, roomCode = '') {
                 autoConnect: false,
                 query
             });
+
+            // Store instance ID
+            socketInstance.browserInstanceId = browserInstanceId;
 
             // Set up one-time handlers before connecting
             const connectHandler = () => {
@@ -207,22 +212,24 @@ function setupSocketEventListeners() {
         }
     });
 
-     socketInstance.on('game-update', (data) => {
-        eventManager.dispatchEvent(NetworkEvents.SYNC_START, { timestamp: Date.now() });
-        
+    // Replace the two separate game update handlers with a single consolidated one
+    socketInstance.on('game-update', (data) => {
+        console.log("Received game update:", {
+            currentPlayerId,
+            state: data.state,
+            lastMove: data.lastMove
+        });
+
+        if (checkDuplicateInstance()) {
+            console.warn('Ignoring update for duplicate instance');
+            return;
+        }
+
         try {
-            // Apply changes atomically
-            handleGameUpdate(data.gameState, data.changes);
-            
-            eventManager.dispatchEvent(NetworkEvents.SYNC_COMPLETE, {
-                success: true,
-                timestamp: Date.now()
-            });
+            handleGameUpdate(data.state);
+            playSound('move');
         } catch (error) {
-            eventManager.dispatchEvent(NetworkEvents.SYNC_ERROR, {
-                error: error.message,
-                timestamp: Date.now()
-            });
+            console.error("Error handling game update:", error);
         }
     });
 
@@ -309,38 +316,24 @@ export function sendTilePlacement(moveData) {
         return;
     }
 
-    // Get room code from game state
-    const gameState = window.gameState?.getSerializableState();
-    if (!gameState?.gameId) {
-        console.error("No game ID found");
-        return;
-    }
-
-    console.log("Sending move:", {
-        gameId: gameState.gameId,
-        playerId: socketInstance.id,
-        move: moveData
+    const currentGame = currentRoomId;
+    console.log('Sending move:', {
+        gameId: currentGame,
+        playerId: currentPlayerId,
+        moveData
     });
 
     socketInstance.emit('place-tile', {
-        gameId: gameState.gameId,
-        playerId: socketInstance.id,
-        move: moveData
+        gameId: currentGame,
+        playerId: currentPlayerId,
+        move: {
+            type: 'color-select',
+            color: moveData.color,
+            player: currentPlayerId
+        }
     }, (response) => {
-        console.log("Server move response:", response);
         if (!response.success) {
             displayMessage(response.message || "Move failed", true);
-        }
-    });
-}
-
-// Add socket event listener for game updates
-function setupGameEvents(socket) {
-    socket.on('game-update', (data) => {
-        console.log("Received game update:", data);
-        if (data.state) {
-            handleGameUpdate(data.state);
-            playSound('move');
         }
     });
 }
@@ -505,3 +498,13 @@ export function checkUrlParameters() {
 }
 
 // playSound function moved to ui.js
+
+// Add function to check for duplicate instances
+function checkDuplicateInstance() {
+    if (window.localStorage.getItem('gameInstanceId') === socketInstance.browserInstanceId) {
+        console.warn('Duplicate game instance detected');
+        return true;
+    }
+    window.localStorage.setItem('gameInstanceId', socketInstance.browserInstanceId);
+    return false;
+}

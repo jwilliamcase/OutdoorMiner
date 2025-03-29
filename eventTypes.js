@@ -11,7 +11,11 @@ export const GameEvents = {
     GAME_START: 'game:start',
     PLAYER_TURN: 'game:player_turn',
     COLOR_SELECT: 'game:color_select',
-    INVALID_MOVE: 'game:invalid_move'
+    INVALID_MOVE: 'game:invalid_move',
+    TURN_START: 'game:turn_start',
+    MOVE_MADE: 'game:move_made',
+    TILE_CAPTURE: 'game:tile_capture',
+    STATE_CHANGE: 'game:state_change'
 };
 
 export const NetworkEvents = {

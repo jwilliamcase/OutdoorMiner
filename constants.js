@@ -4,9 +4,9 @@ export const BOARD = {
     HEX_SIZE: 25, // Reduced from 30
     get HEX_HEIGHT() { return Math.sqrt(3) * this.HEX_SIZE; },
     get HEX_WIDTH() { return 2 * this.HEX_SIZE; },
-    // Adjust spacing to prevent overlap
-    get VERTICAL_SPACING() { return this.HEX_HEIGHT * 0.86; }, // Reduced from 0.866
-    get HORIZONTAL_SPACING() { return this.HEX_WIDTH * 0.74; }, // Reduced from 0.75
+    // Further reduce spacing to eliminate overlap
+    get VERTICAL_SPACING() { return this.HEX_HEIGHT * 0.85; },  // Reduced from 0.86
+    get HORIZONTAL_SPACING() { return this.HEX_WIDTH * 0.73; }, // Reduced from 0.74
     PADDING: 40 // Add padding for centering
 };
 
@@ -30,9 +30,9 @@ export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, r
 
 // Fix spacing calculation
 export const getHexSpacing = (hexSize) => ({
-    VERTICAL: hexSize * Math.sqrt(3) * 0.86,    // Match the board constant
-    HORIZONTAL: hexSize * 1.48,                 // Adjusted for proper tiling
-    STAGGER_OFFSET: hexSize * Math.sqrt(3) / 2.1 // Slightly adjusted stagger
+    VERTICAL: hexSize * Math.sqrt(3) * 0.85,    // Match board constant
+    HORIZONTAL: hexSize * 1.46,                 // Further reduced
+    STAGGER_OFFSET: hexSize * Math.sqrt(3) / 2.2 // Adjusted stagger
 });
 
 // Game Colors

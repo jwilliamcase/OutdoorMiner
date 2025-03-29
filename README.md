@@ -309,3 +309,105 @@ Currently deployed on Render:
 
 ## License
 ISC License
+
+## Current Issues & Questions
+
+### State Management
+1. Turn Synchronization
+   ```javascript
+   // Current issues in ui.js
+   - Both players see "Your Turn" indicator
+   - Color buttons enabled for both players
+   - Turn state not properly synced with server
+   ```
+
+2. Game State Initialization
+   ```javascript
+   // network.js needs cleanup
+   - Multiple game state handlers
+   - Duplicate handleGameUpdate declarations
+   - Inconsistent state sharing between modules
+   ```
+
+3. Move Validation
+   ```javascript
+   // Server/client validation mismatch
+   Server: Validates turn and move
+   Client: Only checks local state
+   Solution: Implement proper server authority
+   ```
+
+### Code Cleanup Needed
+
+1. Network Module
+   ```javascript
+   // network.js organization
+   - Remove duplicate handleGameUpdate
+   - Consolidate socket event handlers
+   - Add proper error boundaries
+   - Implement retry logic
+   ```
+
+2. UI Module
+   ```javascript
+   // ui.js improvements
+   - Move DOM manipulation to uiManager
+   - Add proper state management
+   - Fix hex spacing and board centering
+   - Implement proper turn transitions
+   ```
+
+3. Game Logic
+   ```javascript
+   // gameLogic.js refactoring
+   - Separate board logic from game state
+   - Add proper move validation
+   - Implement proper coordinate system
+   - Fix hex overlap issues
+   ```
+
+### Open Questions
+
+1. State Synchronization
+   - How to handle network latency?
+   - Should moves be queued?
+   - How to recover from desyncs?
+
+2. Turn Management
+   - Server or client authority?
+   - How to handle timeouts?
+   - What happens on disconnect?
+
+3. UI/UX
+   - How to show move validity?
+   - Should invalid moves be prevented?
+   - How to handle board orientation?
+
+### Next Steps
+
+1. Immediate Fixes
+   ```javascript
+   // Priority fixes
+   1. Fix turn indicator logic
+   2. Implement proper move validation
+   3. Add server authority
+   4. Fix hex spacing
+   ```
+
+2. Technical Debt
+   ```javascript
+   // Code organization
+   1. Consolidate network handlers
+   2. Implement proper state management
+   3. Add error boundaries
+   4. Add comprehensive logging
+   ```
+
+3. Future Improvements
+   ```javascript
+   // Planned features
+   1. Replay system
+   2. Improved error recovery
+   3. Move animation
+   4. Better player feedback
+   ```
