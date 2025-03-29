@@ -75,14 +75,52 @@ class ServerGameState {
             P1: { name: player1Name, socketId: player1SocketId, score: 0 },
             P2: { name: player2Name, socketId: player2SocketId, score: 0 }
         };
-        this.boardState = {}; // Store placed tiles: { 'q,r': 'P1' | 'P2' }
-        this.currentPlayer = 'P1'; // P1 always starts
+        // Randomly decide first player
+        this.currentPlayer = Math.random() < 0.5 ? 'P1' : 'P2';
+        this.boardState = this.initializeBoard(); // New method
         this.isOver = false;
         this.winner = null;
-        // Assuming a fixed board size matching the client for now
-        this.boardSize = 7; // Consider making this dynamic or passed during game creation
-        this.totalTiles = this.calculateTotalTiles(this.boardSize);
-        this.turnNumber = 0; // Track number of turns played
+        this.boardSize = 16; // Match client config
+        this.turnNumber = 0;
+
+        // Initialize with same random seed for both players
+        this.gameSeed = Date.now();
+        this.boardState = this.initializeBoard(this.gameSeed);
+        
+        // Random first player
+        this.currentPlayer = Math.random() < 0.5 ? 'P1' : 'P2';
+        console.log(`Game ${gameId} starting with ${this.currentPlayer} as first player`);
+    }
+
+    initializeBoard(seed) {
+        const board = {};
+        const colors = ['#F76C6C', '#374785', '#F8E9A1', '#50C878', '#9B59B6'];
+        
+        // Use seeded random for consistent generation
+        const seededRandom = this.createSeededRandom(seed);
+        
+        for (let q = 0; q < this.boardSize; q++) {
+            for (let r = 0; r < this.boardSize; r++) {
+                const colorIndex = Math.floor(seededRandom() * colors.length);
+                board[`${q},${r}`] = {
+                    color: colors[colorIndex],
+                    owner: null
+                };
+            }
+        }
+
+        // Set initial positions
+        board['0,15'].owner = 'P1'; // Bottom left for P1
+        board['15,0'].owner = 'P2'; // Top right for P2
+        
+        return board;
+    }
+
+    createSeededRandom(seed) {
+        return function() {
+            seed = (seed * 9301 + 49297) % 233280;
+            return seed / 233280;
+        };
     }
 
     // Calculate total number of tiles based on board size (radius)
@@ -315,14 +353,25 @@ io.on('connection', (socket) => {
             socket.join(gameId);
             io.sockets.sockets.get(challenge.hostSocketId)?.join(gameId);
 
-            // Notify both players
-            io.to(gameId).emit('game-start', {
+            // Notify both players with complete game data
+            const gameStartData = {
+                roomCode: challengeCode,
                 gameState: gameState.getSerializableState(),
                 players: {
-                    [challenge.hostSocketId]: { name: challenge.hostPlayerName, symbol: 'P1' },
-                    [socket.id]: { name: playerName, symbol: 'P2' }
+                    [challenge.hostSocketId]: { 
+                        name: challenge.hostPlayerName, 
+                        symbol: 'P1',
+                        isCurrentTurn: gameState.currentPlayer === 'P1'
+                    },
+                    [socket.id]: { 
+                        name: playerName, 
+                        symbol: 'P2',
+                        isCurrentTurn: gameState.currentPlayer === 'P2'
+                    }
                 }
-            });
+            };
+
+            io.to(gameId).emit('game-start', gameStartData);
 
             // Remove used challenge code
             delete challenges[cleanCode];

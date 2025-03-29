@@ -256,45 +256,8 @@ export function drawHexagon(q, r, color, isOwned = false) {
 export function renderGameBoard() {
     if (!ctx || !gameState) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Start with clean transform
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    
-    // Apply base translation for padding
-    ctx.translate(gameState.currentHexSize, gameState.currentHexSize);
-
-    // Draw all hexagons
-    Object.entries(gameState.board).forEach(([key, tile]) => {
-        const spacing = getHexSpacing(gameState.currentHexSize);
-        const x = tile.q * spacing.HORIZONTAL;
-        const y = tile.r * spacing.VERTICAL + (tile.q % 2) * spacing.STAGGER_OFFSET;
-        drawHexTile(x, y, tile);
-    });
-}
-
-function drawHexTile(x, y, tile) {
-    const size = gameState.currentHexSize;
-    ctx.beginPath();
-    
-    // Draw hexagon path
-    for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        const px = x + size * Math.cos(angle);
-        const py = y + size * Math.sin(angle);
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-
-    // Fill
-    ctx.fillStyle = tile.color || '#ddd';
-    ctx.fill();
-
-    // Stroke
-    ctx.strokeStyle = tile.owner ? '#000' : '#666';
-    ctx.lineWidth = tile.owner ? 2 : 1;
-    ctx.stroke();
+    const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
+    gameState.renderForPlayer(ctx, isPlayer2);
 }
 
 // --- UI Updates ---
@@ -412,19 +375,24 @@ function handleCanvasClick(event) {
 
      // Convert click coordinates to world coordinates (relative to canvas, considering pan)
      const rect = canvas.getBoundingClientRect();
-     let x = event.clientX - rect.left - cameraOffset.x;
-     let y = event.clientY - rect.top - cameraOffset.y;
+     let x = event.clientX - rect.left;
+     let y = event.clientY - rect.top;
 
-     // If player 2, transform the coordinates
-     if (currentPlayerId === gameState.players[1]?.id) {
-         const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING;
-         const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING;
-         x = boardWidth - x;
-         y = boardHeight - y;
+     // Transform coordinates for player 2
+     const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
+     if (isPlayer2) {
+         x = canvas.width - x;
+         y = canvas.height - y;
      }
 
      const hexCoords = worldToHex(x, y);
-     console.log(`Canvas click at (${event.clientX}, ${event.clientY}), World (${x}, ${y}), Hex (${hexCoords.q}, ${hexCoords.r})`);
+     const transformedCoords = gameState.getTransformedCoordinates(
+         hexCoords.q, 
+         hexCoords.r, 
+         isPlayer2
+     );
+
+    console.log(`Canvas click at (${event.clientX}, ${event.clientY}), World (${x}, ${y}), Hex (${hexCoords.q}, ${hexCoords.r})`);
 
 
     // Check if the click corresponds to a valid hex on the board
@@ -503,9 +471,8 @@ function handleMouseUp() {
 // Expects gameStateObject to be a plain JS object from the server
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     console.log("Handling initial state:", gameStateObject);
-    console.log("Players data:", playersData);
-    console.log("Own ID:", ownPlayerId);
-    
+    console.log("Players data:", playersData, "My ID:", ownPlayerId);
+
     if (!gameStateObject) {
         console.error("Failed to initialize: No game state provided");
         return false;
@@ -515,24 +482,28 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         // Create new game state instance
         gameState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
         
-        // Copy state properties
-        Object.assign(gameState, {
-            ...gameStateObject,
-            players: playersData || {}
-        });
+        // Copy state properties including board state
+        Object.assign(gameState, gameStateObject);
         
         currentPlayerId = ownPlayerId;
 
-        console.log("Game state initialized:", gameState);
-        
         // Update UI elements
-        updatePlayerInfo(playersData, currentPlayerId);
+        updateTurnIndicator(gameStateObject.currentPlayer, playersData);
+        updatePlayerInfo(playersData, ownPlayerId);
         
+        // Clear waiting message
+        const turnIndicator = document.getElementById('turn-indicator');
+        if (turnIndicator) {
+            const isMyTurn = gameStateObject.currentPlayer === ownPlayerId;
+            turnIndicator.textContent = isMyTurn ? "Your Turn!" : "Opponent's Turn";
+            turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
+        }
+
         // Force a redraw
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             resizeGame();
             renderGameBoard();
-        }, 100);
+        });
         
         return true;
     } catch (error) {
@@ -540,6 +511,20 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         displayMessage("Error initializing game. Check console.", true);
         return false;
     }
+}
+
+function updateTurnIndicator(currentPlayer, playersData) {
+    const turnIndicator = document.getElementById('turn-indicator');
+    if (!turnIndicator) return;
+
+    const isMyTurn = currentPlayer === currentPlayerId;
+    const currentPlayerName = playersData[currentPlayer]?.name || 'Player';
+    
+    turnIndicator.textContent = isMyTurn ? 
+        "Your Turn!" : 
+        `Waiting for ${currentPlayerName}...`;
+    
+    turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
 }
 
 // Expects gameStateObject to be a plain JS object from the server

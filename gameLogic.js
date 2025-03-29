@@ -427,6 +427,41 @@ export class GameState {
 
         return true;
     }
+
+    rotateCoordinatesForPlayer2(q, r) {
+        // For a 16x16 board, rotate coordinates 180 degrees
+        return {
+            q: this.cols - 1 - q,
+            r: this.rows - 1 - r
+        };
+    }
+
+    getTransformedCoordinates(q, r, isPlayer2) {
+        if (!isPlayer2) return { q, r };
+        return this.rotateCoordinatesForPlayer2(q, r);
+    }
+
+    renderForPlayer(ctx, isPlayer2) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        
+        // Apply rotation for player 2
+        if (isPlayer2) {
+            ctx.translate(ctx.canvas.width, ctx.canvas.height);
+            ctx.rotate(Math.PI);
+        }
+
+        // Draw the board
+        Object.entries(this.board).forEach(([coord, tile]) => {
+            const [q, r] = coord.split(',').map(Number);
+            const { x, y } = getHexCenter(q, r);
+            drawHexagon(ctx, x, y, tile.color, tile.owner !== null);
+        });
+
+        // Reset transformation
+        if (isPlayer2) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+    }
 }
 
 
