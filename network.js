@@ -229,7 +229,9 @@ function setupSocketEventListeners() {
             handleGameUpdate(data.state);
             playSound('move');
         } catch (error) {
-            console.error("Error handling game update:        }
+            console.error("Error handling game update:", error);
+            displayMessage("Failed to update game state", true);
+        }
     });
 
     socketInstance.on('game-error', (errorMessage) => {
