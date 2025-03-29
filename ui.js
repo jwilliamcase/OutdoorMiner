@@ -463,10 +463,11 @@ function handleMouseUp() {
 // Expects gameStateObject to be a plain JS object from the server
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
     console.log("Handling initial state:", gameStateObject);
-    console.log("Players data:", playersData, "My ID:", ownPlayerId);
+    console.log("Players data:", playersData);
+    console.log("Own ID:", ownPlayerId);
 
-    if (!gameStateObject) {
-        console.error("Failed to initialize: No game state provided");
+    if (!gameStateObject || !playersData) {
+        console.error("Failed to initialize: Missing data", { gameStateObject, playersData });
         return false;
     }
 
@@ -485,13 +486,11 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         // Clear waiting message and update turn indicator
         const turnIndicator = document.getElementById('turn-indicator');
         if (turnIndicator) {
-            const isMyTurn = gameStateObject.currentPlayer === ownPlayerId;
-            const currentPlayerName = playersData[gameStateObject.currentPlayer]?.name || 'Player';
+            const isMyTurn = gameStateObject.currentPlayer === 
+                (ownPlayerId === playersData.P1?.socketId ? 'P1' : 'P2');
             
-            turnIndicator.textContent = isMyTurn ? 
-                "Your Turn!" : 
-                `Waiting for ${currentPlayerName}...`;
-            
+            const currentPlayerName = isMyTurn ? 'Your' : 'Opponent\'s';
+            turnIndicator.textContent = `${currentPlayerName} Turn!`;
             turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
         }
 

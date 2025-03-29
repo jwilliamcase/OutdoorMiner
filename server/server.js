@@ -349,43 +349,52 @@ io.on('connection', (socket) => {
 
             // Store game state and update player tracking
             activeGames[gameId] = gameState;
+            
+            // Update player tracking for both players
             playerSockets[socket.id] = {
                 gameId,
                 playerName,
                 playerSymbol: 'P2'
+            };
+            
+            playerSockets[challenge.hostSocketId] = {
+                gameId,
+                playerName: challenge.hostPlayerName,
+                playerSymbol: 'P1'
             };
 
             // Join socket room and notify players
             socket.join(gameId);
             io.sockets.sockets.get(challenge.hostSocketId)?.join(gameId);
 
-            // Notify both players with complete game data
+            // Send game start with complete player info
             const gameStartData = {
                 roomCode: challengeCode,
                 gameState: gameState.getSerializableState(),
                 players: {
-                    [challenge.hostSocketId]: { 
+                    P1: { 
                         name: challenge.hostPlayerName, 
-                        symbol: 'P1',
+                        socketId: challenge.hostSocketId,
                         isCurrentTurn: gameState.currentPlayer === 'P1'
                     },
-                    [socket.id]: { 
+                    P2: { 
                         name: playerName, 
-                        symbol: 'P2',
+                        socketId: socket.id,
                         isCurrentTurn: gameState.currentPlayer === 'P2'
                     }
                 }
             };
 
             io.to(gameId).emit('game-start', gameStartData);
-
+            
             // Remove used challenge code
-            delete challenges[cleanCode];
+            delete challenges[challengeCode];
 
             callback({ 
                 success: true,
                 gameId,
-                gameState: gameState.getSerializableState()
+                gameState: gameState.getSerializableState(),
+                players: gameStartData.players
             });
 
         } catch (error) {
