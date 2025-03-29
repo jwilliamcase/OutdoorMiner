@@ -12,7 +12,8 @@ const app = express();
 const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080'; // Provide a default if CLIENT_URL might be undefined
 const allowedOrigins = [
     clientUrl,
-    'https://jwilliamcase.github.io/OutdoorMiner/',
+    'https://jwilliamcase.github.io',
+    'https://jwilliamcase.github.io/OutdoorMiner',
     'http://localhost:8080',
     'http://127.0.0.1:8080'
 ].filter(Boolean); // Remove any undefined/empty values
@@ -50,11 +51,7 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: [
-            'https://jwilliamcase.github.io',
-            'http://localhost:8080',
-            'http://127.0.0.1:8080'
-        ],
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -216,7 +213,12 @@ function generateGameId() {
 
 // --- Socket.IO Connection Handler ---
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
+    const query = socket.handshake.query;
+    console.log('=== New Connection ===');
+    console.log('Socket ID:', socket.id);
+    console.log('Query params:', query);
+    console.log('Client IP:', socket.handshake.address);
+    console.log('====================');
 
     socket.on('create-challenge', (playerName, callback) => {
         try {
@@ -254,92 +256,89 @@ io.on('connection', (socket) => {
     });
 
     socket.on('join-challenge', ({ challengeCode, playerName }, callback) => {
+        console.log('=== Join Attempt ===');
+        console.log('Socket ID:', socket.id);
+        console.log('Join data:', { challengeCode, playerName });
+        console.log('Current challenges:', challenges);
+        console.log('==================');
+
         try {
-            // Basic sanitization
-            playerName = String(playerName || '').trim();
-            challengeCode = String(challengeCode || '').trim().toUpperCase();
-            console.log(`'join-challenge' received from ${socket.id} for code '${challengeCode}' with name: '${playerName}'`);
-
-            if (!playerName || !challengeCode) {
-                console.log(`Join rejected for ${socket.id}: Missing player name or challenge code.`);
-                return callback({ success: false, message: "Player name and challenge code are required." });
+            // Validate and clean inputs
+            if (!challengeCode || !playerName) {
+                console.log('Join rejected - missing data:', { challengeCode, playerName });
+                return callback({ 
+                    success: false, 
+                    message: "Player name and challenge code are required." 
+                });
             }
 
-            const challenge = challenges[challengeCode];
+            const cleanCode = String(challengeCode).trim().toUpperCase();
+            const challenge = challenges[cleanCode];
+
             if (!challenge) {
-                console.log(`Join rejected for ${socket.id}: Challenge code '${challengeCode}' not found.`);
-                return callback({ success: false, message: "Challenge code not found or has expired." });
+                console.log('Challenge not found:', cleanCode);
+                return callback({ 
+                    success: false, 
+                    message: "Challenge not found or expired." 
+                });
             }
 
-            // Prevent joining own challenge
-            if (challenge.hostSocketId === socket.id) {
-                console.log(`Join rejected for ${socket.id}: Attempted to join own challenge '${challengeCode}'.`);
-                return callback({ success: false, message: "You cannot join your own challenge." });
+            // Check if challenge creator is still connected
+            if (!io.sockets.sockets.has(challenge.hostSocketId)) {
+                console.log('Host disconnected for challenge:', cleanCode);
+                delete challenges[cleanCode];
+                return callback({ 
+                    success: false, 
+                    message: "Game host has disconnected." 
+                });
             }
 
-            // Prevent player from joining if already in a game or hosting
-            if (playerSockets[socket.id]) {
-                console.warn(`Player ${socket.id} (${playerSockets[socket.id].playerName}) attempted to join challenge while already tracked.`);
-                const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
-                if(existingChallenge){
-                    return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}. Leave it first.` });
-                } else if (playerSockets[socket.id].gameId) {
-                    return callback({ success: false, message: `You are already in game ${playerSockets[socket.id].gameId}. Leave it first.` });
-                }
-            }
-
-            // Check if the host is still connected
-            const hostSocket = io.sockets.sockets.get(challenge.hostSocketId);
-            if (!hostSocket) {
-                console.log(`Join rejected for ${socket.id}: Host (${challenge.hostSocketId}) for challenge '${challengeCode}' is disconnected.`);
-                // Clean up the stale challenge
-                delete challenges[challengeCode];
-                return callback({ success: false, message: "The host has disconnected or the challenge expired." });
-            }
-
-            // --- All checks passed, Start the Game ---
+            // Create game state and send response
             const gameId = generateGameId();
-            const hostPlayerName = challenge.hostPlayerName;
-            const guestSocketId = socket.id;
-            const guestPlayerName = playerName;
-            console.log(`Starting game ${gameId}: Host=${hostPlayerName}(${challenge.hostSocketId}), Guest=${guestPlayerName}(${guestSocketId})`);
+            const gameState = new ServerGameState(
+                gameId,
+                challenge.hostPlayerName,
+                playerName,
+                challenge.hostSocketId,
+                socket.id
+            );
 
-            // Create the server-side game state instance
-            const newGame = new ServerGameState(gameId, hostPlayerName, guestPlayerName, challenge.hostSocketId, guestSocketId);
-            activeGames[gameId] = newGame;
+            // Store game state and update player tracking
+            activeGames[gameId] = gameState;
+            playerSockets[socket.id] = {
+                gameId,
+                playerName,
+                playerSymbol: 'P2'
+            };
 
-            // Update player socket tracking information for both players
-            if (playerSockets[challenge.hostSocketId]) {
-                playerSockets[challenge.hostSocketId].gameId = gameId;
-                playerSockets[challenge.hostSocketId].playerSymbol = 'P1'; // Host is always P1
-            } else {
-                // This shouldn't happen if create-challenge worked, but handle defensively
-                console.error(`CRITICAL: Host socket ${challenge.hostSocketId} not found in playerSockets during game start!`);
-                // Clean up attempt?
-                return callback({ success: false, message: "Server error: Host player data lost." });
-            }
-            playerSockets[guestSocketId] = { gameId: gameId, playerName: guestPlayerName, playerSymbol: 'P2' }; // Joining player is P2
+            // Join socket room and notify players
+            socket.join(gameId);
+            io.sockets.sockets.get(challenge.hostSocketId)?.join(gameId);
 
-            // Add both player sockets to a Socket.IO room named after the gameId
-            hostSocket.join(gameId);
-            socket.join(gameId); // The joining player's socket
+            // Notify both players
+            io.to(gameId).emit('game-start', {
+                gameState: gameState.getSerializableState(),
+                players: {
+                    [challenge.hostSocketId]: { name: challenge.hostPlayerName, symbol: 'P1' },
+                    [socket.id]: { name: playerName, symbol: 'P2' }
+                }
+            });
 
-            // Remove the challenge code now that it's been used
-            delete challenges[challengeCode];
+            // Remove used challenge code
+            delete challenges[cleanCode];
 
-            // Emit 'game-start' event to BOTH players in the room with the initial game state
-            const initialState = newGame.getSerializableState();
-            io.to(gameId).emit('game-start', initialState);
-            console.log(`Game ${gameId} started successfully.`);
-            // Send success callback to the joining player
-            callback({ success: true, gameId: gameId });
+            callback({ 
+                success: true,
+                gameId,
+                gameState: gameState.getSerializableState()
+            });
+
         } catch (error) {
-            console.error(`Error in 'join-challenge' handler for ${socket.id}:`, error);
-            callback({ success: false, message: "An internal server error occurred." });
+            console.error('Join error:', error);
+            callback({ success: false, message: "Server error processing join request." });
         }
     });
 
-    // --- Game Action Event Handlers ---
     socket.on('place-tile', ({ q, r }, callback) => {
         try {
             const playerInfo = playerSockets[socket.id];
@@ -477,6 +476,16 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// Add periodic cleanup of stale challenges
+setInterval(() => {
+    Object.entries(challenges).forEach(([code, data]) => {
+        if (!io.sockets.sockets.has(data.hostSocketId)) {
+            console.log(`Cleaning up stale challenge: ${code}`);
+            delete challenges[code];
+        }
+    });
+}, 60000); // Run every minute
 
 // --- Start Listening ---
 const PORT = process.env.PORT || 10000; // Match Render's default port

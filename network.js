@@ -32,11 +32,15 @@ let connectionInProgress = false;
  * @param {string} [roomCode=''] - Optional room code if joining a game.
  */
 export function connectToServer(action, playerName, roomCode = '') {
-    console.log(`connectToServer - START action: ${action}`);
+    console.log(`[Connection] Starting ${action} connection:`, {
+        playerName,
+        roomCode,
+        url: CONFIG.SERVER_URL
+    });
     
     // Prevent multiple connection attempts
     if (connectionInProgress) {
-        console.log("Connection already in progress");
+        console.log("[Connection] Already in progress - aborting");
         return Promise.reject(new Error("Connection in progress"));
     }
 
@@ -45,19 +49,24 @@ export function connectToServer(action, playerName, roomCode = '') {
     return new Promise((resolve, reject) => {
         try {
             if (socketInstance?.connected) {
+                console.log("[Connection] Disconnecting existing socket");
                 socketInstance.disconnect();
             }
+
+            // Log query parameters being sent
+            const query = {
+                playerName: playerName.trim(),
+                action,
+                roomCode: roomCode.trim()
+            };
+            console.log("[Connection] Socket query params:", query);
 
             socketInstance = io(CONFIG.SERVER_URL, {
                 transports: ['websocket'],
                 reconnectionAttempts: 3,
                 timeout: 10000,
                 autoConnect: false,
-                query: { 
-                    playerName: playerName.trim(),
-                    action,
-                    roomCode: roomCode.trim()
-                }
+                query
             });
 
             // Set up one-time handlers before connecting
@@ -100,6 +109,7 @@ export function connectToServer(action, playerName, roomCode = '') {
             }, 10000);
 
         } catch (error) {
+            console.error("[Connection] Error:", error);
             connectionInProgress = false;
             reject(error);
         }
@@ -369,44 +379,37 @@ export function emitCreateChallenge(playerName) {
 }
 
 export function emitJoinChallenge(playerName, roomCode) {
-    console.log('Join attempt:', { playerName, roomCode });
+    console.log('[Join] Starting join process:', { playerName, roomCode });
     
-    // Fix: Validate inputs are strings
-    if (typeof playerName !== 'string' || typeof roomCode !== 'string') {
-        const error = new Error("Invalid input types");
-        displayMessage(error.message, true);
-        return Promise.reject(error);
-    }
-
-    // Now safe to trim
-    const cleanPlayerName = playerName.trim();
-    const cleanRoomCode = roomCode.trim();
-
-    if (!cleanPlayerName || !cleanRoomCode) {
+    // Validate inputs before attempting connection
+    if (!playerName?.trim() || !roomCode?.trim()) {
         const error = new Error("Please enter both name and room code");
+        console.error('[Join] Validation failed:', error.message);
         displayMessage(error.message, true);
         return Promise.reject(error);
     }
+
+    const cleanPlayerName = playerName.trim();
+    const cleanRoomCode = roomCode.trim().toUpperCase();
+
+    console.log('[Join] Cleaned data:', { cleanPlayerName, cleanRoomCode });
 
     return new Promise((resolve, reject) => {
         // First connect to server
         connectToServer('join', cleanPlayerName, cleanRoomCode)
             .then(socketId => {
+                console.log('[Join] Connected with socket ID:', socketId);
+                
                 if (!socketInstance) {
                     throw new Error("No socket connection");
                 }
 
-                const joinData = {
-                    challengeCode: cleanRoomCode,  // Match server's expected field name
-                    playerName: cleanPlayerName,
-                    socketId: socketId
-                };
-
-                console.log('Emitting join data:', joinData);
-
-                // Emit join event with properly structured data
-                socketInstance.emit('join-challenge', joinData, (response) => {
-                    console.log('Server join response:', response);
+                console.log('[Join] Emitting join-challenge event');
+                socketInstance.emit('join-challenge', {
+                    challengeCode: cleanRoomCode,
+                    playerName: cleanPlayerName
+                }, (response) => {
+                    console.log('[Join] Server response:', response);
                     
                     if (response.success) {
                         currentRoomId = cleanRoomCode;
@@ -428,7 +431,7 @@ export function emitJoinChallenge(playerName, roomCode) {
                 });
             })
             .catch(error => {
-                console.error('Join failed:', error);
+                console.error('[Join] Failed:', error);
                 displayMessage(error.message || "Failed to join game", true);
                 showSetupScreen();
                 reject(error);

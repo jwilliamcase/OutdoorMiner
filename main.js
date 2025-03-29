@@ -51,15 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Join Challenge button not found");
     }
 
-    // Add event listener for join game events
-    eventManager.addEventListener(EventTypes.UI.JOIN_GAME, (data) => {
-        if (!data || typeof data !== 'object') {
-            console.error('Invalid join data:', data);
-            return;
-        }
-        handleJoinGame(data.playerName, data.roomCode);
-    });
-
     // Show the initial screen
     showSetupScreen();
 
@@ -94,16 +85,23 @@ async function handleCreateGame() {
     }
 }
 
-// Update join game handler
-async function handleJoinGame(playerName, roomCode) {
+// Change handleJoinGame to handle DOM elements directly
+async function handleJoinGame() {
+    const playerNameInput = document.getElementById('player-name-input');
+    const roomCodeInput = document.getElementById('room-code-input');
     const joinButton = document.getElementById('join-challenge-button');
     
     try {
+        const playerName = playerNameInput?.value?.trim();
+        const roomCode = roomCodeInput?.value?.trim();
+
+        console.log('Join attempt:', { playerName, roomCode }); // Debug log
+
         if (!playerName || !roomCode) {
-            throw new Error("Name and room code are required");
+            displayMessage("Please enter both name and room code", true);
+            return;
         }
 
-        // Disable button and show loading state
         if (joinButton) joinButton.disabled = true;
         displayMessage("Connecting...");
         
@@ -113,9 +111,15 @@ async function handleJoinGame(playerName, roomCode) {
         displayMessage(error.message || "Failed to join game", true);
         showSetupScreen();
     } finally {
-        // Re-enable button
         if (joinButton) joinButton.disabled = false;
     }
+}
+
+// Remove old event listener and keep direct DOM event
+if (joinChallengeButton) {
+    joinChallengeButton.addEventListener('click', handleJoinGame);
+} else {
+    console.error("Join Challenge button not found");
 }
 
 // Cleanup on window unload

@@ -106,6 +106,8 @@ class UIManager {
                     const playerName = setupElements.playerNameInput?.value?.trim();
                     const roomCode = setupElements.roomCodeInput?.value?.trim();
                     
+                    console.log("Join button clicked:", { playerName, roomCode });
+
                     if (!playerName || !roomCode) {
                         eventManager.dispatchEvent(EventTypes.UI.ERROR, {
                             message: "Please enter both name and room code"
@@ -113,10 +115,10 @@ class UIManager {
                         return;
                     }
 
-                    // Fix: Use proper event structure
                     eventManager.dispatchEvent(EventTypes.UI.JOIN_GAME, {
-                        playerName: playerName,
-                        roomCode: roomCode
+                        type: 'join',
+                        playerName,
+                        roomCode
                     });
                 });
             }
@@ -133,6 +135,9 @@ class UIManager {
 
                 setupElements.playerNameInput.addEventListener('input', validateInputs);
                 setupElements.roomCodeInput.addEventListener('input', validateInputs);
+                
+                // Run initial validation
+                validateInputs();
             }
 
             // Add window resize handler
