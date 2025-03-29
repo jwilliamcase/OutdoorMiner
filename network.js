@@ -371,24 +371,28 @@ export function emitCreateChallenge(playerName) {
 export function emitJoinChallenge(playerName, roomCode) {
     // Validate inputs before attempting connection
     if (!playerName?.trim() || !roomCode?.trim()) {
-        const error = new Error("Please enter both your name and room code");
-        displayMessage(error.message, true);
-        return Promise.reject(error);  // Return rejected promise instead of void
+        displayMessage("Please enter both your name and room code", true);
+        return Promise.reject(new Error("Missing required fields"));
     }
 
-    // Handle connection and join as a single promise chain
     return new Promise((resolve, reject) => {
-        connectToServer('join', playerName, roomCode)
+        // Reset any existing connection
+        if (socketInstance?.connected) {
+            socketInstance.disconnect();
+            connectionInProgress = false;
+        }
+
+        connectToServer('join', playerName.trim(), roomCode.trim())
             .then(socketId => {
-                console.log(`Attempting to join with ID: ${socketId}`);
-                const joinData = {
+                console.log(`Connected with ID: ${socketId}, attempting to join room: ${roomCode}`);
+                
+                socketInstance.emit('join-challenge', {
                     playerName: playerName.trim(),
                     roomCode: roomCode.trim(),
                     socketId
-                };
-
-                socketInstance.emit('join-challenge', joinData, (response) => {
-                    console.log("Join response received:", response);
+                }, (response) => {
+                    console.log("Join response:", response);
+                    
                     if (response.success) {
                         currentRoomId = response.roomCode;
                         currentPlayerId = socketId;
@@ -410,7 +414,7 @@ export function emitJoinChallenge(playerName, roomCode) {
                 console.error("Join failed:", error);
                 displayMessage(error.message || "Failed to join game", true);
                 showSetupScreen();
-                reject(error);  // Propagate error up
+                reject(error);
             });
     });
 }

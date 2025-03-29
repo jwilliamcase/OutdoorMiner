@@ -19,5 +19,6 @@ export const UIEvents = {
     BUTTON_CLICK: 'ui:button_click',
     COLOR_SELECT: 'ui:color_select',
     RESIZE: 'ui:resize',
-    STATE_CHANGE: 'ui:state_change'
+    STATE_CHANGE: 'ui:state_change',
+    ERROR: 'ui:error'  // Add error event type
 };

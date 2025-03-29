@@ -94,7 +94,7 @@ class UIManager {
                 setupElements.createButton.addEventListener('click', () => {
                     const playerName = setupElements.playerNameInput?.value || 'Player';
                     eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { 
-                        action: 'create',
+                        type: 'create',
                         playerName 
                     });
                 });
@@ -103,12 +103,20 @@ class UIManager {
             // Setup join button
             if (setupElements.joinButton) {
                 setupElements.joinButton.addEventListener('click', () => {
-                    const playerName = setupElements.playerNameInput?.value || 'Player';
-                    const roomCode = setupElements.roomCodeInput?.value;
+                    const playerName = setupElements.playerNameInput?.value?.trim();
+                    const roomCode = setupElements.roomCodeInput?.value?.trim();
+                    
+                    if (!playerName || !roomCode) {
+                        eventManager.dispatchEvent(EventTypes.UI.ERROR, {
+                            message: "Please enter both name and room code"
+                        });
+                        return;
+                    }
+
                     eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, { 
-                        action: 'join',
+                        type: 'join',
                         playerName,
-                        roomCode 
+                        roomCode
                     });
                 });
             }
