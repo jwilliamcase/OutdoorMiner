@@ -324,28 +324,52 @@ export function emitCreateChallenge(playerName) {
     if (!socketInstance || !socketInstance.connected) {
         connectToServer('create', playerName)
             .then(socketId => {
-                // Call setupSocketEventListeners after connection
                 setupSocketEventListeners();
                 
                 socketInstance.emit('create-challenge', playerName, (response) => {
                     if (response.success) {
                         currentRoomId = response.challengeCode;
                         
-                        // Show game code to host
-                        const gameIdDisplay = document.getElementById('game-id-display');
-                        if (gameIdDisplay) {
-                            gameIdDisplay.textContent = `Game Code: ${response.challengeCode}`;
-                            gameIdDisplay.style.display = 'block';
-                        }
+                        // Create shareable URL
+                        const shareUrl = new URL(window.location.href);
+                        shareUrl.searchParams.set('code', response.challengeCode);
                         
-                        // Update UI with game code
-                        updateGameCode(response.challengeCode);
+                        // Show share link with copy functionality
+                        const shareLink = document.querySelector('.share-link');
+                        if (shareLink) {
+                            shareLink.innerHTML = `
+                                Share link: 
+                                <input type="text" value="${shareUrl.toString()}" readonly onclick="this.select()"/>
+                                <button onclick="copyShareLink(this, '${shareUrl.toString()}')">
+                                    Copy Link
+                                </button>
+                            `;
+                            shareLink.style.display = 'flex';
                             
-                        // Initialize game state
+                            // Add copy function to window scope
+                            window.copyShareLink = async (button, url) => {
+                                try {
+                                    await navigator.clipboard.writeText(url);
+                                    button.classList.add('copied');
+                                    button.textContent = 'Copied!';
+                                    setTimeout(() => {
+                                        button.classList.remove('copied');
+                                        button.textContent = 'Copy Link';
+                                    }, 2000);
+                                } catch (err) {
+                                    console.error('Failed to copy:', err);
+                                    button.textContent = 'Failed to copy';
+                                    setTimeout(() => {
+                                        button.textContent = 'Copy Link';
+                                    }, 2000);
+                                }
+                            };
+                        }
+
+                        // Rest of the initialization...
                         const initialState = new GameState(CONFIG.BOARD_SIZE, CONFIG.BOARD_SIZE);
                         initialState.initializePlayerPositions(socketId, null);
                         
-                        // Initialize UI with correct order
                         handleInitialState(initialState, {
                             [socketId]: {
                                 name: playerName,
@@ -357,7 +381,7 @@ export function emitCreateChallenge(playerName) {
                         showGameScreen();
                         centerOnPlayerStart();
                         
-                        displayMessage(`Challenge created! Code: ${response.challengeCode}`);
+                        displayMessage(`Challenge created! Share code: ${response.challengeCode}`);
                     }
                 });
             });

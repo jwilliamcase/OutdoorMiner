@@ -1051,6 +1051,77 @@ footer {
     border: 2px solid #FF9966;
     color: #FF9966;
     font-size: 0.9rem;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(5px);
+}
+
+.share-link input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #FF9966;
+    color: #FF9966;
+    padding: 8px 12px;
+    border-radius: 4px;
+    width: 300px;
+    font-family: monospace;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.share-link input:hover {
+    background: rgba(255, 153, 102, 0.15);
+}
+
+.share-link input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 153, 102, 0.3);
+}
+
+.share-link button {
+    background: #FF9966;
+    color: #111111;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.share-link button:hover {
+    background: #FF7733;
+    transform: scale(1.05);
+}
+
+.share-link button:active {
+    transform: scale(0.98);
+}
+
+.share-link button.copied {
+    background: #50C878;
+    pointer-events: none;
+}
+
+.share-link button.copied::after {
+    content: '✓';
+    margin-left: 5px;
+}
+
+.share-link {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 153, 102, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    border: 2px solid #FF9966;
+    color: #FF9966;
+    font-size: 0.9rem;
     display: none;
 }
 
