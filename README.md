@@ -411,3 +411,183 @@ ISC License
    3. Move animation
    4. Better player feedback
    ```
+
+## Current Technical Debt (February 2024)
+
+### Critical Issues
+
+1. State Management & Synchronization
+   ```javascript
+   // Multiple sources of truth
+   - gameState in network.js, ui.js, and server
+   - Inconsistent state updates between modules
+   - No clear authority for game state
+   ```
+
+2. Orphaned Functions & Dead Code
+   ```javascript
+   // network.js
+   - checkDuplicateInstance() not properly integrated
+   - reconnectToGame() lacks proper implementation
+   - setupSocketEventListeners() called multiple times
+
+   // ui.js
+   - handleCanvasClick() not properly connected
+   - centerCamera() unused but defined
+   - playSound() inconsistently used
+
+   // gameLogic.js
+   - worldToHex() implementation incomplete
+   - Several validation methods unused
+   ```
+
+3. Error Recovery Issues
+   ```javascript
+   // Missing or incomplete error handling
+   - Disconnect/reconnect flow broken
+   - Move validation feedback loop incomplete
+   - Score update race conditions possible
+   ```
+
+### Architecture Problems
+
+1. Module Dependencies
+   ```javascript
+   // Circular dependencies
+   ui.js <--> network.js <--> gameLogic.js
+   
+   // Unclear responsibility boundaries
+   - UI updates happening in network code
+   - Game logic split between client/server
+   - State management scattered across modules
+   ```
+
+2. Configuration Issues
+   ```javascript
+   // Inconsistent config usage
+   - Multiple sources of constants
+   - Hardcoded values mixed with CONFIG
+   - Development/production config mixing
+   ```
+
+3. Event System Problems
+   ```javascript
+   // Event handling issues
+   - Multiple event systems in use
+   - Inconsistent event naming
+   - Missing event cleanup
+   - Potential memory leaks
+   ```
+
+### Immediate Tasks
+
+1. Code Cleanup
+   - [ ] Consolidate state management
+   - [ ] Remove unused functions
+   - [ ] Fix circular dependencies
+   - [ ] Standardize event system
+
+2. Critical Fixes
+   - [ ] Fix move validation
+   - [ ] Implement proper scoring
+   - [ ] Fix reconnection handling
+   - [ ] Add proper error boundaries
+
+3. Testing Gaps
+   - [ ] Add unit tests for game logic
+   - [ ] Add integration tests for network
+   - [ ] Add UI component tests
+
+### Known Bugs
+
+1. Game State
+   ```javascript
+   // Turn Management
+   - Double turn notifications
+   - Turn state desyncs
+   - Score calculation errors
+
+   // Move Validation
+   - Invalid moves sometimes allowed
+   - Move feedback missing
+   - Capture validation incomplete
+   ```
+
+2. UI Issues
+   ```javascript
+   // Visual Bugs
+   - Hex overlap on certain zoom levels
+   - Color update delays
+   - Score display inconsistencies
+
+   // Interaction Problems
+   - Click handling unreliable
+   - Color selection sometimes unresponsive
+   - Board centering issues
+   ```
+
+3. Network Issues
+   ```javascript
+   // Connection Problems
+   - Reconnection handling broken
+   - Room cleanup inconsistent
+   - Player disconnect handling unreliable
+   ```
+
+### Code Review Notes
+
+1. Performance Concerns
+   ```javascript
+   // Potential bottlenecks
+   - Large game state objects
+   - Frequent board redraws
+   - Unnecessary state updates
+   - Memory leaks in event listeners
+   ```
+
+2. Security Issues
+   ```javascript
+   // Current vulnerabilities
+   - Missing input sanitization
+   - No rate limiting
+   - Insufficient move validation
+   - Potential state manipulation
+   ```
+
+3. Maintainability Issues
+   ```javascript
+   // Code quality problems
+   - Inconsistent error handling
+   - Poor documentation
+   - Mixed responsibilities
+   - Duplicate code across modules
+   ```
+
+### Next Steps
+
+1. Immediate Priorities
+   ```javascript
+   // Critical fixes needed
+   1. Consolidate state management
+   2. Fix move validation
+   3. Implement proper error handling
+   4. Clean up event system
+   ```
+
+2. Medium Term
+   ```javascript
+   // Important improvements
+   1. Add comprehensive testing
+   2. Refactor module structure
+   3. Improve error recovery
+   4. Add proper logging
+   ```
+
+3. Long Term
+   ```javascript
+   // Future considerations
+   1. Implement proper state management
+   2. Add replay system
+   3. Improve performance
+   4. Add advanced features
+   ```
