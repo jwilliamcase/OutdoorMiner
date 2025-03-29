@@ -488,14 +488,18 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         currentPlayerId = ownPlayerId;
 
         // Update UI elements
-        updateTurnIndicator(gameStateObject.currentPlayer, playersData);
         updatePlayerInfo(playersData, ownPlayerId);
         
-        // Clear waiting message
+        // Clear waiting message and update turn indicator
         const turnIndicator = document.getElementById('turn-indicator');
         if (turnIndicator) {
             const isMyTurn = gameStateObject.currentPlayer === ownPlayerId;
-            turnIndicator.textContent = isMyTurn ? "Your Turn!" : "Opponent's Turn";
+            const currentPlayerName = playersData[gameStateObject.currentPlayer]?.name || 'Player';
+            
+            turnIndicator.textContent = isMyTurn ? 
+                "Your Turn!" : 
+                `Waiting for ${currentPlayerName}...`;
+            
             turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
         }
 
@@ -511,20 +515,6 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         displayMessage("Error initializing game. Check console.", true);
         return false;
     }
-}
-
-function updateTurnIndicator(currentPlayer, playersData) {
-    const turnIndicator = document.getElementById('turn-indicator');
-    if (!turnIndicator) return;
-
-    const isMyTurn = currentPlayer === currentPlayerId;
-    const currentPlayerName = playersData[currentPlayer]?.name || 'Player';
-    
-    turnIndicator.textContent = isMyTurn ? 
-        "Your Turn!" : 
-        `Waiting for ${currentPlayerName}...`;
-    
-    turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
 }
 
 // Expects gameStateObject to be a plain JS object from the server
