@@ -486,11 +486,13 @@ export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
         // Clear waiting message and update turn indicator
         const turnIndicator = document.getElementById('turn-indicator');
         if (turnIndicator) {
-            const isMyTurn = gameStateObject.currentPlayer === 
-                (ownPlayerId === playersData.P1?.socketId ? 'P1' : 'P2');
+            // Determine if it's my turn based on player symbol (P1/P2) not socket ID
+            const mySymbol = ownPlayerId === playersData.P1?.socketId ? 'P1' : 'P2';
+            const isMyTurn = gameStateObject.currentPlayer === mySymbol;
             
-            const currentPlayerName = isMyTurn ? 'Your' : 'Opponent\'s';
-            turnIndicator.textContent = `${currentPlayerName} Turn!`;
+            turnIndicator.textContent = isMyTurn ? 
+                "Your Turn!" : 
+                "Opponent's Turn";
             turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
         }
 
@@ -562,7 +564,10 @@ function updateTurnIndicator() {
     const turnIndicator = elements.turnIndicator;
     if (!turnIndicator || !gameState) return;
 
-    const isMyTurn = gameState.getCurrentPlayerId() === currentPlayerId;
+    // Get my player symbol based on socket ID
+    const mySymbol = currentPlayerId === gameState.players.P1?.socketId ? 'P1' : 'P2';
+    const isMyTurn = gameState.currentPlayer === mySymbol;
+
     turnIndicator.className = `turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`;
     turnIndicator.textContent = isMyTurn ? "Your Turn!" : "Opponent's Turn";
 }

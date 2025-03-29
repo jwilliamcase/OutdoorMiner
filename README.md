@@ -111,6 +111,119 @@ A multiplayer territory capture game played on a hexagonal grid. Players compete
    - Score display
    ```
 
+## Technical Debt & Open Issues
+
+### Code Structure
+1. Circular Dependencies
+   - ui.js <-> gameLogic.js have tight coupling
+   - Event system needs cleaner separation of concerns
+
+2. Error Handling
+   - Many catch blocks log but don't properly recover
+   - Network error recovery is incomplete
+   - No retry mechanisms for failed connections
+
+3. State Management
+   ```javascript
+   // Examples of problematic patterns:
+   this.lastUsedColor = null; // Global state
+   let currentPlayerId = null; // Module-level state
+   // TODO: Implement proper state management system
+   ```
+
+4. Deferred Decisions
+   ```javascript
+   // gameLogic.js
+   // TODO: Refine worldToHex conversion for accuracy
+   console.warn("worldToHex is using axial rounding, may need refinement");
+
+   // server.js
+   // Optional: Clean up the game object after delay
+   // setTimeout(() => {
+   //    if (activeGames[gameId]... 
+   // }, 30000);
+   ```
+
+### Known Issues
+
+1. Game Synchronization
+   - Race conditions in turn transitions
+   - State can desync on network hiccups
+   - No validation of complete game state
+
+2. Resource Management
+   ```javascript
+   // Memory leaks possible from:
+   - Uncleaned event listeners
+   - Stale game states in server memory
+   - Unbounded chat message history
+   ```
+
+3. UI/UX Gaps
+   - No loading states during network operations
+   - Missing error feedback for many edge cases
+   - Incomplete responsive design
+
+### Future Improvements
+
+1. Core Architecture
+   - [ ] Implement proper dependency injection
+   - [ ] Add state management library
+   - [ ] Create proper service layer
+
+2. Testing
+   - [ ] Add unit tests for game logic
+   - [ ] Add integration tests for network code
+   - [ ] Add E2E tests for full game flow
+
+3. Performance
+   - [ ] Optimize render loop
+   - [ ] Implement proper garbage collection
+   - [ ] Add request debouncing
+
+4. User Experience
+   - [ ] Add proper loading states
+   - [ ] Improve error messages
+   - [ ] Add game replays
+
+### Simplifications That Need Review
+1. Board Generation
+   ```javascript
+   // Currently using simple random generation
+   // TODO: Implement proper board balancing
+   const randomColor = CONFIG.GAME_COLORS[
+       Math.floor(Math.random() * CONFIG.GAME_COLORS.length)
+   ];
+   ```
+
+2. Move Validation
+   ```javascript
+   // Simplified move checking
+   // TODO: Add proper path finding
+   if (this.findCapturableTiles(playerId, selectedColor).length === 0) {
+       return { valid: false, reason: 'No valid captures' };
+   }
+   ```
+
+3. Network Protocol
+   ```javascript
+   // Basic WebSocket implementation
+   // TODO: Add proper protocol versioning
+   // TODO: Add message validation
+   socket.emit('game-update', result.newState);
+   ```
+
+### Security Considerations
+1. Input Validation
+   - [ ] Add proper sanitization for chat
+   - [ ] Validate all network messages
+   - [ ] Add rate limiting
+
+2. Game Logic
+   - [ ] Add server-side move validation
+   - [ ] Prevent state manipulation
+   - [ ] Add anti-cheat measures
+
 ## Architecture
 
 ### Core Components

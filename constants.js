@@ -29,7 +29,7 @@ export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, r
 // Update BOARD with dynamic spacing getters
 export const getHexSpacing = (hexSize) => ({
     VERTICAL: hexSize * Math.sqrt(3),
-    HORIZONTAL: hexSize * 2, // Changed from hexSize * 1.5 to avoid gaps
+    HORIZONTAL: hexSize * 1.5, // Changed from 2 to 1.5 to fix spacing
     STAGGER_OFFSET: hexSize * Math.sqrt(3) / 2
 });
 
