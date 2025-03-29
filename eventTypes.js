@@ -20,5 +20,7 @@ export const UIEvents = {
     COLOR_SELECT: 'ui:color_select',
     RESIZE: 'ui:resize',
     STATE_CHANGE: 'ui:state_change',
-    ERROR: 'ui:error'  // Add error event type
+    ERROR: 'ui:error',
+    JOIN_GAME: 'ui:join_game',
+    CREATE_GAME: 'ui:create_game'
 };

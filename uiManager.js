@@ -100,7 +100,7 @@ class UIManager {
                 });
             }
 
-            // Setup join button
+            // Setup join button with proper event structure
             if (setupElements.joinButton) {
                 setupElements.joinButton.addEventListener('click', () => {
                     const playerName = setupElements.playerNameInput?.value?.trim();
@@ -113,13 +113,29 @@ class UIManager {
                         return;
                     }
 
-                    // Fix: Use proper event type and data structure
+                    // Fix: Use proper event type for join
                     eventManager.dispatchEvent(EventTypes.UI.BUTTON_CLICK, {
-                        action: 'join',
-                        playerName,
-                        roomCode
+                        type: 'join',
+                        data: {
+                            playerName,
+                            roomCode
+                        }
                     });
                 });
+            }
+
+            // Add input validation listeners
+            if (setupElements.playerNameInput && setupElements.roomCodeInput) {
+                const validateInputs = () => {
+                    const hasName = setupElements.playerNameInput.value.trim().length > 0;
+                    const hasCode = setupElements.roomCodeInput.value.trim().length > 0;
+                    if (setupElements.joinButton) {
+                        setupElements.joinButton.disabled = !(hasName && hasCode);
+                    }
+                };
+
+                setupElements.playerNameInput.addEventListener('input', validateInputs);
+                setupElements.roomCodeInput.addEventListener('input', validateInputs);
             }
 
             // Add window resize handler

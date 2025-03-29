@@ -1,7 +1,9 @@
 const CONFIG = {
-    SERVER_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3000'
-        : 'https://outdoor-miner-server.onrender.com',
+    SERVER_URL: window.location.hostname === 'jwilliamcase.github.io' 
+        ? 'https://outdoor-miner-server.onrender.com'
+        : window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:10000' // Match server port
+            : 'https://outdoor-miner-server.onrender.com',
     BOARD_SIZE: 16, // Change from 8 to 16
     HEX_SIZE: 30,
     GAME_COLORS: [

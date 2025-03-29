@@ -10,29 +10,26 @@ const app = express();
 // --- CORS Configuration ---
 // Use environment variable for client URL, default to localhost for development
 const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080'; // Provide a default if CLIENT_URL might be undefined
-const allowedOrigins = [clientUrl];
-// Allow localhost for local development regardless of CLIENT_URL setting
-if (!allowedOrigins.includes('http://localhost:8080')) {
-    allowedOrigins.push('http://localhost:8080');
-}
-if (!allowedOrigins.includes('http://127.0.0.1:8080')) { // Sometimes needed too
-    allowedOrigins.push('http://127.0.0.1:8080');
-}
+const allowedOrigins = [
+    clientUrl,
+    'https://jwilliamcase.github.io/OutdoorMiner/',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080'
+].filter(Boolean); // Remove any undefined/empty values
 
 console.log("Allowed CORS origins:", allowedOrigins);
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, curl) OR from allowed origins
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        // Allow requests with no origin (like mobile apps, curl)
+        if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
             callback(null, true);
         } else {
             console.error(`CORS Error: Origin ${origin} not allowed.`);
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            callback(new Error(msg), false);
+            callback(new Error('CORS not allowed'));
         }
     },
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    methods: ['GET', 'POST'],
     credentials: true
 }));
 
@@ -53,12 +50,18 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins, // Apply CORS settings to Socket.IO connections
-        methods: ["GET", "POST"],
+        origin: [
+            'https://jwilliamcase.github.io',
+            'http://localhost:8080',
+            'http://127.0.0.1:8080'
+        ],
+        methods: ['GET', 'POST'],
         credentials: true
     },
-    // Optional: Increase ping timeout if experiencing frequent disconnects on slow networks
-    // pingTimeout: 60000,
+    // Add transport configuration
+    transports: ['websocket'],
+    pingTimeout: 30000,
+    pingInterval: 25000
 });
 
 // --- Server State Management ---
@@ -224,6 +227,7 @@ io.on('connection', (socket) => {
                 console.log(`Challenge creation rejected for ${socket.id}: Missing player name.`);
                 return callback({ success: false, message: "Please enter a player name." });
             }
+
             // Check if player is already hosting or in a game
             const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
             const existingGame = playerSockets[socket.id] && playerSockets[socket.id].gameId;
@@ -234,14 +238,13 @@ io.on('connection', (socket) => {
                 console.log(`Player ${socket.id} (${playerName}) attempted to create a challenge but is already active.`);
                 return callback({ success: false, message: msg });
             }
+
             const challengeCode = generateChallengeCode();
-            // ...existing code for creating challenge...
             challenges[challengeCode] = {
                 hostSocketId: socket.id,
                 hostPlayerName: playerName
             };
             playerSockets[socket.id] = { gameId: null, playerName: playerName, playerSymbol: 'P1' };
-
             console.log(`Challenge ${challengeCode} created by ${playerName} (${socket.id})`);
             callback({ success: true, challengeCode: challengeCode });
         } catch (error) {
@@ -277,12 +280,12 @@ io.on('connection', (socket) => {
             // Prevent player from joining if already in a game or hosting
             if (playerSockets[socket.id]) {
                 console.warn(`Player ${socket.id} (${playerSockets[socket.id].playerName}) attempted to join challenge while already tracked.`);
-                 const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
-                 if(existingChallenge){
-                     return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}. Leave it first.` });
-                 } else if (playerSockets[socket.id].gameId) {
-                     return callback({ success: false, message: `You are already in game ${playerSockets[socket.id].gameId}. Leave it first.` });
-                 }
+                const existingChallenge = Object.entries(challenges).find(([code, data]) => data.hostSocketId === socket.id);
+                if(existingChallenge){
+                    return callback({ success: false, message: `You are already hosting challenge ${existingChallenge[0]}. Leave it first.` });
+                } else if (playerSockets[socket.id].gameId) {
+                    return callback({ success: false, message: `You are already in game ${playerSockets[socket.id].gameId}. Leave it first.` });
+                }
             }
 
             // Check if the host is still connected
@@ -299,7 +302,6 @@ io.on('connection', (socket) => {
             const hostPlayerName = challenge.hostPlayerName;
             const guestSocketId = socket.id;
             const guestPlayerName = playerName;
-
             console.log(`Starting game ${gameId}: Host=${hostPlayerName}(${challenge.hostSocketId}), Guest=${guestPlayerName}(${guestSocketId})`);
 
             // Create the server-side game state instance
@@ -311,11 +313,10 @@ io.on('connection', (socket) => {
                 playerSockets[challenge.hostSocketId].gameId = gameId;
                 playerSockets[challenge.hostSocketId].playerSymbol = 'P1'; // Host is always P1
             } else {
-                 // This shouldn't happen if create-challenge worked, but handle defensively
-                 console.error(`CRITICAL: Host socket ${challenge.hostSocketId} not found in playerSockets during game start!`);
-                 // Clean up attempt?
-                 delete activeGames[gameId];
-                 return callback({ success: false, message: "Server error: Host player data lost." });
+                // This shouldn't happen if create-challenge worked, but handle defensively
+                console.error(`CRITICAL: Host socket ${challenge.hostSocketId} not found in playerSockets during game start!`);
+                // Clean up attempt?
+                return callback({ success: false, message: "Server error: Host player data lost." });
             }
             playerSockets[guestSocketId] = { gameId: gameId, playerName: guestPlayerName, playerSymbol: 'P2' }; // Joining player is P2
 
@@ -329,11 +330,9 @@ io.on('connection', (socket) => {
             // Emit 'game-start' event to BOTH players in the room with the initial game state
             const initialState = newGame.getSerializableState();
             io.to(gameId).emit('game-start', initialState);
-
             console.log(`Game ${gameId} started successfully.`);
             // Send success callback to the joining player
             callback({ success: true, gameId: gameId });
-
         } catch (error) {
             console.error(`Error in 'join-challenge' handler for ${socket.id}:`, error);
             callback({ success: false, message: "An internal server error occurred." });
@@ -344,7 +343,7 @@ io.on('connection', (socket) => {
     socket.on('place-tile', ({ q, r }, callback) => {
         try {
             const playerInfo = playerSockets[socket.id];
-             // Validate player is tracked and associated with a game
+            // Validate player is tracked and associated with a game
             if (!playerInfo || !playerInfo.gameId) {
                 console.error(`'place-tile' error: No player/game info for socket ${socket.id}.`);
                 return callback({ success: false, message: 'Error: Player not associated with a game.' });
@@ -361,14 +360,12 @@ io.on('connection', (socket) => {
 
             // Delegate move validation and state update to the ServerGameState instance
             const result = game.placeTile(q, r, playerInfo.playerSymbol);
-
             if (result.success) {
                 console.log(`Game ${game.gameId}: Tile placed by ${playerInfo.playerName} (${playerInfo.playerSymbol}) at (${q},${r}). Turn ${game.turnNumber}. Next: ${game.currentPlayer}`);
                 // Broadcast the updated game state to all players in the room
                 io.to(game.gameId).emit('game-update', result.newState);
                 // Acknowledge success to the sender
                 callback({ success: true });
-
                 // Log if the game just ended
                 if (result.newState.isOver) {
                     console.log(`Game ${game.gameId} ended on this move. Winner: ${result.newState.winner}`);
@@ -405,12 +402,12 @@ io.on('connection', (socket) => {
             } else {
                 console.log(`Chat message ignored from user not in active game (${socket.id}): ${message}`);
                 // Optionally send an error back to sender if chat outside game is disallowed
-                 socket.emit('game-error', { message: 'You must be in an active game to send chat messages.' });
+                socket.emit('game-error', { message: 'You must be in an active game to send chat messages.' });
             }
         } catch (error) {
             console.error(`Error in 'chat-message' handler for ${socket.id}:`, error);
-             // Optionally notify sender of chat error
-              socket.emit('game-error', { message: 'Server error sending your chat message.' });
+            // Optionally notify sender of chat error
+            socket.emit('game-error', { message: 'Server error sending your chat message.' });
         }
     });
 
@@ -447,27 +444,23 @@ io.on('connection', (socket) => {
                         playerSymbol: playerInfo.playerSymbol,
                         message: `${playerInfo.playerName} (${playerInfo.playerSymbol}) disconnected. Game forfeited.`
                     });
-                    // Send the final game state reflecting the forfeit to the remaining player(s)
                     socket.to(gameId).emit('game-update', game.getSerializableState()); // Use game-update or a specific 'game-over' event
 
                     // Optional: Clean up the game object itself after a delay, allowing clients to see the result
                     // setTimeout(() => {
                     //     if (activeGames[gameId] && activeGames[gameId].isOver) { // Check if still exists and is over
-                    //         console.log(`Cleaning up ended game object ${gameId}`);
                     //         delete activeGames[gameId];
-                    //         // Optionally remove players from playerSockets if game is truly done? Depends on if they can start new games.
+                    //         console.log(`Cleaning up ended game object ${gameId}`);
                     //     }
                     // }, 30000); // e.g., 30 seconds
-
                 } else if (game && game.isOver) {
-                     console.log(`Player ${playerInfo.playerName} disconnected from already finished game ${gameId}. No action needed.`);
+                    console.log(`Player ${playerInfo.playerName} disconnected from already finished game ${gameId}. No action needed.`);
                 } else {
-                    // Player was associated with a gameId, but the game object wasn't found. Might have been cleaned up already.
                     console.log(`Player ${playerInfo.playerName} disconnected; associated game ${gameId} not found or already cleaned up.`);
                 }
             } else {
-                // Disconnected user wasn't hosting or in a tracked game
                 console.log(`Disconnected user ${socket.id} was not hosting or in an active game.`);
+                // Disconnected user wasn't hosting or in a tracked game
             }
 
             // 3. Always remove the player from the socket tracking object on disconnect
@@ -475,21 +468,20 @@ io.on('connection', (socket) => {
 
             // --- Logging Current State (Optional) ---
             // console.log("--- State after disconnect ---");
-            // console.log("Tracked sockets:", Object.keys(playerSockets).length);
-            // console.log("Active games:", Object.keys(activeGames).length);
             // console.log("Active challenges:", Object.keys(challenges).length);
+            // console.log("Active games:", Object.keys(activeGames).length);
+            // console.log("Tracked sockets:", Object.keys(playerSockets).length);
             // console.log("-----------------------------");
-
         } catch (error) {
             console.error(`Error in 'disconnect' handler for ${socket.id}:`, error);
         }
-    }); // End of 'disconnect' handler
-
-}); // End of io.on('connection') handler
+    });
+});
 
 // --- Start Listening ---
-const PORT = process.env.PORT || 3000; // Use port from environment or default to 3000
+const PORT = process.env.PORT || 10000; // Match Render's default port
 server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
+    console.log(`==> Your service is live 🎉`);
     console.log(`Expecting client connections from: ${allowedOrigins.join(', ')}`);
 });
