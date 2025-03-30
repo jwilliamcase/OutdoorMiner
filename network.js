@@ -41,7 +41,6 @@ export function connectToServer(action, playerName, roomCode = '') {
         url: CONFIG.SERVER_URL
     });
     
-    // Prevent multiple connection attempts
     if (connectionInProgress) {
         console.log("[Connection] Already in progress - aborting");
         return Promise.reject(new Error("Connection in progress"));
@@ -51,74 +50,53 @@ export function connectToServer(action, playerName, roomCode = '') {
     
     return new Promise((resolve, reject) => {
         try {
-            if (socketInstance?.connected) {
-                console.log("[Connection] Disconnecting existing socket");
-                socketInstance.disconnect();
-            }
+            // Generate a unique browser instance ID
+            const browserInstanceId = `${Date.now()}${Math.random().toString(36).substring(2)}`;
 
-            // Log query parameters being sent
-            const browserInstanceId = Date.now() + Math.random().toString(36).substring(2);
-            const query = {
-                playerName: playerName.trim(),
-                action,
-                roomCode: roomCode.trim(),
-                browserInstanceId // Add this to differentiate instances
-            };
-            console.log("[Connection] Socket query params:", query);
+            // Create socket connection with query parameters
+            const queryParams = new URLSearchParams({
+                playerName: playerName,
+                action: action,
+                roomCode: roomCode,
+                browserInstanceId
+            }).toString();
 
+            console.log('[Connection] Socket query params:', { queryParams });
+
+            // Initialize socket with proper URL and options
             socketInstance = io(CONFIG.SERVER_URL, {
                 transports: ['websocket'],
-                reconnectionAttempts: 3,
-                timeout: 10000,
-                autoConnect: false,
-                query
+                query: queryParams,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                timeout: 10000
             });
 
-            // Store instance ID
-            socketInstance.browserInstanceId = browserInstanceId;
-
-            // Set up one-time handlers before connecting
-            const connectHandler = () => {
-                if (!socketInstance.id) {
-                    cleanup("No socket ID received");
-                    return;
-                }
-                console.log('Connected with ID:', socketInstance.id);
-                connectionInProgress = false;
-                updateConnectionStatus(true, `Connected as Player ${socketInstance.id.substring(0, 4)}`);
-                resolve(socketInstance.id);
-            };
-
-            const errorHandler = (error) => {
-                cleanup(error.message);
-            };
-
-            const cleanup = (error) => {
-                socketInstance.off('connect', connectHandler);
-                socketInstance.off('connect_error', errorHandler);
-                connectionInProgress = false;
-                if (error) {
-                    reject(new Error(error));
-                }
-            };
-
-            socketInstance.once('connect', connectHandler);
-            socketInstance.once('connect_error', errorHandler);
-
-            // Start connection
-            socketInstance.connect();
             updateConnectionStatus(false, 'Connecting...');
 
-            // Add timeout
-            setTimeout(() => {
-                if (connectionInProgress) {
-                    cleanup("Connection timeout");
-                }
-            }, 10000);
+            // Handle connection success
+            socketInstance.on('connect', () => {
+                connectionInProgress = false;
+                currentPlayerId = socketInstance.id;
+                updateConnectionStatus(true, `Connected as Player ${currentPlayerId.substring(0, 4)}`);
+                setupSocketEventListeners();
+                resolve(socketInstance.id);
+            });
+
+            // Handle connection errors
+            socketInstance.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+                connectionInProgress = false;
+                updateConnectionStatus(false, `Connection failed: ${error.message}`);
+                socketInstance?.close();
+                socketInstance = null;
+                reject(new Error('websocket error'));
+            });
 
         } catch (error) {
-            console.error("[Connection] Error:", error);
             connectionInProgress = false;
+            console.error('[Connection] Error:', error);
             reject(error);
         }
     });

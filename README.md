@@ -1,6 +1,6 @@
 ![1743202449728](image/README/1743202449728.png)
 
-# Outdoor Miner: Hex Territory Game
+# Outdoor Miner: Hex-based Territory Game
 
 ## Quick Start
 1. Clone repository
@@ -8,9 +8,14 @@
 3. Start server: `npm start`
 4. Access game: `http://localhost:10000`
 
-## Game Overview
+## Overview
+A modular, extensible hex-based territory capture game built with modern JavaScript.
 
-A multiplayer territory capture game played on a hexagonal grid. Players compete to control territory by strategically selecting colors and expanding their influence.
+### Core Features
+- Hexagonal grid-based gameplay
+- Real-time multiplayer
+- Event-driven architecture
+- Modular design for easy extension
 
 ### Core Mechanics
 
@@ -233,6 +238,15 @@ A multiplayer territory capture game played on a hexagonal grid. Players compete
 
 ## Architecture
 
+### Core Systems
+```mermaid
+graph TD
+    UI[UI Layer] --> EventSystem[Event System]
+    EventSystem --> GameLogic[Game Logic]
+    EventSystem --> Network[Network Layer]
+    Network --> Server[Game Server]
+```
+
 ### Core Components
 ```
 /OutdoorMiner
@@ -283,6 +297,87 @@ const CONFIG = {
     ]
 };
 ```
+
+## Hex Grid Implementation
+
+### Grid Spacing and Layout
+The game uses a pointy-top hexagonal grid with the following key metrics:
+
+1. Basic Hex Geometry:
+```js
+HEX_SIZE: 25,  // Base size (r)
+HEX_HEIGHT: √3 * size  // Height = 2 * size * sin(60°)
+HEX_WIDTH: 2 * size    // Width = 2 * size
+```
+
+2. Grid Spacing:
+- Horizontal spacing: 1.5 * size (75% of hex width)
+- Vertical spacing: √3 * size (75% of hex height)
+- Stagger offset: (√3 * size) / 2
+
+3. Key Files and Functions:
+- `constants.js`: Defines basic hex measurements and spacing
+- `gameLogic.js`: Handles hex coordinate systems and conversions
+- `ui.js`: Manages rendering and visual layout
+
+### Coordinate Systems
+We use three coordinate systems:
+1. Pixel coordinates (screen space)
+2. Axial coordinates (q,r) for game logic
+3. Offset coordinates for storage/iteration
+
+### Key Methods
+```javascript
+// Pixel to Hex conversion (ui.js)
+worldToHex(x, y) {
+    q = (2/3 * x) / hexSize
+    r = (-1/3 * x + √3/3 * y) / hexSize
+}
+
+// Hex to Pixel conversion (gameLogic.js)
+getHexCenter(q, r) {
+    x = q * HORIZONTAL_SPACING
+    y = r * VERTICAL_SPACING + (q % 2) * STAGGER_OFFSET
+}
+```
+
+### Visual Layout Control
+The grid appearance is controlled by:
+1. `BOARD` constants in `constants.js`:
+   - Base hex size
+   - Spacing ratios
+   - Padding values
+
+2. Rendering in `ui.js`:
+   - Canvas sizing
+   - Board centering
+   - Player view rotation
+
+3. Style properties:
+   - Hex border thickness
+   - Color fill
+   - Selection indicators
+
+### Common Issues and Solutions
+1. Hex Overlap:
+   - Caused by spacing ratios > 75%
+   - Fixed by using proper spacing formulas
+   - Verified through Red Blob Games calculations
+
+2. Board Centering:
+   - Requires proper padding calculation
+   - Accounts for both players' viewports
+   - Uses canvas translation for positioning
+
+3. Player 2 Rotation:
+   - Implemented via canvas rotation
+   - Maintains relative hex positions
+   - Preserves click handling accuracy
+
+### References
+- Red Blob Games Hex Grid Guide: https://www.redblobgames.com/grids/hexagons/
+- Hex Grid Coordinate Systems: axial, offset, cubic
+- Canvas Transformation Best Practices
 
 ## Testing
 

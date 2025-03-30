@@ -3,35 +3,22 @@ import { getHexCenter, worldToHex, GameState } from './gameLogic.js';
 import { sendTilePlacement, sendMessage } from './network.js'; // Import network functions
 import { uiManager } from './uiManager.js';
 
-// --- State ---
-let gameState = null; // Holds the current game state object
+// --- Core State ---
+let gameState = null;
 let canvas = null;
 let ctx = null;
-let selectedColor = null; // Will be removed once we finish the refactor
-let currentPlayerId = null; // Store the client's player ID for UI logic
-let isDragging = false;
-let lastMousePos = { x: 0, y: 0 };
-let cameraOffset = { x: 0, y: 0 }; // Pan offset
-let isTransitioning = false;
-const TURN_TRANSITION_DELAY = 800; // ms
+let currentPlayerId = null;
+let cameraOffset = { x: 0, y: 0 };
 
 // --- DOM Elements ---
 let setupContainer = null;
 let gameContainer = null;
-let canvasContainer = null;
 let connectionStatusElement = null;
 let connectionIndicator = null;
 let messageArea = null;
 let player1Info = null;
 let player2Info = null;
-let colorButtons = [];
-let chatInput = null;
 let chatMessages = null;
-let rowsInput = null;
-let colsInput = null;
-
-// Change to module-level elements object instead of using 'this'
-let elements = {};
 
 // --- Initialization ---
 export function initializeUI() {
@@ -90,18 +77,6 @@ function displayFallbackError(message) {
     errorDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:red;color:white;padding:20px;';
     errorDiv.textContent = message;
     document.body.appendChild(errorDiv);
-}
-
-function setupColorButtons() {
-    if (!uiManager.initializeColorButtons()) {
-        console.error("Failed to initialize color buttons");
-        return;
-    }
-
-    const colorOptions = uiManager.getElement('game.colorOptions');
-    colorOptions.querySelectorAll('.color-button').forEach(button => {
-        button.addEventListener('click', handleColorSelection);
-    });
 }
 
 // Add new function to update game code display
@@ -189,177 +164,99 @@ export function showGameScreen() {
     });
 }
 
-// --- Rendering ---
-
-// Consolidate resize handling
-export function resizeGame() {
-    if (!canvas || !gameState) return;
-
-    const gameArea = document.getElementById('game-area');
-    if (!gameArea) return;
-
-    // Get the actual visible area
-    const viewportHeight = window.innerHeight;
-    const headerHeight = document.querySelector('header')?.offsetHeight || 0;
-    const scoreHeight = document.getElementById('score-container')?.offsetHeight || 0;
-    const colorSelectionHeight = document.getElementById('color-selection')?.offsetHeight || 0;
-    
-    // Calculate available height
-    const availableHeight = viewportHeight - headerHeight - scoreHeight - colorSelectionHeight - 40; // 40px for margins
-    
-    // Set game area max height
-    gameArea.style.maxHeight = `${availableHeight}px`;
-    
-    // Get actual available space
-    const rect = gameArea.getBoundingClientRect();
-
-    // Calculate optimal hex size
-    const hexSize = calculateOptimalHexSize(
-        rect.width,
-        rect.height,
-        gameState.cols,
-        gameState.rows
-    );
-
-    // Get spacing based on hex size
-    const spacing = getHexSpacing(hexSize);
-
-    // Calculate board dimensions
-    const boardWidth = Math.ceil(gameState.cols * spacing.HORIZONTAL + hexSize);
-    const boardHeight = Math.ceil(
-        gameState.rows * spacing.VERTICAL + spacing.STAGGER_OFFSET + hexSize
-    );
-
-    // Set canvas dimensions with padding
-    canvas.width = boardWidth + (hexSize * 2); // Add padding
-    canvas.height = boardHeight + (hexSize * 2); // Add padding
-
-    // Store sizes for rendering
-    gameState.currentHexSize = hexSize;
-    gameState.currentScale = 1;
-
-    console.log(`Resized canvas: ${canvas.width}x${canvas.height}, HexSize: ${hexSize}`);
-
-    // Center the board
-    centerGameBoard();
-    renderGameBoard();
-}
-
-function centerGameBoard() {
-    if (!gameState || !canvas) return;
-
-    const spacing = getHexSpacing(gameState.currentHexSize);
-    
-    // Calculate total board dimensions
-    const boardWidth = (gameState.cols * spacing.HORIZONTAL);
-    const boardHeight = (gameState.rows * spacing.VERTICAL);
-    
-    // Calculate centering offsets
-    cameraOffset.x = (canvas.width - boardWidth) / 2;
-    cameraOffset.y = (canvas.height - boardHeight) / 2;
-    
-    // Add padding
-    cameraOffset.x += BOARD.PADDING;
-    cameraOffset.y += BOARD.PADDING;
-    
-    console.log('Board centered:', {
-        canvasSize: { w: canvas.width, h: canvas.height },
-        boardSize: { w: boardWidth, h: boardHeight },
-        offset: cameraOffset
-    });
-}
-
-export function centerOnPlayerStart() {
-    if (!canvas || !gameState) return;
-    
-    // Calculate board dimensions using current scale
-    const boardWidth = gameState.cols * BOARD.HORIZONTAL_SPACING * gameState.currentScale;
-    const boardHeight = gameState.rows * BOARD.VERTICAL_SPACING * gameState.currentScale;
-    
-    // Center the board
-    cameraOffset.x = (canvas.width - boardWidth) / 2;
-    cameraOffset.y = (canvas.height - boardHeight) / 2;
-    
-    // Add scaled padding
-    cameraOffset.x += BOARD.HEX_SIZE * gameState.currentScale;
-    cameraOffset.y += BOARD.HEX_SIZE * gameState.currentScale;
-    
-    renderGameBoard();
-}
-
-// Move drawHexagon definition above where it's used
+// --- Rendering Core ---
 function drawHexagon(ctx, x, y, color, isOwned = false) {
-    const hexSize = gameState.currentHexSize;
-    const points = [];
+    const size = gameState.currentHexSize;
+    ctx.beginPath();
     
+    // Generate points using exact formula
     for (let i = 0; i < 6; i++) {
         const angle = (Math.PI / 3) * i;
-        points.push({
-            x: x + hexSize * Math.cos(angle),
-            y: y + hexSize * Math.sin(angle)
-        });
+        const pX = x + size * Math.cos(angle);
+        const pY = y + size * Math.sin(angle);
+        i === 0 ? ctx.moveTo(pX, pY) : ctx.lineTo(pX, pY);
     }
-
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    points.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
     ctx.closePath();
 
-    // Fill with color
     ctx.fillStyle = color;
     ctx.fill();
-
-    // Draw stronger border for owned territories
     ctx.strokeStyle = isOwned ? '#000' : '#666';
     ctx.lineWidth = isOwned ? 2 : 1;
     ctx.stroke();
 }
 
-// Update renderGameBoard to pass drawHexagon function
 export function renderGameBoard() {
-    if (!ctx || !gameState || !gameState.boardState) {
-        console.error('Cannot render: missing context or invalid game state', {
-            hasContext: !!ctx,
-            hasGameState: !!gameState,
-            hasBoardState: !!(gameState && gameState.boardState)
-        });
-        return;
-    }
+    if (!ctx || !gameState?.boardState) return;
 
     try {
-        // Clear canvas first
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Save context state
         ctx.save();
-        
-        // Apply camera offset
-        ctx.translate(cameraOffset.x, cameraOffset.y);
 
-        // Debug log before rendering
-        console.log("Rendering board state:", {
-            tileCount: Object.keys(gameState.boardState).length,
-            cameraOffset,
-            canvasSize: { width: canvas.width, height: canvas.height }
-        });
+        const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
+        
+        // Calculate board dimensions once
+        const boardWidth = gameState.cols * BOARD.COL_SPACING;
+        const boardHeight = gameState.rows * BOARD.ROW_SPACING;
+
+        // Center the board
+        const offsetX = (canvas.width - boardWidth) / 2 + BOARD.PADDING;
+        const offsetY = (canvas.height - boardHeight) / 2 + BOARD.PADDING;
+
+        // Apply transforms in correct order
+        if (isPlayer2) {
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(Math.PI);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        }
+        ctx.translate(offsetX, offsetY);
 
         // Render each tile
         Object.entries(gameState.boardState).forEach(([coord, tile]) => {
             const [q, r] = coord.split(',').map(Number);
-            const pos = getHexCenter(q, r);
-            drawHexagon(ctx, pos.x, pos.y, tile.color, tile.owner !== null);
+            const x = q * BOARD.COL_SPACING;
+            const y = r * BOARD.ROW_SPACING + (q % 2) * (BOARD.ROW_HEIGHT / 2);
+            drawHexagon(ctx, x, y, tile.color, tile.owner !== null);
         });
 
-        // Restore context
         ctx.restore();
-
     } catch (error) {
-        console.error('Error in renderGameBoard:', error);
-        console.error(error.stack);
+        console.error('Render error:', error);
     }
 }
 
+export function resizeGame() {
+    if (!canvas || !gameState) return;
+
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const hexSize = calculateOptimalHexSize(rect.width, rect.height, gameState.cols, gameState.rows);
+    
+    // Set canvas size
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    
+    // Update game state
+    gameState.currentHexSize = hexSize;
+    
+    renderGameBoard();
+}
+
+// --- Game State Handling ---
+export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
+    currentPlayerId = ownPlayerId;
+    gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
+    Object.assign(gameState, gameStateObject);
+    
+    updateUI();
+    return true;
+}
+
 // --- UI Updates ---
+function updateUI() {
+    updateTurnIndicator();
+    updatePlayerInfo();
+    updateAvailableColors();
+    renderGameBoard();
+}
 
 // Update the connection status display
 export function updateConnectionStatus(isConnected, message = '') {

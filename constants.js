@@ -1,38 +1,44 @@
-// Game Board Constants
+// Core hex geometry constants - using Red Blob Games formulas
 export const BOARD = {
     SIZE: 16,
-    HEX_SIZE: 25, // Reduced from 30
-    get HEX_HEIGHT() { return Math.sqrt(3) * this.HEX_SIZE; },
-    get HEX_WIDTH() { return 2 * this.HEX_SIZE; },
-    // Further reduce spacing to eliminate overlap
-    get VERTICAL_SPACING() { return this.HEX_HEIGHT * 0.85; },  // Reduced from 0.86
-    get HORIZONTAL_SPACING() { return this.HEX_WIDTH * 0.73; }, // Reduced from 0.74
-    PADDING: 40 // Add padding for centering
+    HEX_SIZE: 25,
+    
+    // Base hex geometry
+    get WIDTH() { return 2 * this.HEX_SIZE; },
+    get HEIGHT() { return Math.sqrt(3) * this.HEX_SIZE; },
+    
+    // Spacing (pointy-top hexagons)
+    get COL_SPACING() { return this.WIDTH * 3/4; },        // horizontal distance
+    get ROW_SPACING() { return this.HEIGHT; },             // vertical distance
+    get ROW_HEIGHT() { return this.HEIGHT; },              // for convenience
+    
+    PADDING: 40
 };
 
-// Add responsive sizing helpers
-export const calculateOptimalHexSize = (containerWidth, containerHeight, cols, rows) => {
-    // More conservative sizing - use 85% of container
-    const padding = 0.85;
+// Simplified hex size calculator
+export const calculateOptimalHexSize = (width, height, cols, rows) => {
+    // Calculate size that would fit width
+    const widthSize = (width - BOARD.PADDING * 2) / (cols * 1.5 + 0.5);
     
-    // Account for hex overlap and margins
-    const effectiveWidth = (cols * 1.5) * padding;
-    const effectiveHeight = (rows * Math.sqrt(3)) * padding;
-
-    // Calculate max size that will fit
-    const maxWidth = containerWidth / effectiveWidth;
-    const maxHeight = containerHeight / effectiveHeight;
+    // Calculate size that would fit height
+    const heightSize = (height - BOARD.PADDING * 2) / ((rows + 0.5) * Math.sqrt(3));
     
-    // Use smaller size and enforce max size of 25
-    const size = Math.min(maxWidth, maxHeight, 25);
-    return Math.max(size, 15); // Set minimum size to 15
+    // Use smaller size, capped between 15 and 25
+    return Math.min(Math.max(Math.min(widthSize, heightSize), 15), 25);
 };
 
-// Fix spacing calculation
-export const getHexSpacing = (hexSize) => ({
-    VERTICAL: hexSize * Math.sqrt(3) * 0.85,    // Match board constant
-    HORIZONTAL: hexSize * 1.46,                 // Further reduced
-    STAGGER_OFFSET: hexSize * Math.sqrt(3) / 2.2 // Adjusted stagger
+// Get exact hex measurements for given size
+export const getHexMetrics = (size) => ({
+    width: size * 2,
+    height: size * Math.sqrt(3),
+    // Exact vertex positions for pointy-top hex
+    vertices: Array.from({ length: 6 }, (_, i) => {
+        const angle = (Math.PI / 3) * i;
+        return {
+            x: size * Math.cos(angle),
+            y: size * Math.sin(angle)
+        };
+    })
 });
 
 // Game Colors

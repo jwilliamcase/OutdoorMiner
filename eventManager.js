@@ -10,12 +10,16 @@ export const EventTypes = {
         DISCONNECTED: 'network:disconnected',
         ERROR: 'network:error',
         SYNC_START: 'network:sync_start',
-        SYNC_COMPLETE: 'network:sync_complete'
+        SYNC_COMPLETE: 'network:sync_complete',
+        CONNECTION_ERROR: 'network:connection_error'
     },
     UI: {
         COLOR_SELECTED: 'ui:color_selected',
         CANVAS_CLICK: 'ui:canvas_click',
-        CAMERA_MOVE: 'ui:camera_move'
+        CAMERA_MOVE: 'ui:camera_move',
+        CREATE_CLICK: 'ui:create_click',
+        JOIN_CLICK: 'ui:join_click',
+        ERROR: 'ui:error'
     }
 };
 
@@ -42,50 +46,40 @@ class EventManager {
     }
 
     dispatchEvent(type, data) {
-        // Early validation with better logging
+        // Fix validation
         if (!type || typeof type !== 'string') {
-            console.error("Invalid event dispatch:", {
-                type,
-                data,
-                stack: new Error().stack
-            });
+            console.error('Invalid event type:', type);
             return;
         }
 
-        // Get all valid event types once
-        const validTypes = [
-            ...Object.values(EventTypes.GAME),
-            ...Object.values(EventTypes.NETWORK),
-            ...Object.values(EventTypes.UI)
-        ];
+        // Get all valid event types
+        const allEventTypes = Object.values(EventTypes).reduce((acc, category) => {
+            return [...acc, ...Object.values(category)];
+        }, []);
 
-        // Validate event type with detailed logging
-        if (!validTypes.includes(type)) {
+        // Validate event type
+        if (!allEventTypes.includes(type)) {
             console.warn(`Unknown event type: ${type}`, {
                 data,
-                validTypes,
-                source: new Error().stack.split('\n')[2]
+                validTypes: allEventTypes
             });
             return;
         }
 
-        // Process valid event
-        this.logEvent(type, data);
+        // Process event
         const handlers = this.listeners.get(type);
-        
         if (handlers?.size > 0) {
             handlers.forEach(handler => {
                 try {
                     handler(data);
                 } catch (error) {
-                    console.error(`Error in event handler for ${type}:`, {
-                        error,
-                        data,
-                        handler: handler.name || 'anonymous'
-                    });
+                    console.error(`Error in event handler for ${type}:`, error);
                 }
             });
         }
+
+        // Log event
+        this.logEvent(type, data);
     }
 
     logEvent(type, data) {
