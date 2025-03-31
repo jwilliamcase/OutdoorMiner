@@ -2,6 +2,7 @@ import { BOARD, COLORS } from './constants.js';
 import { eventManager } from './eventManager.js';
 import { GameEvents } from './eventTypes.js';
 import { moveHistory } from './moveHistory.js';
+import { HexService } from './services/HexService.js';
 
 // Axial direction vectors for neighboring hexes
 const DIRECTIONS = [
@@ -15,17 +16,37 @@ const DIRECTIONS = [
 
 export class GameState {
     constructor(rows, cols, players) {
+        this.stateTimestamp = Date.now();
+        this.stateVersion = 0;
         this.rows = rows || CONFIG.BOARD_SIZE;
         this.cols = cols || CONFIG.BOARD_SIZE;
         this.players = players || {};
         this.currentPlayerIndex = 0;
         this.lastUsedColor = null;
-        this.currentPlayerColor = null;
-        this.gameOver = false;
-        this.winner = null;
-        this.stateHistory = [];
-        this.maxHistoryLength = 10;
-        this.boardState = {}; // Initialize empty board state
+        this.boardState = {};
+        this.initialized = false;
+    }
+
+    initializeState(serverState, playerId) {
+        if (!serverState || !playerId) {
+            console.error('Missing required initialization data');
+            return false;
+        }
+
+        try {
+            // Deep copy the server state
+            Object.assign(this, JSON.parse(JSON.stringify(serverState)));
+            
+            // Store local player info
+            this.localPlayerId = playerId;
+            this.playerSymbol = this.players.P1?.socketId === playerId ? 'P1' : 'P2';
+            
+            this.initialized = true;
+            return true;
+        } catch (error) {
+            console.error('State initialization failed:', error);
+            return false;
+        }
     }
 
     createInitialBoard(seed) {
@@ -92,21 +113,40 @@ export class GameState {
 
     // New method: Find capturable tiles for a color
     findCapturableTiles(playerId, selectedColor) {
-        console.log('Finding capturable tiles:', {
-            playerId,
-            selectedColor,
-            boardSize: this.boardSize
-        });
-
         const capturable = new Set();
         const checked = new Set();
 
-        // Step 1: Find all starting points (player's current territory)
-        Object.entries(this.boardState)
+        // First get all tiles owned by the player
+        const playerTiles = Object.entries(this.boardState)
             .filter(([_, tile]) => tile.owner === playerId)
-            .forEach(([key, _]) => {
-                this.findConnectedColorChain(key, selectedColor, capturable, checked);
+            .map(([key, _]) => {
+                const [q, r] = key.split(',').map(Number);
+                return { q, r };
             });
+
+        // Find all unclaimed tiles of the selected color that are adjacent to player territory
+        playerTiles.forEach(tile => {
+            const neighbors = HexService.getNeighbors(tile.q, tile.r);
+            neighbors.forEach(neighbor => {
+                const key = `${neighbor.q},${neighbor.r}`;
+                const neighborTile = this.boardState[key];
+                
+                if (neighborTile && 
+                    !neighborTile.owner && 
+                    neighborTile.color === selectedColor &&
+                    !capturable.has(key)) {
+                    
+                    // Add this tile and find its connected color group
+                    capturable.add(key);
+                    const connected = HexService.findConnectedColorGroup(
+                        neighbor,
+                        this.boardState,
+                        selectedColor
+                    );
+                    connected.forEach(connectedKey => capturable.add(connectedKey));
+                }
+            });
+        });
 
         return Array.from(capturable);
     }
@@ -185,7 +225,7 @@ export class GameState {
 
     // Check if a position is within board bounds
     isValidPosition(q, r) {
-        return q >= 0 && q < this.cols && r >= 0 && r < this.rows;
+        return HexService.isValidPosition(q, r, this.boardSize);
     }
 
     // Single consolidated makeMove method
@@ -589,6 +629,48 @@ export class GameState {
             return { success: false, message: 'Error processing move' };
         }
     }
+
+    validateState(serverState) {
+        if (!serverState) return false;
+        
+        // Check if server state is newer
+        if (serverState.stateVersion <= this.stateVersion) {
+            console.warn("Received outdated state version");
+            return false;
+        }
+
+        // Validate critical properties
+        const requiredProps = ['boardState', 'players', 'currentPlayer', 'lastUsedColor'];
+        if (!requiredProps.every(prop => prop in serverState)) {
+            console.error("Missing required state properties");
+            return false;
+        }
+
+        return true;
+    }
+
+    updateFromServer(serverState) {
+        if (!this.validateState(serverState)) {
+            eventManager.dispatchEvent(NetworkEvents.SYNC_ERROR, {
+                message: "Invalid state received",
+                currentVersion: this.stateVersion,
+                receivedVersion: serverState.stateVersion
+            });
+            return false;
+        }
+
+        // Update state version
+        this.stateVersion = serverState.stateVersion;
+        this.stateTimestamp = Date.now();
+
+        // Deep copy critical state
+        this.boardState = JSON.parse(JSON.stringify(serverState.boardState));
+        this.players = JSON.parse(JSON.stringify(serverState.players));
+        this.currentPlayer = serverState.currentPlayer;
+        this.lastUsedColor = serverState.lastUsedColor;
+
+        return true;
+    }
 }
 
 class ServerGameState {
@@ -645,82 +727,4 @@ class ServerGameState {
             newState: this.getSerializableState()
         };
     }
-}
-
-// --- Hex Grid Geometry Functions ---
-
-// Get the pixel coordinates of the center of a hex cell
-export function getHexCenter(q, r) {
-    const x = q * BOARD.HORIZONTAL_SPACING + BOARD.HEX_SIZE;
-    const y = r * BOARD.VERTICAL_SPACING + BOARD.HEX_SIZE + (q % 2) * (BOARD.VERTICAL_SPACING / 2);
-    return { x, y };
-}
-
-// Convert pixel coordinates (world space) to hex coordinates (q, r) - Approximate
-// This implementation uses axial coordinates and rounding. Might need refinement.
-export function worldToHex(x, y) {
-    // Adjust for the offset/origin if necessary (assuming origin is top-left of canvas)
-
-    // Convert pixel coordinates to fractional axial coordinates
-    const q_frac = (2 / 3 * x) / BOARD.HEX_SIZE;
-    const r_frac = (-1 / 3 * x + Math.sqrt(3) / 3 * y) / BOARD.HEX_SIZE;
-    const s_frac = -q_frac - r_frac; // s = -q - r for axial coordinates
-
-    // Round fractional coordinates to nearest integer hex coordinates
-    let q = Math.round(q_frac);
-    let r = Math.round(r_frac);
-    let s = Math.round(s_frac);
-
-    const q_diff = Math.abs(q - q_frac);
-    const r_diff = Math.abs(r - r_frac);
-    const s_diff = Math.abs(s - s_frac);
-
-    // Reset the coordinate with the largest difference to maintain q + r + s = 0
-    if (q_diff > r_diff && q_diff > s_diff) {
-        q = -r - s;
-    } else if (r_diff > s_diff) {
-        r = -q - s;
-    } else {
-        s = -q - r;
-    }
-
-    // Need a mapping back from the axial system used for calculation to the storage/rendering system if different
-    // Assuming the storage uses (q, r) from a "pointy top" axial grid perspective for calculation,
-    // but rendering might use offset coordinates. The getHexCenter seems to use an offset approach.
-    // This conversion needs to be consistent with getHexCenter and the grid structure.
-
-    // Let's try a simpler offset coordinate conversion based on getHexCenter logic inverse:
-    // This is tricky due to the staggered nature. A simpler approach might be needed,
-    // perhaps iterating through nearby hex centers and finding the closest one.
-
-    // --- Alternative: Check distance to nearest centers ---
-    // Estimate rough q, r based on spacing
-    const approx_q = (x - BOARD.HEX_SIZE) / BOARD.HORIZONTAL_SPACING;
-     // Adjust y for potential staggering before dividing by vertical spacing
-     // This depends heavily on the exact grid layout getHexCenter produces.
-     // Given the complexity and potential inaccuracy, a common method is to find the
-     // candidate hex from the fractional coordinates and then check its neighbors
-     // to see which center is truly closest to (x, y).
-
-     // For now, return the rounded axial coordinates. This might need adjustment.
-     // TODO: Refine worldToHex conversion for accuracy with the specific grid layout.
-    console.warn("worldToHex is using axial rounding, may need refinement for the offset grid.");
-    return { q: q, r: r };
-
-    // A more robust method for offset grids often involves checking the region within the hex.
-    // See resources like Red Blob Games' Hexagonal Grids guide.
-}
-
-// Get the axial coordinates of the six neighbors of a hex cell
-export function getNeighbors(q, r) {
-    // Axial directions (pointy top)
-    const directions = [
-        { q: +1, r: 0 }, { q: +1, r: -1 }, { q: 0, r: -1 },
-        { q: -1, r: 0 }, { q: -1, r: +1 }, { q: 0, r: +1 }
-    ];
-    const neighbors = [];
-    directions.forEach(dir => {
-        neighbors.push({ q: q + dir.q, r: r + dir.r });
-    });
-    return neighbors;
 }

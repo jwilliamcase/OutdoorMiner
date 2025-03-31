@@ -679,3 +679,73 @@ ISC License
    3. Improve performance
    4. Add advanced features
    ```
+
+# Outdoor Miner: Hex-based Territory Game
+
+## Active Development Status (February 2024)
+
+### Current Issues
+1. State Management
+   ```javascript
+   // Known Problems
+   - gameState initialization inconsistent
+   - Player ID tracking unreliable
+   - Turn transitions failing
+   - Move validation incomplete
+   ```
+
+2. Connection Flow
+   ```javascript
+   // Current Flow
+   Player 1:
+   ✓ Creates room
+   ✓ Connects to server
+   ⨯ Proper board initialization
+   ⨯ Room code display
+
+   Player 2:
+   ✓ Enters code
+   ⨯ Proper connection sync
+   ⨯ Game state sync
+   ⨯ Board render
+   ```
+
+3. Event System
+   ```javascript
+   // Event Issues
+   - Inconsistent event types
+   - Missing event validation
+   - Event dispatch errors
+   - State update events unreliable
+   ```
+
+### Immediate Tasks
+
+1. Fix Core Issues
+   ```javascript
+   // Priority Fixes
+   - [ ] Fix player ID tracking
+   - [ ] Implement proper state sync
+   - [ ] Fix event type validation
+   - [ ] Add connection recovery
+   ```
+
+2. Code Cleanup
+   ```javascript
+   // Needed Changes
+   - [ ] Consolidate event types
+   - [ ] Fix circular dependencies
+   - [ ] Add error boundaries
+   - [ ] Clean up unused code
+   ```
+
+3. Testing
+   ```javascript
+   // Test Implementation
+   - [ ] Add connection tests
+   - [ ] Add state sync tests
+   - [ ] Add event validation tests
+   - [ ] Add error recovery tests
+   ```
+
+### Project Structure

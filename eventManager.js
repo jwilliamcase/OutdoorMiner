@@ -1,3 +1,6 @@
+import { UIEvents, NetworkEvents, GameEvents } from './eventTypes.js';
+import { CONFIG } from './config.js';  // Add CONFIG import
+
 export const EventTypes = {
     GAME: {
         STATE_CHANGE: 'game:state_change',
@@ -28,6 +31,24 @@ class EventManager {
         this.listeners = new Map();
         this.eventLog = [];
         this.MAX_LOG_SIZE = 1000;
+
+        // Collect all event types after importing them
+        const allEventTypes = [
+            ...Object.values(EventTypes.UI || {}),
+            ...Object.values(EventTypes.NETWORK || {}),
+            ...Object.values(EventTypes.GAME || {}),
+            ...Object.values(UIEvents || {}),
+            ...Object.values(NetworkEvents || {}),
+            ...Object.values(GameEvents || {})
+        ].filter(Boolean);
+
+        // Create Set from unique values
+        this.validEventTypes = new Set(allEventTypes);
+
+        // Only log if CONFIG exists and DEBUG is true
+        if (CONFIG?.DEBUG) {
+            console.debug('Registered event types:', Array.from(this.validEventTypes));
+        }
     }
 
     addEventListener(type, handler) {
@@ -46,27 +67,19 @@ class EventManager {
     }
 
     dispatchEvent(type, data) {
-        // Fix validation
-        if (!type || typeof type !== 'string') {
+        if (!type) {
             console.error('Invalid event type:', type);
-            return;
+            return false;
         }
 
-        // Get all valid event types
-        const allEventTypes = Object.values(EventTypes).reduce((acc, category) => {
-            return [...acc, ...Object.values(category)];
-        }, []);
+        // Log event before validation for debugging
+        console.debug(`Attempting to dispatch event: ${type}`, data);
 
-        // Validate event type
-        if (!allEventTypes.includes(type)) {
-            console.warn(`Unknown event type: ${type}`, {
-                data,
-                validTypes: allEventTypes
-            });
-            return;
+        if (!this.validEventTypes.has(type)) {
+            console.error('Unknown event type:', type, 'Valid types:', Array.from(this.validEventTypes));
+            return false;
         }
 
-        // Process event
         const handlers = this.listeners.get(type);
         if (handlers?.size > 0) {
             handlers.forEach(handler => {
@@ -78,8 +91,8 @@ class EventManager {
             });
         }
 
-        // Log event
         this.logEvent(type, data);
+        return true;
     }
 
     logEvent(type, data) {

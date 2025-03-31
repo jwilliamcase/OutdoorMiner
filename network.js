@@ -1,346 +1,270 @@
 import { CONFIG } from './config.js';
-import { GameState } from './gameLogic.js';
-// Import UI functions needed for network events
-import {
-    updateConnectionStatus,
-    displayMessage,
-    showGameScreen,
-    handleGameUpdate,
-    handleInitialState, 
-    handleTurnTransition,  // Add this import
-    addChatMessage,
-    updatePlayerInfo,
-    showGameOver,
-    playSound,
-    updateGameCode, 
-    centerOnPlayerStart, 
-    showSetupScreen,
-    renderGameBoard // Add this import
-} from './ui.js';
-
-import { eventManager, EventTypes } from './eventManager.js';
+import { eventManager } from './eventManager.js';
 import { NetworkEvents, GameEvents } from './eventTypes.js';
+import { uiManager } from './uiManager.js';
 
+// Core state tracking
 let socketInstance = null;
 let currentRoomId = null;
-let currentPlayerId = null; // Store player ID assigned by server
-let currentGameState = null; // Add this line to track game state
+let currentPlayerId = null;
+let currentGameState = null;
 let connectionInProgress = false;
+let connectionTimeout = null;
 
-// Function to connect to the server
-/**
- * Connects to the game server and initializes the socket connection.
- * @param {string} action - The action to perform (e.g., 'create' or 'join').
- * @param {string} playerName - The player's name to send to the server.
- * @param {string} [roomCode=''] - Optional room code if joining a game.
- */
-export function connectToServer(action, playerName, roomCode = '') {
-    console.log(`[Connection] Starting ${action} connection:`, {
-        playerName,
-        roomCode,
-        url: CONFIG.SERVER_URL
+// Network utilities - moved to top level
+function clearConnectionState() {
+    connectionInProgress = false;
+    if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+        connectionTimeout = null;
+    }
+}
+
+// Add connection initialization check
+function initializeSocket(options) {
+    if (!window.io) {
+        throw new Error('Socket.IO not loaded');
+    }
+
+    return io(CONFIG.SERVER_URL, {
+        transports: ['websocket'],
+        query: options,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000
     });
-    
+}
+
+// Setup socket event listeners
+function setupSocketEvents(socket) {
+    if (!socket) return;
+
+    socket.on('connect', () => {
+        currentPlayerId = socket.id;
+        eventManager.dispatchEvent(NetworkEvents.CONNECTED, {
+            connected: true,
+            message: 'Connected to server'
+        });
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        eventManager.dispatchEvent(NetworkEvents.DISCONNECTED, {
+            connected: false,
+            message: `Disconnected: ${reason}`
+        });
+    });
+
+    socket.on('game-start', (data) => {
+        console.log('Received game-start:', data);
+        eventManager.dispatchEvent(GameEvents.GAME_START, data);
+    });
+
+    socket.on('game-update', (data) => {
+        console.log('Received game-update:', data);
+        eventManager.dispatchEvent(GameEvents.STATE_UPDATE, data);
+    });
+}
+
+// Core connection handling
+export function connectToServer(action, playerName, roomCode = '') {
     if (connectionInProgress) {
-        console.log("[Connection] Already in progress - aborting");
-        return Promise.reject(new Error("Connection in progress"));
+        return Promise.reject(new Error('Connection already in progress'));
     }
 
     connectionInProgress = true;
     
     return new Promise((resolve, reject) => {
         try {
-            // Generate a unique browser instance ID
-            const browserInstanceId = `${Date.now()}${Math.random().toString(36).substring(2)}`;
+            // Validate inputs first
+            if (!playerName || typeof playerName !== 'string') {
+                throw new Error('Invalid player name');
+            }
 
-            // Create socket connection with query parameters
-            const queryParams = new URLSearchParams({
-                playerName: playerName,
-                action: action,
-                roomCode: roomCode,
-                browserInstanceId
-            }).toString();
+            const cleanPlayerName = playerName.trim();
+            const cleanRoomCode = roomCode?.trim() || '';
 
-            console.log('[Connection] Socket query params:', { queryParams });
+            if (!cleanPlayerName) {
+                throw new Error('Player name cannot be empty');
+            }
 
-            // Initialize socket with proper URL and options
-            socketInstance = io(CONFIG.SERVER_URL, {
-                transports: ['websocket'],
-                query: queryParams,
-                reconnection: true,
-                reconnectionAttempts: 5,
-                reconnectionDelay: 1000,
-                timeout: 10000
-            });
+            // Initialize socket with error handling
+            try {
+                const socket = initializeSocket({
+                    action,
+                    playerName: cleanPlayerName,
+                    roomCode: cleanRoomCode,
+                    timestamp: Date.now()
+                });
 
-            updateConnectionStatus(false, 'Connecting...');
+                // Setup event listeners before assigning to socketInstance
+                setupSocketEvents(socket);
 
-            // Handle connection success
-            socketInstance.on('connect', () => {
-                connectionInProgress = false;
-                currentPlayerId = socketInstance.id;
-                updateConnectionStatus(true, `Connected as Player ${currentPlayerId.substring(0, 4)}`);
-                setupSocketEventListeners();
-                resolve(socketInstance.id);
-            });
+                // Only after setup is complete, assign to socketInstance
+                socketInstance = socket;
+            } catch (error) {
+                console.error('Socket initialization failed:', error);
+                throw new Error('Failed to initialize socket connection');
+            }
 
-            // Handle connection errors
+            // Add error handler for socket connection
             socketInstance.on('connect_error', (error) => {
-                console.error('Socket connection error:', error);
-                connectionInProgress = false;
-                updateConnectionStatus(false, `Connection failed: ${error.message}`);
-                socketInstance?.close();
-                socketInstance = null;
-                reject(new Error('websocket error'));
+                clearConnectionState();
+                reject(new Error(`Connection failed: ${error.message}`));
+            });
+
+            // Add specific handler for join response
+            if (action === 'join') {
+                socketInstance.on('game-start', (data) => {
+                    console.log('Received game-start:', data);
+                    currentRoomId = data.roomCode;
+                    currentGameState = data.gameState;
+                    eventManager.dispatchEvent(GameEvents.GAME_START, data);
+                });
+            }
+
+            // Setup event handlers after socket is initialized
+            socketInstance.on('connect', () => {
+                clearConnectionState();
+                currentPlayerId = socketInstance.id;
+
+                eventManager.dispatchEvent(NetworkEvents.CONNECTED, {
+                    connected: true,
+                    message: 'Connected to server'
+                });
+
+                if (action === 'join') {
+                    socketInstance.emit('join-challenge', {
+                        challengeCode: cleanRoomCode,
+                        playerName: cleanPlayerName
+                    }, (response) => {
+                        connectionInProgress = false;
+                        if (response.success) {
+                            currentRoomId = response.gameId;
+                            resolve(response);
+                        } else {
+                            reject(new Error(response.message));
+                        }
+                    });
+                } else if (action === 'create') {
+                    socketInstance.emit('create-challenge', cleanPlayerName, (response) => {
+                        if (response.success) {
+                            resolve({
+                                success: true,
+                                challengeCode: response.challengeCode,
+                                playerId: socketInstance.id
+                            });
+                        } else {
+                            reject(new Error(response.message));
+                        }
+                    });
+                } else {
+                    connectionInProgress = false;
+                    resolve({ success: true, playerId: currentPlayerId });
+                }
+            });
+
+            // Add game-start handler
+            socketInstance.on('game-start', (data) => {
+                console.log('Received game-start:', data);
+                
+                if (!data?.gameState || !data?.players) {
+                    console.error('Invalid game start data received:', data);
+                    return;
+                }
+
+                // Store game state and player info
+                currentRoomId = data.gameState.gameId;
+                currentPlayerId = socketInstance.id;
+
+                // First dispatch game start event
+                eventManager.dispatchEvent(GameEvents.GAME_START, {
+                    gameState: data.gameState,
+                    players: data.players,
+                    currentTurn: data.currentTurn,
+                    playerId: currentPlayerId
+                });
+
+                // Then update connection status
+                eventManager.dispatchEvent(NetworkEvents.CONNECTED, {
+                    connected: true,
+                    message: 'Connected to game'
+                });
+            });
+
+            socketInstance.on('disconnect', (reason) => {
+                eventManager.dispatchEvent(NetworkEvents.DISCONNECTED, {
+                    connected: false,
+                    message: `Disconnected: ${reason}`
+                });
+            });
+
+            socketInstance.on('connect_error', (error) => {
+                clearConnectionState();
+                uiManager.handleConnectionStatus({
+                    connected: false,
+                    message: 'Connection Error'
+                });
+                eventManager.dispatchEvent(NetworkEvents.ERROR, { error });
+                reject(new Error(error.message || 'Connection failed'));
             });
 
         } catch (error) {
-            connectionInProgress = false;
-            console.error('[Connection] Error:', error);
+            clearConnectionState();
             reject(error);
         }
     });
 }
 
-// Centralized setup for socket event listeners
+// Centralized socket event setup
 function setupSocketEventListeners() {
     if (!socketInstance) return;
 
     // --- Connection Events ---
-    socketInstance.on('connect', () => {
-        console.log('Connected to server with ID:', socketInstance.id);
-        currentPlayerId = socketInstance.id; // Store the session ID as player ID
-        updateConnectionStatus(true, `Connected as Player ${socketInstance.id.substring(0, 4)}`); // Update UI - Connected
-        eventManager.dispatchEvent(EventTypes.NETWORK.CONNECTED, {
-            id: socketInstance.id
-        });
-    });
-
     socketInstance.on('disconnect', (reason) => {
         const wasConnected = currentRoomId !== null;
         currentPlayerId = null;
         currentRoomId = null;
 
-        updateConnectionStatus(false, `Disconnected: ${reason}`);
-        eventManager.dispatchEvent(EventTypes.NETWORK.DISCONNECTED, { reason });
+        eventManager.dispatchEvent(NetworkEvents.DISCONNECTED, { reason });
 
         if (wasConnected) {
-            // Save current game state for potential recovery
-            const lastState = gameState ? gameState.serialize() : null;
-            sessionStorage.setItem('lastGameState', lastState);
             sessionStorage.setItem('lastRoomId', currentRoomId);
-            
-            displayMessage("Connection lost. Attempting to reconnect...", true);
-            
-            // Attempt to reconnect
-            setTimeout(() => {
-                if (!socketInstance.connected) {
-                    reconnectToGame();
-                }
-            }, 1000);
         }
     });
 
-    // Add reconnection handler
-    socketInstance.on('reconnect', () => {
-        const lastRoomId = sessionStorage.getItem('lastRoomId');
-        if (lastRoomId) {
-            socketInstance.emit('rejoin-game', {
-                roomId: lastRoomId
-            }, (response) => {
-                if (response.success) {
-                    handleGameUpdate(response.gameState);
-                    displayMessage("Reconnected to game!", false);
-                } else {
-                    displayMessage("Could not rejoin game. Please refresh.", true);
-                }
-            });
-        }
-    });
-
-    socketInstance.on('connect_error', (error) => {
-        console.error('Connection Error:', error);
-        updateConnectionStatus(false, 'Connection Error');
-        displayMessage(`Connection error: ${error.message}`, true);
-        playSound('error');
-        socketInstance = null; // Reset instance on connection failure
-    });
-
-
-    // --- Custom Game Events ---
-    // Listeners for 'challenge-created' and 'challenge-joined' removed.
-    // Server response handled via callbacks in emitCreateChallenge/emitJoinChallenge.
-
+    // --- Game Events ---
     socketInstance.on('game-start', (data) => {
-        console.log('Game starting with data:', data);
-        if (!data || !data.gameState) {
-            console.error('Invalid game start data received:', data);
-            displayMessage("Error starting game: Invalid data", true);
-            return;
-        }
+        if (!data?.gameState) return;
 
-        // Set player ID BEFORE any other operations
         currentPlayerId = socketInstance.id;
         currentRoomId = data.roomCode;
         
-        console.log("Game initialization:", {
-            myId: currentPlayerId,
-            roomCode: currentRoomId,
-            currentPlayer: data.gameState.currentPlayer
+        eventManager.dispatchEvent(GameEvents.GAME_START, {
+            gameState: data.gameState,
+            players: data.players,
+            playerId: currentPlayerId
         });
-        
-        // Initialize game state with proper IDs
-        if (handleInitialState(data.gameState, data.players, currentPlayerId)) {
-            showGameScreen();
-            updatePlayerInfo(data.players, currentPlayerId);
-        } else {
-            displayMessage("Failed to initialize game", true);
-        }
     });
 
-    socketInstance.on('opponent-disconnected', (data) => {
-        console.log('Opponent disconnected:', data);
-        if (data && data.playerSymbol) {
-            displayMessage(`Opponent (${data.playerName || 'Player ' + data.playerSymbol}) disconnected.`, true);
-            eventManager.dispatchEvent(UIEvents.OPPONENT_LEFT, {
-                playerSymbol: data.playerSymbol,
-                playerName: data.playerName
-            });
-        } else {
-            displayMessage("Opponent disconnected", true);
-        }
-    });
-
-    // Replace the two separate game update handlers with a single consolidated one
     socketInstance.on('game-update', (data) => {
-        console.log("Received game update:", {
-            currentPlayerId,
+        eventManager.dispatchEvent(GameEvents.STATE_UPDATE, {
             state: data.state,
             lastMove: data.lastMove
         });
-
-        try {
-            // Create new game state from received data
-            currentGameState = new GameState(
-                data.state.rows,
-                data.state.cols
-            );
-            
-            // Deep copy the board state
-            Object.entries(data.state.boardState).forEach(([key, tile]) => {
-                currentGameState.boardState[key] = { ...tile };
-            });
-            
-            // Copy other state properties
-            currentGameState.players = { ...data.state.players };
-            currentGameState.currentPlayer = data.state.currentPlayer;
-            currentGameState.lastUsedColor = data.state.lastUsedColor;
-
-            // Handle state transition
-            if (data.lastMove && data.state.currentPlayer !== data.lastMove.player) {
-                handleTurnTransition(data.state);
-            } else {
-                handleGameUpdate(data.state);
-            }
-            
-        } catch (error) {
-            console.error("Error handling game update:", error);
-            displayMessage("Failed to update game state", true);
-        }
     });
 
-    socketInstance.on('game-error', (errorMessage) => {
-        console.error('Game Error:', errorMessage);
-        displayMessage(errorMessage, true);
-        playSound('message'); // Use message sound for game logic errors
-    });
-
-     socketInstance.on('opponent-disconnected', (data) => { // Changed from 'player-disconnected'
-         console.log('Opponent disconnected:', data.playerId);
-         displayMessage(`Opponent ${data.playerId.substring(0,4)} disconnected. Game may have ended.`, true);
-         // Handle game pausing or ending based on rules
-         // Maybe reset UI or show a specific message
-     });
-
-    // --- Chat Events ---
-    socketInstance.on('chat-message', (data) => {
-        console.log('Chat message received:', data);
-        // Ensure data has expected format { sender: '...', message: '...' }
-        if (data && data.sender && data.message) {
-            addChatMessage(data.sender, data.message);
-            playSound('message'); // Play sound on receiving message
-        } else {
-            console.warn("Received malformed chat message:", data);
-        }
-    });
-
-    // Add state validation event handlers
-    eventManager.addEventListener(GameEvents.MOVE, (moveData) => {
-        if (moveData.success) {
-            socketInstance.emit('validate-move', moveData, (response) => {
-                if (!response.valid) {
-                    // Roll back invalid move
-                    handleGameUpdate(response.correctState);
-                }
-            });
-        }
-    });
+    // ...existing game event handlers...
 }
 
-// Add reconnection helper
-function reconnectToGame() {
-    if (socketInstance.connected) return;
-    
-    try {
-        socketInstance.connect();
-    } catch (error) {
-        console.error("Reconnection failed:", error);
-        displayMessage("Reconnection failed. Please refresh.", true);
-    }
-}
-
-// Function to disconnect from the server
-export function disconnectFromServer() {
-    if (socketInstance && socketInstance.connected) {
-        console.log("Disconnecting...");
-        socketInstance.disconnect();
-        updateConnectionStatus(false, 'Disconnected');
-        currentRoomId = null;
-        currentPlayerId = null;
-    } else {
-        console.log("Already disconnected.");
-    }
-}
-
-// --- Emitters ---
-
-// Function to send a chat message
-export function sendMessage(message) {
-    if (socketInstance && socketInstance.connected && currentRoomId) {
-        console.log(`Sending message: "${message}" to room ${currentRoomId}`);
-        socketInstance.emit('chat-message', { roomCode: currentRoomId, message: message });
-    } else {
-        console.error("Cannot send message: Not connected or not in a room.");
-        displayMessage("Cannot send message. Not connected?", true);
-    }
-}
-
-// Update move protocol
+// Game actions
 export function sendTilePlacement(moveData) {
     if (!socketInstance?.connected || !currentRoomId) {
-        console.error("Not connected or no active game");
+        eventManager.dispatchEvent(NetworkEvents.ERROR, {
+            message: "Not connected or no active game"
+        });
         return;
     }
-
-    console.log('Attempting move:', {
-        currentRoom: currentRoomId,
-        playerId: currentPlayerId,
-        moveData
-    });
-
-    // Disable color buttons during move processing
-    const colorButtons = document.querySelectorAll('.color-button');
-    colorButtons.forEach(button => button.disabled = true);
 
     socketInstance.emit('place-tile', {
         gameId: currentRoomId,
@@ -351,186 +275,122 @@ export function sendTilePlacement(moveData) {
             player: moveData.player || currentPlayerId
         }
     }, (response) => {
-        console.log('Server response:', response);
-        
-        // Re-enable buttons
-        colorButtons.forEach(button => 
-            button.disabled = button.dataset.color === moveData.color
-        );
-
-        if (!response.success) {
-            displayMessage(response.message || "Move failed", true);
+        if (response.success) {
+            eventManager.dispatchEvent(GameEvents.MOVE_MADE, response);
+        } else {
+            eventManager.dispatchEvent(GameEvents.INVALID_MOVE, {
+                message: response.message
+            });
         }
     });
 }
 
-// Function to emit create challenge event, uses callback for response
-export function emitCreateChallenge(playerName) {
-    if (!socketInstance || !socketInstance.connected) {
-        connectToServer('create', playerName)
-            .then(socketId => {
-                setupSocketEventListeners();
-                
-                socketInstance.emit('create-challenge', playerName, (response) => {
-                    if (response.success) {
-                        // Create initial game state
-                        const initialState = {
-                            rows: CONFIG.BOARD_SIZE,
-                            cols: CONFIG.BOARD_SIZE,
-                            boardState: {},  // Will be initialized by GameState
-                            players: {
-                                P1: { 
-                                    socketId: socketId, 
-                                    name: playerName,
-                                    score: 0
-                                }
-                            },
-                            currentPlayer: 'P1',
-                            lastUsedColor: null,
-                            gameSeed: Date.now()
-                        };
-
-                        // Handle initial state with proper player data
-                        const playerData = {
-                            [socketId]: { 
-                                name: playerName, 
-                                playerNumber: 1,
-                                score: 0
-                            }
-                        };
-
-                        if (handleInitialState(initialState, playerData, socketId)) {
-                            showGameScreen();
-                            centerOnPlayerStart();
-                            displayMessage(`Challenge created! Share code: ${response.challengeCode}`);
-                            updateGameCode(response.challengeCode);
-                        }
-                    }
-                });
-            });
-    }
-}
-
-export function emitJoinChallenge(playerName, roomCode) {
-    console.log('[Join] Starting join process:', { playerName, roomCode });
-    
-    // Validate inputs before attempting connection
-    if (!playerName?.trim() || !roomCode?.trim()) {
-        const error = new Error("Please enter both name and room code");
-        console.error('[Join] Validation failed:', error.message);
-        displayMessage(error.message, true);
-        return Promise.reject(error);
+// Update chat message function to export
+export function sendChatMessage(message) {
+    if (!socketInstance?.connected || !currentRoomId) {
+        eventManager.dispatchEvent(NetworkEvents.ERROR, {
+            message: "Not connected or no active game"
+        });
+        return;
     }
 
-    const cleanPlayerName = playerName.trim();
-    const cleanRoomCode = roomCode.trim().toUpperCase();
-
-    console.log('[Join] Cleaned data:', { cleanPlayerName, cleanRoomCode });
-
-    return new Promise((resolve, reject) => {
-        connectToServer('join', cleanPlayerName, cleanRoomCode)
-            .then(socketId => {
-                console.log('[Join] Connected with socket ID:', socketId);
-                
-                if (!socketInstance) {
-                    throw new Error("No socket connection");
-                }
-
-                // Call setupSocketEventListeners before emitting join
-                setupSocketEventListeners();
-
-                console.log('[Join] Emitting join data');
-                socketInstance.emit('join-challenge', {
-                    challengeCode: cleanRoomCode,
-                    playerName: cleanPlayerName
-                }, (response) => {
-                    console.log('[Join] Server response:', response);
-                    
-                    if (response.success) {
-                        currentRoomId = cleanRoomCode;
-                        currentPlayerId = socketId;
-                        
-                        if (response.gameState) {
-                            handleInitialState(response.gameState, {
-                                [response.gameState.players.P1.socketId]: response.gameState.players.P1,
-                                [response.gameState.players.P2.socketId]: response.gameState.players.P2
-                            }, socketId);
-                            showGameScreen();
-                            displayMessage("Successfully joined game!", false);
-                            resolve(response);
-                        } else {
-                            reject(new Error("No game state received"));
-                        }
-                    } else {
-                        const error = new Error(response.message || "Failed to join game");
-                        displayMessage(error.message, true);
-                        reject(error);
-                    }
-                });
-            })
-            .catch(error => {
-                console.error('[Join] Failed:', error);
-                displayMessage(error.message || "Failed to join game", true);
-                showSetupScreen();
-                reject(error);
-            });
+    socketInstance.emit('chat-message', {
+        roomCode: currentRoomId,
+        message: message.trim()
     });
 }
 
-// Add URL parameter check on load
+// Cleanup and disconnect
+export function disconnectFromServer() {
+    if (socketInstance?.connected) {
+        socketInstance.disconnect();
+        currentRoomId = null;
+        currentPlayerId = null;
+        eventManager.dispatchEvent(NetworkEvents.DISCONNECTED, {
+            reason: 'user_disconnect'
+        });
+    }
+}
+
+// Export connection status check
+export function isConnected() {
+    return socketInstance?.connected || false;
+}
+
+// Add URL parameter check function
 export function checkUrlParameters() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     if (code) {
-        // Auto-fill room code input and handle UI updates
-        const setupElements = {
-            roomCodeInput: document.getElementById('room-code-input'),
-            playerNameInput: document.getElementById('player-name-input'),
-            joinButton: document.getElementById('join-challenge-button'),
-            createButton: document.getElementById('create-challenge-button'),
-            separator: document.querySelector('.separator')
-        };
-
-        if (setupElements.roomCodeInput && setupElements.playerNameInput) {
-            // Fill in the room code
-            setupElements.roomCodeInput.value = code;
-            setupElements.roomCodeInput.readOnly = true;
-
-            // Hide create game UI if we're joining
-            if (setupElements.createButton) {
-                setupElements.createButton.style.display = 'none';
+        // If code exists in URL, automatically go to join mode
+        const roomCodeInput = document.getElementById('room-code-input');
+        if (roomCodeInput) {
+            roomCodeInput.value = code;
+            roomCodeInput.readOnly = true;
+            // Add class to body to enable join-only mode styles
+            document.body.classList.add('join-mode');
+            // Hide create button since we're joining
+            const createButton = document.getElementById('create-challenge-button');
+            if (createButton) {
+                createButton.style.display = 'none';
             }
-            if (setupElements.separator) {
-                setupElements.separator.style.display = 'none';
-            }
-
-            // Update join button state based on name input
-            const updateJoinButton = () => {
-                if (setupElements.joinButton) {
-                    setupElements.joinButton.disabled = !setupElements.playerNameInput.value.trim();
-                }
-            };
-
-            // Add name input listener
-            setupElements.playerNameInput.addEventListener('input', updateJoinButton);
-            
-            // Focus name input
-            setupElements.playerNameInput.focus();
-            
-            // Initial button state
-            updateJoinButton();
         }
     }
+    return code;
 }
 
-// playSound function moved to ui.js
-
-// Add function to check for duplicate instances
-function checkDuplicateInstance() {
-    if (window.localStorage.getItem('gameInstanceId') === socketInstance.browserInstanceId) {
-        console.warn('Duplicate game instance detected');
-        return true;
+// Add color selection handler
+export function sendColorSelection(color) {
+    if (!socketInstance?.connected || !currentRoomId || !currentPlayerId) {
+        console.error('Cannot send move: not connected');
+        return false;
     }
-    window.localStorage.setItem('gameInstanceId', socketInstance.browserInstanceId);
-    return false;
+
+    socketInstance.emit('place-tile', {
+        gameId: currentRoomId,
+        playerId: currentPlayerId,
+        move: {
+            type: 'color-select',
+            color: color
+        }
+    }, (response) => {
+        if (response.success) {
+            console.log('Move accepted:', response);
+        } else {
+            console.error('Move rejected:', response.message);
+            eventManager.dispatchEvent(GameEvents.INVALID_MOVE, {
+                message: response.message
+            });
+        }
+    });
+
+    return true;
 }
+
+// Update game-start handler
+socketInstance.on('game-start', (data) => {
+    console.log('Received game-start:', data);
+    
+    if (!data?.gameState || !data?.players) {
+        console.error('Invalid game start data:', data);
+        return;
+    }
+
+    currentPlayerId = socketInstance.id;
+    currentRoomId = data.roomCode;
+
+    // First update connection status
+    eventManager.dispatchEvent(NetworkEvents.CONNECTED, {
+        connected: true,
+        message: 'Connected to game'
+    });
+
+    // Then dispatch game start event
+    eventManager.dispatchEvent(GameEvents.GAME_START, {
+        gameState: data.gameState,
+        players: data.players,
+        currentTurn: data.currentTurn,
+        playerId: currentPlayerId,
+        roomCode: data.roomCode
+    });
+});

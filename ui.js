@@ -1,7 +1,10 @@
-import { BOARD, calculateOptimalHexSize, getHexSpacing } from './constants.js';
-import { getHexCenter, worldToHex, GameState } from './gameLogic.js';
-import { sendTilePlacement, sendMessage } from './network.js'; // Import network functions
-import { uiManager } from './uiManager.js';
+import { BOARD } from './constants.js';
+import { GameState } from './gameLogic.js';
+import { sendTilePlacement, sendChatMessage } from './network.js';  // Update import
+import { uiManager } from './uiManager.js';  // Remove displayMessage import
+import { HexService } from './services/HexService.js';
+import { eventManager } from './eventManager.js';
+import { UIEvents } from './eventTypes.js';
 
 // --- Core State ---
 let gameState = null;
@@ -71,12 +74,9 @@ function setupInitialEventListeners() {
     // Other critical listeners...
 }
 
+// Replace direct displayMessage calls with uiManager.displayMessage
 function displayFallbackError(message) {
-    // Fallback error display if normal UI fails
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:red;color:white;padding:20px;';
-    errorDiv.textContent = message;
-    document.body.appendChild(errorDiv);
+    uiManager.displayMessage(message, true);
 }
 
 // Add new function to update game code display
@@ -108,23 +108,23 @@ export function showSetupScreen() {
     console.log("showSetupScreen - START");
     if (gameContainer) gameContainer.style.display = 'none';
     if (setupContainer) {
-        setupContainer.style.display = 'flex'; // Or 'block', depending on layout
+        setupContainer.style.display = 'flex';
         console.log("Setup screen displayed");
     } else {
         console.error("setupContainer not found");
     }
-     // Reset potentially selected color when going back to setup
-    selectedColor = null;
-    // Clear player info?
+
+    // Clear player info
     if (player1Info) player1Info.textContent = "Player 1: -";
     if (player2Info) player2Info.textContent = "Player 2: -";
-    console.log("showSetupScreen - END");
 
-    // Make room code input editable when showing setup screen
+    // Make room code input editable
     const roomCodeInput = document.getElementById('room-code-input');
     if (roomCodeInput) {
         roomCodeInput.readOnly = false;
     }
+    
+    console.log("showSetupScreen - END");
 }
 
 // Update showGameScreen to use uiManager
@@ -167,17 +167,18 @@ export function showGameScreen() {
 // --- Rendering Core ---
 function drawHexagon(ctx, x, y, color, isOwned = false) {
     const size = gameState.currentHexSize;
+    const geometry = getHexGeometry(size);
     ctx.beginPath();
-    
-    // Generate points using exact formula
-    for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        const pX = x + size * Math.cos(angle);
-        const pY = y + size * Math.sin(angle);
-        i === 0 ? ctx.moveTo(pX, pY) : ctx.lineTo(pX, pY);
-    }
+
+    // Use exact geometry for pointy-top hex
+    geometry.vertices.forEach((vertex, i) => {
+        const px = x + vertex.x;
+        const py = y + vertex.y;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
     ctx.closePath();
 
+    // Fill and stroke
     ctx.fillStyle = color;
     ctx.fill();
     ctx.strokeStyle = isOwned ? '#000' : '#666';
@@ -193,16 +194,18 @@ export function renderGameBoard() {
         ctx.save();
 
         const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
+        const size = gameState.currentHexSize;
         
-        // Calculate board dimensions once
-        const boardWidth = gameState.cols * BOARD.COL_SPACING;
-        const boardHeight = gameState.rows * BOARD.ROW_SPACING;
+        // Calculate exact board dimensions using hex geometry
+        const hexGeo = getHexGeometry(size);
+        const boardWidth = (gameState.cols * hexGeo.colSpacing) + size;
+        const boardHeight = (gameState.rows * hexGeo.rowSpacing) + hexGeo.height / 2;
 
-        // Center the board
+        // Center board with proper padding
         const offsetX = (canvas.width - boardWidth) / 2 + BOARD.PADDING;
         const offsetY = (canvas.height - boardHeight) / 2 + BOARD.PADDING;
 
-        // Apply transforms in correct order
+        // Handle player 2's rotated view
         if (isPlayer2) {
             ctx.translate(canvas.width / 2, canvas.height / 2);
             ctx.rotate(Math.PI);
@@ -210,17 +213,17 @@ export function renderGameBoard() {
         }
         ctx.translate(offsetX, offsetY);
 
-        // Render each tile
+        // Render each hex using precise positioning
         Object.entries(gameState.boardState).forEach(([coord, tile]) => {
             const [q, r] = coord.split(',').map(Number);
-            const x = q * BOARD.COL_SPACING;
-            const y = r * BOARD.ROW_SPACING + (q % 2) * (BOARD.ROW_HEIGHT / 2);
-            drawHexagon(ctx, x, y, tile.color, tile.owner !== null);
+            const pos = HexService.hexToPixel(q, r, size);
+            drawHexagon(ctx, pos.x, pos.y, tile.color, tile.owner !== null);
         });
 
         ctx.restore();
     } catch (error) {
         console.error('Render error:', error);
+        eventManager.dispatchEvent(UIEvents.ERROR, { message: 'Render failed', error });
     }
 }
 
@@ -242,12 +245,34 @@ export function resizeGame() {
 
 // --- Game State Handling ---
 export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
-    currentPlayerId = ownPlayerId;
-    gameState = new GameState(gameStateObject.rows, gameStateObject.cols);
-    Object.assign(gameState, gameStateObject);
-    
-    updateUI();
-    return true;
+    if (!gameStateObject || !playersData || !ownPlayerId) {
+        console.error("Invalid initialization data");
+        uiManager.displayMessage("Failed to initialize game state", true);
+        return false;
+    }
+
+    try {
+        // Initialize game state with validation
+        gameState = new GameState(
+            gameStateObject.rows || CONFIG.BOARD_SIZE,
+            gameStateObject.cols || CONFIG.BOARD_SIZE
+        );
+
+        if (!gameState.initializeState(gameStateObject, ownPlayerId)) {
+            throw new Error('State initialization failed');
+        }
+
+        // Update UI with verified state
+        currentPlayerId = ownPlayerId;
+        updateUI();
+        showGameScreen();
+
+        return true;
+    } catch (error) {
+        console.error("Error in state initialization:", error);
+        uiManager.displayMessage("Failed to initialize game. Please refresh.", true);
+        return false;
+    }
 }
 
 // --- UI Updates ---
@@ -256,40 +281,6 @@ function updateUI() {
     updatePlayerInfo();
     updateAvailableColors();
     renderGameBoard();
-}
-
-// Update the connection status display
-export function updateConnectionStatus(isConnected, message = '') {
-    console.log(`Updating connection status: ${isConnected}, ${message}`);
-    if (!connectionStatusElement || !connectionIndicator) {
-        console.warn("Connection status elements not found.");
-        return;
-    }
-    connectionIndicator.style.backgroundColor = isConnected ? 'lime' : 'red';
-    connectionStatusElement.textContent = message || (isConnected ? 'Connected' : 'Disconnected');
-}
-
-// Update displayMessage to allow persistent errors
-export function displayMessage(message, isError = false, autoClear = !isError) {
-    if (!messageArea) return;
-    
-    // Clear any existing timeout
-    if (messageArea._timeoutId) {
-        clearTimeout(messageArea._timeoutId);
-        messageArea._timeoutId = null;
-    }
-
-    messageArea.textContent = message;
-    messageArea.className = isError ? 'error-message' : 'info-message';
-
-    if (autoClear) {
-        messageArea._timeoutId = setTimeout(() => {
-            if (messageArea.textContent === message) {
-                messageArea.textContent = '';
-                messageArea.className = '';
-            }
-        }, 5000);
-    }
 }
 
 // Update player information display (name, score)
@@ -331,6 +322,9 @@ export function addChatMessage(sender, message) {
     chatMessages.appendChild(messageElement);
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Use the renamed import
+    sendChatMessage(message);
 }
 
 // Display game over message
@@ -359,53 +353,29 @@ export function showGameOver(winnerId, playersData, ownPlayerId) {
 
 // Handle clicks on the canvas
 function handleCanvasClick(event) {
-    if (!gameState || gameState.gameOver) {
-        console.log("Canvas click ignored: Game not active or over.");
-        return;
+    if (!gameState || !isCurrentPlayer()) return;
+
+    const rect = canvas.getBoundingClientRect();
+    let x = event.clientX - rect.left - BOARD.PADDING;
+    let y = event.clientY - rect.top - BOARD.PADDING;
+
+    // Handle Player 2's rotated view
+    const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
+    if (isPlayer2) {
+        x = canvas.width - x - (2 * BOARD.PADDING);
+        y = canvas.height - y - (2 * BOARD.PADDING);
     }
 
-     if (!currentPlayerId || gameState.getCurrentPlayerId() !== currentPlayerId) {
-         displayMessage("Not your turn!", true);
-         return;
-     }
-
-     // Convert click coordinates to world coordinates (relative to canvas, considering pan)
-     const rect = canvas.getBoundingClientRect();
-     let x = event.clientX - rect.left;
-     let y = event.clientY - rect.top;
-
-     // Transform coordinates for player 2
-     const isPlayer2 = currentPlayerId === gameState.players.P2?.socketId;
-     if (isPlayer2) {
-         x = canvas.width - x;
-         y = canvas.height - y;
-     }
-
-     const hexCoords = worldToHex(x, y);
-     const transformedCoords = gameState.getTransformedCoordinates(
-         hexCoords.q, 
-         hexCoords.r, 
-         isPlayer2
-     );
-
-    console.log(`Canvas click at (${event.clientX}, ${event.clientY}), World (${x}, ${y}), Hex (${hexCoords.q}, ${hexCoords.r})`);
-
-
-    // Check if the click corresponds to a valid hex on the board
-    const key = `${hexCoords.q},${hexCoords.r}`;
-    if (gameState.board[key]) {
-        console.log(`Attempting to place tile at (${hexCoords.q}, ${hexCoords.r})`);
-        // Send placement to server via network module
-        sendTilePlacement(hexCoords.q, hexCoords.r);
-        // The UI should be updated based on server response ('game-update')
-        // Optionally provide immediate feedback (e.g., temporary placement color)
-        // but the authoritative state comes from the server.
-    } else {
-        console.log(`Click at (${hexCoords.q}, ${hexCoords.r}) is outside the defined board area.`);
-        displayMessage("Clicked outside the board.", true);
+    // Use HexService for coordinate conversion
+    const hexCoords = HexService.pixelToHex(x, y, gameState.currentHexSize);
+    
+    if (HexService.isValidPosition(hexCoords.q, hexCoords.r, gameState.cols)) {
+        const key = `${hexCoords.q},${hexCoords.r}`;
+        if (gameState.boardState[key] && !gameState.boardState[key].owner) {
+            sendTilePlacement(hexCoords.q, hexCoords.r);
+        }
     }
 }
-
 
 // Handle color selection from buttons
 function handleColorSelection(event) {
@@ -477,54 +447,6 @@ function handleMouseUp() {
 
 
 // --- Game State Handling ---
-
-// Called by network module when initial game state is received
-// Expects gameStateObject to be a plain JS object from the server
-export function handleInitialState(gameStateObject, playersData, ownPlayerId) {
-    if (!ownPlayerId) {
-        console.error("Missing player ID during initialization", {
-            state: gameStateObject,
-            players: playersData,
-            ownId: ownPlayerId
-        });
-        return false;
-    }
-
-    try {
-        // Set current player ID first
-        currentPlayerId = ownPlayerId;
-        
-        // Initialize game state
-        gameState = new GameState(
-            gameStateObject.rows || CONFIG.BOARD_SIZE,
-            gameStateObject.cols || CONFIG.BOARD_SIZE
-        );
-        
-        // Apply the state from server
-        Object.assign(gameState, gameStateObject);
-
-        // Determine player roles
-        const mySymbol = currentPlayerId === playersData.P1?.socketId ? 'P1' : 'P2';
-        const isMyTurn = gameState.currentPlayer === mySymbol;
-
-        console.log("Player initialization:", {
-            myId: currentPlayerId,
-            mySymbol,
-            currentPlayer: gameState.currentPlayer,
-            isMyTurn
-        });
-
-        // Update UI with verified state
-        updatePlayerInfo(playersData, currentPlayerId);
-        updateTurnIndicator(gameState.currentPlayer, isMyTurn);
-        updateAvailableColors(gameState.lastUsedColor);
-
-        return true;
-    } catch (error) {
-        console.error("Error in state initialization:", error);
-        return false;
-    }
-}
 
 // Expects gameStateObject to be a plain JS object from the server
 export function handleGameUpdate(gameStateObject) {
@@ -613,7 +535,7 @@ export function handleTurnTransition(newState) {
     } catch (error) {
         console.error("Error in turn transition:", error);
         console.error(error.stack);
-        displayMessage("Error updating game state", true);
+        uiManager.displayMessage("Error updating game state", true);
     }
 }
 
@@ -667,7 +589,7 @@ function updateGameState(newState) {
         
     } catch (error) {
         console.error('Error updating game state:', error);
-        displayMessage('Error updating game state', true);
+        uiManager.displayMessage('Error updating game state', true);
     }
 }
 
